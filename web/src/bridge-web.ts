@@ -1,5 +1,5 @@
 // dist/bridge.js for the plain web build. Installs the default bridge when
-// no shell has installed one. index.html loads it before app.js.
+// no shell has installed one. index.html loads it before the app module.
 
 import { createWebBridge, type StringStorage } from "./bridge.ts";
 

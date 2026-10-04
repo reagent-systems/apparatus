@@ -1,0 +1,54 @@
+// Pure: the orb's render decision from the voice state. No DOM, no React;
+// `Orb.tsx` passes the result to thinking-orbs. Tested in `test/orb-state.test.ts`.
+
+export type OrbState = "idle" | "connecting" | "listening" | "speaking" | "working";
+
+/** The thinking-orbs animations the orb uses. */
+export type OrbAnimation = "breathing" | "connecting" | "listening" | "composing" | "working";
+
+export type OrbInput = {
+  state: OrbState;
+  /** This device holds the voice session. */
+  held: boolean;
+  /** A Live session is open. */
+  live: boolean;
+  /** The viewer asked for reduced motion. */
+  reducedMotion?: boolean;
+};
+
+export type OrbRender = {
+  animation: OrbAnimation;
+  /** Multiplier on the preset's baked speed. */
+  speed: number;
+  paused: boolean;
+  /** Another device holds the voice session. */
+  dimmed: boolean;
+};
+
+export const ANIMATION: Record<OrbState, OrbAnimation> = {
+  idle: "breathing",
+  connecting: "connecting",
+  listening: "listening",
+  speaking: "composing",
+  working: "working",
+};
+
+export const NORMAL_SPEED = 1;
+/** Idle-closed: the Live session is shut and the microphone is off. */
+export const SLOW_SPEED = 0.5;
+
+/**
+ * Precedence: `connecting` (the server socket is down) shows as is; a device
+ * that does not hold the voice session is paused and dimmed; a running job
+ * shows `working` even while the Live session is closed; otherwise a closed
+ * Live session breathes slowly.
+ */
+export function orbRender({ state, held, live, reducedMotion = false }: OrbInput): OrbRender {
+  let animation = ANIMATION[state];
+  let speed = NORMAL_SPEED;
+  if (state !== "connecting" && state !== "working" && held && !live) {
+    animation = "breathing";
+    speed = SLOW_SPEED;
+  }
+  return { animation, speed, paused: !held || reducedMotion, dimmed: !held };
+}

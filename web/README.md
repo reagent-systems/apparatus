@@ -1,31 +1,44 @@
 # apparatus web client
 
 The thin client: microphone capture, the voice gate, the Live session, the
-feed, the show pane and the handoff view. It holds no agent state, no prompt
-and no model name. The same bundle runs inside the native shells through
+feed, the pane and the VM screen. It holds no agent state, no prompt and no
+model name. The same bundle runs inside the native shells through
 `bridge.js`.
+
+The UI is React 19 with Vite, Tailwind CSS 4 and shadcn/ui (style new-york,
+base color zinc, CSS variables). The audio, gate, Live and protocol modules
+are plain TypeScript with no DOM and no React; the tests import only those.
 
 ## Commands
 
 ```sh
+npm run dev         # vite dev server; proxies the server routes to :8080
 npm run typecheck   # tsc --noEmit
 npm run build       # node build.mjs -> dist/
 npm test            # node --test test/*.test.ts (Node 22, native type stripping)
-npm run verify      # all three; green before any push
+npm run verify      # typecheck, build, test; green before any push
 ```
 
-`build.mjs` uses the esbuild JS API and needs no network. It writes:
+`build.mjs` runs Vite's `build()` and then esbuild twice. No network. It writes:
 
 | Output | Source | Role |
 |---|---|---|
-| `dist/app.js` | `src/main.ts` | the app (ESM, es2022, source map) |
-| `dist/worklet.js` | `src/audio/worklet.ts` | AudioWorklet: downmix, resample to 16 kHz, 20 ms Int16 frames |
-| `dist/bridge.js` | `src/bridge-web.ts` | default web bridge; a native shell overwrites this file |
-| `dist/index.html` | `src/index.html` | loads `bridge.js` then `app.js` |
+| `dist/index.html` | `index.html` | loads `/bridge.js` as a classic script, then the module bundle |
+| `dist/assets/*` | `src/main.tsx` and `src/index.css` | the app and its stylesheet, hashed names |
+| `dist/worklet.js` | `src/audio/worklet.ts` | AudioWorklet (esm): downmix, resample to 16 kHz, 20 ms Int16 frames |
+| `dist/bridge.js` | `src/bridge-web.ts` | default web bridge (iife); a native shell overwrites this file |
+
+`index.html` at the web root is the Vite entry. `<script src="/bridge.js">`
+is a classic script: Vite leaves it alone and it runs before the deferred
+module script. The AudioWorklet loads from `/worklet.js`.
 
 The session server serves `dist/` at `/`. The page uses relative URLs:
 `POST /token` and `GET /ws/client?auth=<auth>&device=<device>` on the same
 origin, or on `bridge.serverOrigin` inside a shell.
+
+`npm run dev` proxies `/token`, `/credits`, `/audit`, `/jobs`, `/config`,
+`/prompts` and `/ws` (WebSocket) to `http://localhost:8080`, and serves
+`/bridge.js` and `/worklet.js` from esbuild on request (`vite.config.ts`).
 
 ## Run
 
@@ -34,7 +47,80 @@ origin, or on `bridge.serverOrigin` inside a shell.
 3. Open the server origin in a browser. The auth value comes from
    `bridge.secureStore.get("apparatus.auth")` (localStorage on the web) and
    falls back to `dev`.
-4. Press the orb to open the microphone, or hold `talk`.
+4. Press the orb to open the microphone, or hold Talk.
+
+## Components
+
+One React tree, responsive. `src/main.tsx` boots: theme, bridge, auth,
+device, then `ServerProvider > VoiceProvider > App`.
+
+| File | Task |
+|---|---|
+| `src/App.tsx` | State: the feed reducer, the sidebar selection, the pane mode, push registration, hidden-page notifications, Done and Cancel, Approve and Deny. |
+| `src/state/server.tsx` | `ServerContext` on `ServerSocket`: `{ send, subscribe, deviceId, ready, connected, device, httpOrigin, auth, bridge }`. `useServerMessages(handler)` subscribes for a component's life. Sends `hello` on every open. |
+| `src/state/voice.tsx` | `VoiceContext` on `VoiceController`: `{ holdsVoice, liveOpen, listening, speaking, start, end, pressTalk, releaseTalk, stop, claim, subscribeTranscript, holdsVoiceNow }`. Polled every 100 ms and on change. Sets `window.apparatusGateLog` and `window.apparatusEnrollSpeaker`. |
+| `src/state/feed.tsx` | `useFeed()`: the reducer wired to the socket and to the Live transcripts. The voice holder skips the server's transcript relay. |
+| `src/feed/reducer.ts` | Pure. Cards, jobs, the latest `show`, the latest spoken line, the active handoff. Tested in `test/reducer.test.ts`. |
+| `src/components/layout/AppShell.tsx` | The frame: desktop `sidebar | pane | feed`; tablet `pane | feed`; phone the feed column with the pane in a full-screen Sheet. |
+| `src/components/jobs/JobSidebar.tsx` | shadcn Sidebar: running jobs, a Separator, recent jobs, then Audit and Credits. |
+| `src/components/pane/Pane.tsx` | The large pane: a Screen / Output toggle, then `VmScreen` or the markdown (`ShowOutput.tsx`) or a view. A handoff forces Screen. |
+| `src/components/feed/Feed.tsx`, `FeedCard.tsx` | ScrollArea of cards: transcripts short, job, approval (Approve, Deny) and handoff cards tall, credits short. |
+| `src/components/feed/Controls.tsx` | Talk (press and hold) and Stop as two squares, the spoken line as one wide bar, the orb at the bottom right. |
+| `src/components/views/AuditView.tsx`, `CreditsView.tsx` | `GET /audit` rows; `GET /credits` balance with the Top up placeholder. |
+| `src/components/orb/Orb.tsx` | The orb (owned by the orb agent). |
+| `src/components/vm/VmScreen.tsx` | The VM screen (owned by the VM agent). |
+| `src/components/ui/*` | shadcn/ui: sidebar, card, scroll-area, separator, button, toggle, toggle-group, sheet, skeleton. The sidebar's tooltip was removed: the UI holds no helper text. |
+| `src/hooks/use-breakpoint.ts` | phone < 768, tablet 768..1023, desktop >= 1024; `isTabletWidth()` for `hello.device`. |
+| `src/lib/theme.ts` | The `dark` class on `<html>` follows `prefers-color-scheme`. |
+| `src/vm/input.ts` | Pure: the `input` data-channel shape, pointer math over a letterboxed video, perfect-negotiation decisions. Tested in `test/vm-input.test.ts`. |
+
+Breakpoints from the sketches: desktop and wide tablet (>= 1024 px) show
+three columns, the sidebar, the pane and the feed with the orb at the bottom
+right. Tablet (768 to 1023 px) shows the pane left and the feed right. Phone
+(< 768 px) shows the feed stack, the two squares, the wide bar and the orb;
+the VM screen and the handoff open as a full-screen Sheet with Done and
+Cancel. Tapping a job card on a phone opens its output in the Sheet.
+
+### Stub contracts
+
+Two files are stubs for the other agents. The layout imports them with
+exactly these props.
+
+`src/components/orb/Orb.tsx`:
+
+```ts
+export type OrbState = "idle" | "connecting" | "listening" | "speaking" | "working";
+export function Orb({ state, held, live, onClick }: {
+  state: OrbState;
+  held: boolean;      // this device holds the voice session
+  live: boolean;      // a Live session is open
+  onClick: () => void;
+}): JSX.Element
+```
+
+`connecting` shows while the server socket is down. `working` shows while a
+job runs and nothing is heard or spoken. The click claims the voice session,
+or toggles the microphone when this device holds it.
+
+`src/components/vm/VmScreen.tsx`:
+
+```ts
+export function VmScreen({ mode, handoffId, onDone, onCancel }: {
+  mode: "watch" | "handoff";
+  handoffId: string | null;
+  onDone: () => void;
+  onCancel: () => void;
+}): JSX.Element
+```
+
+The widget mounts when the user picks Screen or a handoff is active, and
+unmounts when neither holds. On mount it sends `screen.open`; on unmount
+`screen.close {stream_id}`. It reads `screen.opened`, `signal`,
+`screen.closed` and `control` through `useServerMessages` and sends
+`signal`, `control.take` and `control.release` through `useServer().send`.
+In handoff mode it shows Done and Cancel; the layout answers them with
+`handoff.done` and `handoff.cancel`. The pure helpers in `src/vm/input.ts`
+hold the data-channel shape and the math.
 
 ## Gate pipeline
 
@@ -66,8 +152,8 @@ Events: `speechStart` -> `realtimeInput.activityStart`; `audio` ->
 `realtimeInput.audio`; `speechEnd` -> `realtimeInput.activityEnd`.
 Automatic activity detection is off in the server-built `setup`.
 
-Manual path: holding `talk` forces the turn open past every filter;
-releasing ends it. `stop` flushes playback and ends any open turn.
+Manual path: holding Talk forces the turn open past every filter;
+releasing ends it. Stop flushes playback and ends any open turn.
 Clicking the orb claims the voice session (`voice.claim`) or toggles the
 microphone when this device holds it.
 
@@ -124,7 +210,7 @@ showing the feed.
 ## Bridge
 
 `src/bridge.ts` defines the seam to a native shell. `dist/bridge.js` runs
-before `app.js` and sets `window.apparatusBridge`; the web default
+before the module bundle and sets `window.apparatusBridge`; the web default
 (`src/bridge-web.ts`) installs one when none exists.
 
 ```ts
@@ -144,31 +230,27 @@ interface ApparatusBridge {
   viewport of 768 px or more send `tablet`.
 - With `push`, the app calls `register()` after `ready` and sends
   `C2S.push.register {platform, token}`. A notification with
-  `data.kind === "handoff"` opens the handoff view for `data.handoff_id`.
+  `data.kind === "handoff"` opens the handoff for `data.handoff_id`.
 - With `notify`, `handoff.requested` and `approval.requested` raise a local
   notification while the page is hidden.
 - No UI changes `serverOrigin` or the Live URL (security rule 9).
 
-## Layout
+## VM screen
 
-`src/ui/layout.ts` injects one stylesheet. Under 360 px: feed only. Under
-768 px: feed and orb bar; the pane shows above the feed when it has
-content; the handoff view takes the whole screen. 768 to 1023 px: pane
-left, feed right. From 1024 px: feed left, large pane right. The handoff
-view always lives inside the pane element.
+Signaling goes through `C2S`/`S2C.signal {stream_id, payload}` in the
+perfect-negotiation shape: `{description: {type, sdp}}` or
+`{candidate: {candidate, sdpMid, sdpMLineIndex}}`. agentd offers after
+`stream.start`; this side is the polite peer: it answers, and rolls back its
+own offer on a collision (`offerCollision` in `src/vm/input.ts`). ICE servers
+arrive in `screen.opened.ice_servers`.
 
-## Handoff
-
-`src/ui/handoff.ts` opens an `RTCPeerConnection` with a receive-only video
-transceiver and a data channel named `input`. Signaling payloads go through
-`C2S`/`S2C.signal {handoff_id, payload}` in the perfect-negotiation shape:
-`{description: {type, sdp}}` or `{candidate: {...}}`. This side offers
-first and also answers an offer from the VM. Input events are JSON on the
-data channel: `mouse.move|mouse.down|mouse.up|wheel|key.down|key.up|touch`
-with `x`, `y` normalized 0..1 on the video picture, `button`, `dx`, `dy`,
-`key`, `code`, `phase`. The VM side must match this shape; agree on it
-before the first end-to-end test. No ICE servers are configured yet; pass
-`iceServers` to `HandoffView` once the TURN relay exists.
+Input events are JSON on the data channel named `input`, one object per
+message: `mouse.move | mouse.down | mouse.up | wheel | key.down | key.up |
+touch` with `x`, `y` normalized 0..1 over the video frame (the client
+corrects for letterboxing: `normalizePointer`), `button` (0 left, 1 middle,
+2 right), `dx`, `dy`, `key`, `code` (DOM KeyboardEvent.key / .code). A touch
+carries its phase (`start | move | end`) in `key`. agentd applies them only
+while the user holds control or a handoff is active.
 
 ## Stubs and open items
 

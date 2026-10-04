@@ -13,6 +13,10 @@ export const C2S = {
   LIVE_USAGE: "live.usage",
   LIVE_RESUMPTION: "live.resumption",
   LIVE_CLOSED: "live.closed",
+  SCREEN_OPEN: "screen.open",
+  SCREEN_CLOSE: "screen.close",
+  CONTROL_TAKE: "control.take",
+  CONTROL_RELEASE: "control.release",
   SIGNAL: "signal",
   PUSH_REGISTER: "push.register",
   PING: "ping",
@@ -33,6 +37,9 @@ export const S2C = {
   APPROVAL_ENDED: "approval.ended",
   TOOL_RESULT: "tool.result",
   CREDITS: "credits",
+  SCREEN_OPENED: "screen.opened",
+  SCREEN_CLOSED: "screen.closed",
+  CONTROL: "control",
   SIGNAL: "signal",
   ERROR: "error",
   PONG: "pong",
@@ -48,9 +55,34 @@ export type HandoffOutcome = "done" | "cancel" | "timeout";
 export type CreditsState = "ok" | "low" | "out";
 export type Scheduling = "INTERRUPT" | "WHEN_IDLE" | "SILENT";
 export type PushPlatform = "fcm" | "apns" | "web";
+export type ScreenClosedReason = "closed" | "vm.disconnect" | "device.disconnect" | "vm.closed";
 
 export type Json = null | boolean | number | string | Json[] | { [key: string]: Json };
 export type JsonObject = { [key: string]: Json };
+
+/** Who holds the desktop. `by` is a device id, or null when nobody does. */
+export type ControlState = { active: boolean; by: string | null };
+
+/** WebRTC signaling payload: one description or one candidate. */
+export type SignalPayload =
+  | { description: { type: string; sdp: string } }
+  | { candidate: { candidate: string; sdpMid: string | null; sdpMLineIndex: number | null } };
+
+/** One ICE server as the browser takes it: `RTCIceServer`. */
+export type IceServer = { urls: string | string[]; username?: string; credential?: string };
+
+/** One job as `ready.jobs` and GET /jobs carry it. */
+export type JobSummary = {
+  job_id: string;
+  request: string;
+  status: JobStatus;
+  created?: number;
+  ended?: number | null;
+  say?: string;
+  show?: string | null;
+  progress?: string;
+  percent?: number | null;
+};
 
 // ---- client -> server ----------------------------------------------------
 
@@ -71,7 +103,11 @@ export type C2SLiveUsage = {
 };
 export type C2SLiveResumption = { type: typeof C2S.LIVE_RESUMPTION; handle: string };
 export type C2SLiveClosed = { type: typeof C2S.LIVE_CLOSED; reason: string };
-export type C2SSignal = { type: typeof C2S.SIGNAL; handoff_id: string; payload: JsonObject };
+export type C2SScreenOpen = { type: typeof C2S.SCREEN_OPEN };
+export type C2SScreenClose = { type: typeof C2S.SCREEN_CLOSE; stream_id: string };
+export type C2SControlTake = { type: typeof C2S.CONTROL_TAKE };
+export type C2SControlRelease = { type: typeof C2S.CONTROL_RELEASE };
+export type C2SSignal = { type: typeof C2S.SIGNAL; stream_id: string; payload: SignalPayload };
 export type C2SPushRegister = { type: typeof C2S.PUSH_REGISTER; platform: PushPlatform; token: string };
 export type C2SPing = { type: typeof C2S.PING };
 
@@ -87,6 +123,10 @@ export type C2SMessage =
   | C2SLiveUsage
   | C2SLiveResumption
   | C2SLiveClosed
+  | C2SScreenOpen
+  | C2SScreenClose
+  | C2SControlTake
+  | C2SControlRelease
   | C2SSignal
   | C2SPushRegister
   | C2SPing;
@@ -104,6 +144,9 @@ export type S2CReady = Voiced & {
   balance: number;
   gate: unknown;
   live?: unknown;
+  control?: ControlState;
+  streams?: string[];
+  jobs?: JobSummary[];
 };
 export type S2CVoiceGranted = Voiced & { type: typeof S2C.VOICE_GRANTED };
 export type S2CVoiceRevoked = Voiced & { type: typeof S2C.VOICE_REVOKED; by: string };
@@ -148,7 +191,10 @@ export type S2CToolResult = Voiced & {
   scheduling: Scheduling;
 };
 export type S2CCredits = Voiced & { type: typeof S2C.CREDITS; balance: number; state: CreditsState };
-export type S2CSignal = Voiced & { type: typeof S2C.SIGNAL; handoff_id: string; payload: JsonObject };
+export type S2CScreenOpened = Voiced & { type: typeof S2C.SCREEN_OPENED; stream_id: string; ice_servers: IceServer[] };
+export type S2CScreenClosed = Voiced & { type: typeof S2C.SCREEN_CLOSED; stream_id: string; reason: ScreenClosedReason };
+export type S2CControl = Voiced & { type: typeof S2C.CONTROL } & ControlState;
+export type S2CSignal = Voiced & { type: typeof S2C.SIGNAL; stream_id: string; payload: SignalPayload };
 export type S2CError = Voiced & { type: typeof S2C.ERROR; code: string; message: string };
 export type S2CPong = Voiced & { type: typeof S2C.PONG };
 
@@ -167,6 +213,9 @@ export type S2CMessage =
   | S2CApprovalEnded
   | S2CToolResult
   | S2CCredits
+  | S2CScreenOpened
+  | S2CScreenClosed
+  | S2CControl
   | S2CSignal
   | S2CError
   | S2CPong;

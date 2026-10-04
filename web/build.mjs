@@ -1,26 +1,23 @@
-// Build: three bundles and the page. No network.
-//   src/main.ts          -> dist/app.js      the app
-//   src/audio/worklet.ts -> dist/worklet.js  AudioWorklet module
-//   src/bridge-web.ts    -> dist/bridge.js   default bridge; a native shell overwrites it
-//   src/index.html       -> dist/index.html
+// Build: the Vite app, then two plain bundles. No network.
+//   index.html + src/main.tsx -> dist/index.html, dist/assets/*  (Vite)
+//   src/audio/worklet.ts     -> dist/worklet.js   AudioWorklet module (esm)
+//   src/bridge-web.ts        -> dist/bridge.js    default bridge, a classic
+//                                                 script; a native shell
+//                                                 overwrites it
 
-import { build } from "esbuild";
-import { copyFile, mkdir } from "node:fs/promises";
+import { build as esbuild } from "esbuild";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
+import { build as vite } from "vite";
 
 const here = dirname(fileURLToPath(import.meta.url));
 const dist = join(here, "dist");
 
-await mkdir(dist, { recursive: true });
+await vite({ root: here, base: "/", build: { outDir: dist, emptyOutDir: true }, logLevel: "info" });
 
-await build({
+await esbuild({
   absWorkingDir: here,
-  entryPoints: {
-    app: "src/main.ts",
-    worklet: "src/audio/worklet.ts",
-    bridge: "src/bridge-web.ts",
-  },
+  entryPoints: { worklet: "src/audio/worklet.ts" },
   outdir: dist,
   entryNames: "[name]",
   bundle: true,
@@ -30,4 +27,14 @@ await build({
   logLevel: "info",
 });
 
-await copyFile(join(here, "src", "index.html"), join(dist, "index.html"));
+await esbuild({
+  absWorkingDir: here,
+  entryPoints: { bridge: "src/bridge-web.ts" },
+  outdir: dist,
+  entryNames: "[name]",
+  bundle: true,
+  format: "iife",
+  target: "es2022",
+  sourcemap: true,
+  logLevel: "info",
+});

@@ -1,6 +1,6 @@
 // The seam between the web app and a native shell (Tauri 2 desktop,
 // Capacitor iOS/Android). A shell replaces dist/bridge.js with its own
-// module that assigns `window.apparatusBridge` before app.js runs. Types
+// module that assigns `window.apparatusBridge` before the app module runs. Types
 // only here; no DOM access at module level.
 
 export type BridgePlatform = "web" | "desktop" | "ios" | "android";

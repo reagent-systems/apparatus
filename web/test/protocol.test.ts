@@ -5,6 +5,8 @@ import { C2S, S2C, parseS2C, hasVoice, encodeC2S, JOB_TERMINAL } from "../src/pr
 test("C2S type names match PROTOCOL.md", () => {
   assert.deepEqual(Object.values(C2S).sort(), [
     "approval.answer",
+    "control.release",
+    "control.take",
     "handoff.cancel",
     "handoff.done",
     "hello",
@@ -13,6 +15,8 @@ test("C2S type names match PROTOCOL.md", () => {
     "live.usage",
     "ping",
     "push.register",
+    "screen.close",
+    "screen.open",
     "signal",
     "tool.call",
     "transcript",
@@ -25,6 +29,7 @@ test("S2C type names match PROTOCOL.md", () => {
   assert.deepEqual(Object.values(S2C).sort(), [
     "approval.ended",
     "approval.requested",
+    "control",
     "credits",
     "error",
     "handoff.ended",
@@ -34,6 +39,8 @@ test("S2C type names match PROTOCOL.md", () => {
     "job.started",
     "pong",
     "ready",
+    "screen.closed",
+    "screen.opened",
     "show",
     "signal",
     "tool.result",
