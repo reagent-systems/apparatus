@@ -46,6 +46,10 @@ class C2S:
     LIVE_USAGE = "live.usage"
     LIVE_RESUMPTION = "live.resumption"
     LIVE_CLOSED = "live.closed"
+    SCREEN_OPEN = "screen.open"
+    SCREEN_CLOSE = "screen.close"
+    CONTROL_TAKE = "control.take"
+    CONTROL_RELEASE = "control.release"
     SIGNAL = "signal"
     PUSH_REGISTER = "push.register"
     PING = "ping"
@@ -64,6 +68,10 @@ class C2S:
             LIVE_USAGE,
             LIVE_RESUMPTION,
             LIVE_CLOSED,
+            SCREEN_OPEN,
+            SCREEN_CLOSE,
+            CONTROL_TAKE,
+            CONTROL_RELEASE,
             SIGNAL,
             PING,
         }
@@ -93,6 +101,9 @@ class S2C:
     APPROVAL_ENDED = "approval.ended"
     TOOL_RESULT = "tool.result"
     CREDITS = "credits"
+    SCREEN_OPENED = "screen.opened"
+    SCREEN_CLOSED = "screen.closed"
+    CONTROL = "control"
     SIGNAL = "signal"
     ERROR = "error"
     PONG = "pong"
@@ -108,6 +119,9 @@ class S2A:
     HANDOFF_RESUME = "handoff.resume"
     APPROVAL_ANSWER = "approval.answer"
     API_RESULT = "api.result"
+    STREAM_START = "stream.start"
+    STREAM_STOP = "stream.stop"
+    CONTROL = "control"
     SIGNAL = "signal"
     VM_STATUS = "vm.status"
 
@@ -120,6 +134,9 @@ class S2A:
             HANDOFF_RESUME,
             APPROVAL_ANSWER,
             API_RESULT,
+            STREAM_START,
+            STREAM_STOP,
+            CONTROL,
             SIGNAL,
             VM_STATUS,
         }
@@ -208,6 +225,30 @@ class CreditsState:
     OK = "ok"
     LOW = "low"
     OUT = "out"
+
+
+# The WebRTC data channel that carries input events, client -> agentd.
+INPUT_CHANNEL = "input"
+
+
+class InputKind:
+    """``kind`` values of one input event on the ``input`` data channel.
+
+    One JSON object per message: ``{kind, x, y, button, dx, dy, key, code}``.
+    ``x`` and ``y`` are normalized 0..1 over the video frame. ``button`` is
+    0 left, 1 middle, 2 right. ``key`` and ``code`` are DOM KeyboardEvent
+    values. A touch event carries its phase (start, move, end) in ``key``.
+    """
+
+    MOUSE_MOVE = "mouse.move"
+    MOUSE_DOWN = "mouse.down"
+    MOUSE_UP = "mouse.up"
+    WHEEL = "wheel"
+    KEY_DOWN = "key.down"
+    KEY_UP = "key.up"
+    TOUCH = "touch"
+
+    ALL = frozenset({MOUSE_MOVE, MOUSE_DOWN, MOUSE_UP, WHEEL, KEY_DOWN, KEY_UP, TOUCH})
 
 
 # --------------------------------------------------------------------------- #
@@ -317,7 +358,8 @@ _REQUIRED: dict[str, dict[str, dict[str, type | tuple[type, ...]]]] = {
         C2S.HANDOFF_CANCEL: {"handoff_id": str},
         C2S.APPROVAL_ANSWER: {"approval_id": str, "approved": bool},
         C2S.LIVE_RESUMPTION: {"handle": str},
-        C2S.SIGNAL: {"handoff_id": str, "payload": dict},
+        C2S.SCREEN_CLOSE: {"stream_id": str},
+        C2S.SIGNAL: {"stream_id": str, "payload": dict},
         C2S.PUSH_REGISTER: {"platform": str, "token": str},
     },
     "S2A": {
@@ -328,7 +370,10 @@ _REQUIRED: dict[str, dict[str, dict[str, type | tuple[type, ...]]]] = {
         S2A.HANDOFF_RESUME: {"task_id": str, "handoff_id": str, "outcome": str},
         S2A.APPROVAL_ANSWER: {"task_id": str, "approval_id": str, "approved": bool},
         S2A.API_RESULT: {"task_id": str, "request_id": str, "ok": bool},
-        S2A.SIGNAL: {"handoff_id": str, "payload": dict},
+        S2A.STREAM_START: {"stream_id": str, "ice_servers": list},
+        S2A.STREAM_STOP: {"stream_id": str},
+        S2A.CONTROL: {"active": bool},
+        S2A.SIGNAL: {"stream_id": str, "payload": dict},
     },
     "A2S": {
         A2S.HELLO: {"vm_id": str, "user_id": str, "auth": str},
@@ -336,7 +381,7 @@ _REQUIRED: dict[str, dict[str, dict[str, type | tuple[type, ...]]]] = {
         A2S.TASK_STOPPED: {"task_id": str},
         A2S.TOOL_RESULT: {"id": str, "task_id": str, "ok": bool},
         A2S.EVENT: {"task_id": str, "kind": str, "payload": dict},
-        A2S.SIGNAL: {"handoff_id": str, "payload": dict},
+        A2S.SIGNAL: {"stream_id": str, "payload": dict},
         A2S.LOG: {"level": str, "message": str},
     },
 }

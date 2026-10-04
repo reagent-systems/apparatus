@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import mimetypes
 import time
 from contextlib import asynccontextmanager
 from dataclasses import dataclass
@@ -47,6 +48,7 @@ from .push import Push, make_push
 from .sessions import ModelSummarizer, NaiveSummarizer, Sessions
 from .smart import SMART_SYSTEM_PROMPT
 from .store import Store, make_store
+from .streams import Control, Stream, StreamRegistry, ice_servers
 from .tokens import TokenMinter, make_token_minter
 from .vm import IdleStopper, VmController, VmLink, VmRegistry, make_vm_controller, verify_enrollment
 from .voice import live_connect_config, live_setup_message
@@ -70,6 +72,7 @@ class Deps:
     sessions: Sessions
     jobs: JobManager
     idle: IdleStopper
+    streams: StreamRegistry
 
 
 def build_deps(
@@ -119,6 +122,7 @@ def build_deps(
         sessions=sessions,
         jobs=jobs,
         idle=idle,
+        streams=StreamRegistry(),
     )
 
 
@@ -244,6 +248,8 @@ def create_app(deps: Deps) -> FastAPI:
                     gate=s.gate_dict(),
                     live={"idle_close_seconds": s.live.idle_close_seconds},
                     jobs=[j.public() for j in deps.jobs.active_jobs(user_id)],
+                    control=deps.streams.control(user_id).to_dict(),
+                    streams=[],
                 )
             )
             while True:
@@ -259,6 +265,7 @@ def create_app(deps: Deps) -> FastAPI:
             pass
         finally:
             deps.clients.detach(conn)
+            await device_gone(deps, conn)
 
     # ------------------------------------------------------------------ #
     # agentd WebSocket
@@ -286,6 +293,9 @@ def create_app(deps: Deps) -> FastAPI:
         link = VmLink(hello["vm_id"], hello["user_id"], send, hello.get("capabilities"))
         deps.vms.attach(link)
         await deps.audit.record(link.user_id, "vm.connect", vm_id=link.vm_id)
+        # The server holds the control and handoff state. agentd reconnects without
+        # restarting, so it is told the current state every time, active or not.
+        await sync_vm_state(deps, link)
         try:
             while True:
                 raw = await ws.receive_text()
@@ -294,37 +304,47 @@ def create_app(deps: Deps) -> FastAPI:
                 except ProtocolError as e:
                     log.warning("vm %s sent a bad message: %s", link.vm_id, e)
                     continue
+                if m["type"] == A2S.VM_STATE and isinstance(m.get("streams"), list):
+                    await reconcile_vm_streams(deps, link, [str(x) for x in m["streams"]])
                 if m["type"] == A2S.SIGNAL:
-                    await deps.clients.broadcast(
-                        link.user_id,
-                        msg(S2C.SIGNAL, handoff_id=m["handoff_id"], payload=m["payload"]),
-                    )
+                    # Only the device that owns the stream sees its signaling.
+                    st = deps.streams.owned(m["stream_id"], link.user_id)
+                    if st is not None:
+                        await deps.clients.send_to(
+                            st.user_id,
+                            st.device_id,
+                            msg(S2C.SIGNAL, stream_id=st.stream_id, payload=m["payload"]),
+                        )
                     continue
                 await deps.vms.dispatch(link, m)
         except WebSocketDisconnect:
             pass
         finally:
             deps.vms.detach(link)
+            await vm_gone(deps, link.user_id)
             await deps.audit.record(link.user_id, "vm.disconnect", vm_id=link.vm_id)
 
     # ------------------------------------------------------------------ #
     # static web app
     # ------------------------------------------------------------------ #
 
-    dist = Path(s.web_dist)
+    # The Vite layout: index.html, assets/ with hashed files, and a few
+    # top-level files (bridge.js, worklet.js, favicon.*). Nothing outside dist.
+    dist = Path(s.web_dist).resolve()
     if dist.is_dir():
-        app.mount("/assets", StaticFiles(directory=dist), name="assets")
+        if (dist / "assets").is_dir():
+            app.mount("/assets", StaticFiles(directory=dist / "assets"), name="assets")
 
         @app.get("/")
         async def index() -> FileResponse:
-            return FileResponse(dist / "index.html")
+            return FileResponse(dist / "index.html", media_type="text/html")
 
-        @app.get("/{name}.js")
-        async def script(name: str) -> FileResponse:
-            p = dist / f"{name}.js"
-            if not p.is_file():
+        @app.get("/{name}")
+        async def top_level_file(name: str) -> FileResponse:
+            p = (dist / name).resolve()
+            if p.parent != dist or not p.is_file():
                 raise HTTPException(404)
-            return FileResponse(p, media_type="text/javascript")
+            return FileResponse(p, media_type=static_media_type(p))
 
     @app.exception_handler(Exception)
     async def unhandled(request: Request, exc: Exception) -> JSONResponse:
@@ -385,12 +405,139 @@ async def handle_client_message(deps: Deps, conn: ClientConn, m: dict[str, Any])
         await deps.sessions.set_resumption_handle(user_id, m["handle"])
     elif t == C2S.LIVE_CLOSED:
         await deps.audit.record(user_id, "live.closed", reason=m.get("reason"))
+    elif t == C2S.SCREEN_OPEN:
+        await open_screen(deps, conn)
+    elif t == C2S.SCREEN_CLOSE:
+        st = deps.streams.owned(m["stream_id"], user_id)
+        if st is None or st.device_id != conn.device_id:
+            await conn.send(msg(S2C.ERROR, code="stream", message="unknown stream"))
+        else:
+            await close_screen(deps, st, "closed")
+    elif t == C2S.CONTROL_TAKE:
+        await take_control(deps, conn)
+    elif t == C2S.CONTROL_RELEASE:
+        await release_control(deps, user_id, conn.device_id)
     elif t == C2S.SIGNAL:
+        st = deps.streams.owned(m["stream_id"], user_id)
         link = deps.vms.get(user_id)
-        if link is not None:
-            await link.signal(m["handoff_id"], m["payload"])
+        if st is not None and st.device_id == conn.device_id and link is not None:
+            await link.signal(st.stream_id, m["payload"])
     elif t == C2S.PUSH_REGISTER:
         await deps.clients.register_push(user_id, conn.device_id, m["platform"], m["token"])
+
+
+# ---------------------------------------------------------------------- #
+# screen streams and control
+# ---------------------------------------------------------------------- #
+
+
+async def open_screen(deps: Deps, conn: ClientConn) -> None:
+    link = deps.vms.get(conn.user_id)
+    if link is None:
+        await conn.send(msg(S2C.ERROR, code="stream", message="your computer is not connected"))
+        return
+    st = deps.streams.open(conn.user_id, conn.device_id)
+    servers = ice_servers(deps.settings)
+    await deps.audit.record(
+        conn.user_id, "screen.open", stream_id=st.stream_id, device_id=conn.device_id
+    )
+    # The client learns the stream id before agentd's offer can reach it.
+    await conn.send(msg(S2C.SCREEN_OPENED, stream_id=st.stream_id, ice_servers=servers))
+    await link.stream_start(st.stream_id, servers)
+    c = deps.streams.control(conn.user_id)
+    if c.active and c.by == conn.device_id:
+        # The controlling device now has a stream: input may flow on it.
+        await link.control(True, st.stream_id)
+
+
+async def close_screen(deps: Deps, st: Stream, reason: str) -> None:
+    deps.streams.close(st.stream_id)
+    await deps.audit.record(
+        st.user_id, "screen.close", stream_id=st.stream_id, device_id=st.device_id, reason=reason
+    )
+    link = deps.vms.get(st.user_id)
+    if link is not None and reason not in ("vm.disconnect", "vm.closed"):
+        await link.stream_stop(st.stream_id)
+    c = deps.streams.control(st.user_id)
+    if link is not None and c.active and c.by == st.device_id and reason != "device.disconnect":
+        # Control stays with the device; it has no stream to drive the desktop from.
+        # (A disconnecting device releases control right after this; no re-send.)
+        await link.control(True, control_stream_id(deps, st.user_id))
+    if reason != "device.disconnect":
+        await deps.clients.send_to(
+            st.user_id, st.device_id, msg(S2C.SCREEN_CLOSED, stream_id=st.stream_id, reason=reason)
+        )
+
+
+async def take_control(deps: Deps, conn: ClientConn) -> None:
+    c = deps.streams.take(conn.user_id, conn.device_id)
+    await deps.audit.record(conn.user_id, "control.take", device_id=conn.device_id)
+    link = deps.vms.get(conn.user_id)
+    if link is not None:
+        await link.control(True, control_stream_id(deps, conn.user_id))
+    await deps.clients.broadcast(conn.user_id, control_msg(c))
+
+
+async def release_control(deps: Deps, user_id: str, device_id: str | None) -> None:
+    c = deps.streams.release(user_id, device_id)
+    if c is None:
+        return
+    await deps.audit.record(user_id, "control.release", device_id=device_id)
+    link = deps.vms.get(user_id)
+    if link is not None:
+        await link.control(False, None)
+    await deps.clients.broadcast(user_id, control_msg(c))
+
+
+def control_stream_id(deps: Deps, user_id: str) -> str | None:
+    """The open stream of the device that holds control, or None."""
+    c = deps.streams.control(user_id)
+    if not c.active or c.by is None:
+        return None
+    streams = deps.streams.for_device(user_id, c.by)
+    return streams[0].stream_id if streams else None
+
+
+async def sync_vm_state(deps: Deps, link: VmLink) -> None:
+    """Tell a (re)connected agentd what the server knows: control and open handoffs."""
+    c = deps.streams.control(link.user_id)
+    await link.control(c.active, control_stream_id(deps, link.user_id))
+    for h in list(deps.jobs.handoffs.values()):
+        if h.user_id == link.user_id:
+            await link.pause_task(h.task_id, h.handoff_id, h.reason)
+
+
+async def reconcile_vm_streams(deps: Deps, link: VmLink, open_ids: list[str]) -> None:
+    """agentd ended a stream on its own (peer failed). Close what it no longer lists."""
+    for st in deps.streams.for_user(link.user_id):
+        if st.stream_id not in open_ids:
+            await close_screen(deps, st, "vm.closed")
+
+
+def control_msg(c: Control) -> dict[str, Any]:
+    out = msg(S2C.CONTROL, active=c.active)
+    out["by"] = c.by  # explicit null: "nobody" is information
+    return out
+
+
+async def device_gone(deps: Deps, conn: ClientConn) -> None:
+    """A client socket closed: its streams end and any control it held returns."""
+    for st in deps.streams.for_device(conn.user_id, conn.device_id):
+        await close_screen(deps, st, "device.disconnect")
+    await release_control(deps, conn.user_id, conn.device_id)
+
+
+async def vm_gone(deps: Deps, user_id: str) -> None:
+    for st in deps.streams.for_user(user_id):
+        await close_screen(deps, st, "vm.disconnect")
+
+
+def static_media_type(p: Path) -> str:
+    if p.suffix == ".js":
+        return "text/javascript"
+    if p.suffix == ".map":
+        return "application/json"
+    return mimetypes.guess_type(p.name)[0] or "application/octet-stream"
 
 
 async def handle_voice_tool(

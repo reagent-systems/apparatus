@@ -36,6 +36,7 @@ variable "vm_enroll_secret" {
   sensitive = true
 }
 variable "turn_secret" {
-  type      = string
-  sensitive = true
+  type        = string
+  sensitive   = true
+  description = "coturn static-auth-secret. Stored in Secret Manager; the server mints TURN credentials from it."
 }

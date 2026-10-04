@@ -92,9 +92,8 @@ class Kernel:
             "AGENTD_MAX_OUTPUT_CHARS": str(self.max_output_chars),
             "PYTHONPATH": _PYTHONPATH,
         }
-        for key in ("DISPLAY", "XAUTHORITY", "DBUS_SESSION_BUS_ADDRESS"):
-            if key in os.environ:
-                env[key] = os.environ[key]
+        # No DISPLAY or XAUTHORITY: task code is for computing, the computer tool is for
+        # the desktop. (Isolation of the X socket itself is a roadmap item.)
         argv = [self.python, "-m", "agentd.kernel_child"]
         if self.kernel_user:
             argv = [

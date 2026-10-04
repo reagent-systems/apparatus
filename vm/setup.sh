@@ -9,7 +9,7 @@ export DEBIAN_FRONTEND=noninteractive
 
 apt-get update
 apt-get install -y --no-install-recommends \
-  xvfb xdotool imagemagick x11-utils xfce4 xfce4-terminal chromium fonts-dejavu-core \
+  xvfb xdotool imagemagick x11-utils xfce4 xfce4-terminal chromium fonts-dejavu-core ffmpeg \
   python3 python3-venv python3-pip git curl ca-certificates jq unzip iptables-persistent sudo
 
 # Users: agentd runs as its own system user; task kernels run as "agent".

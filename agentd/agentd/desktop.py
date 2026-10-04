@@ -13,10 +13,126 @@ import base64
 import shutil
 import struct
 import zlib
+from collections.abc import Callable
 from dataclasses import dataclass, field
 from typing import Any, Protocol
 
+from apparatus_protocol import InputKind
+
 ACTIONS = ("screenshot", "click", "double_click", "right_click", "move", "type", "key", "scroll")
+
+# DOM KeyboardEvent.code -> X keysym, for the keys a user presses in a screen stream.
+_KEYSYM_BY_CODE: dict[str, str] = {
+    "Enter": "Return",
+    "NumpadEnter": "KP_Enter",
+    "Backspace": "BackSpace",
+    "Tab": "Tab",
+    "Escape": "Escape",
+    "Space": "space",
+    "Delete": "Delete",
+    "Insert": "Insert",
+    "Home": "Home",
+    "End": "End",
+    "PageUp": "Prior",
+    "PageDown": "Next",
+    "ArrowUp": "Up",
+    "ArrowDown": "Down",
+    "ArrowLeft": "Left",
+    "ArrowRight": "Right",
+    "ShiftLeft": "Shift_L",
+    "ShiftRight": "Shift_R",
+    "ControlLeft": "Control_L",
+    "ControlRight": "Control_R",
+    "AltLeft": "Alt_L",
+    "AltRight": "Alt_R",
+    "MetaLeft": "Super_L",
+    "MetaRight": "Super_R",
+    "CapsLock": "Caps_Lock",
+    "Minus": "minus",
+    "Equal": "equal",
+    "BracketLeft": "bracketleft",
+    "BracketRight": "bracketright",
+    "Backslash": "backslash",
+    "Semicolon": "semicolon",
+    "Quote": "apostrophe",
+    "Backquote": "grave",
+    "Comma": "comma",
+    "Period": "period",
+    "Slash": "slash",
+    **{f"F{n}": f"F{n}" for n in range(1, 13)},
+    **{f"Key{c}": c.lower() for c in "ABCDEFGHIJKLMNOPQRSTUVWXYZ"},
+    **{f"Digit{d}": d for d in "0123456789"},
+    **{f"Numpad{d}": f"KP_{d}" for d in "0123456789"},
+}
+
+# DOM KeyboardEvent.key -> X keysym, when the code is missing or unknown.
+_KEYSYM_BY_KEY: dict[str, str] = {
+    "Enter": "Return",
+    "Backspace": "BackSpace",
+    "Tab": "Tab",
+    "Escape": "Escape",
+    " ": "space",
+    "Delete": "Delete",
+    "Insert": "Insert",
+    "Home": "Home",
+    "End": "End",
+    "PageUp": "Prior",
+    "PageDown": "Next",
+    "ArrowUp": "Up",
+    "ArrowDown": "Down",
+    "ArrowLeft": "Left",
+    "ArrowRight": "Right",
+    "Shift": "Shift_L",
+    "Control": "Control_L",
+    "Alt": "Alt_L",
+    "Meta": "Super_L",
+    "CapsLock": "Caps_Lock",
+    "-": "minus",
+    "=": "equal",
+    "[": "bracketleft",
+    "]": "bracketright",
+    "\\": "backslash",
+    ";": "semicolon",
+    "'": "apostrophe",
+    "`": "grave",
+    ",": "comma",
+    ".": "period",
+    "/": "slash",
+    "!": "exclam",
+    "@": "at",
+    "#": "numbersign",
+    "$": "dollar",
+    "%": "percent",
+    "^": "asciicircum",
+    "&": "ampersand",
+    "*": "asterisk",
+    "(": "parenleft",
+    ")": "parenright",
+    "_": "underscore",
+    "+": "plus",
+    "{": "braceleft",
+    "}": "braceright",
+    "|": "bar",
+    ":": "colon",
+    '"': "quotedbl",
+    "~": "asciitilde",
+    "<": "less",
+    ">": "greater",
+    "?": "question",
+}
+
+
+def keysym(key: str | None, code: str | None) -> str | None:
+    """The xdotool keysym for one DOM key event, or None for a key we do not map."""
+    if code and code in _KEYSYM_BY_CODE:
+        return _KEYSYM_BY_CODE[code]
+    if key is None:
+        return None
+    if key in _KEYSYM_BY_KEY:
+        return _KEYSYM_BY_KEY[key]
+    if len(key) == 1 and key.isascii() and key.isprintable():
+        return key.lower() if key.isalpha() else key
+    return None
 
 
 class DesktopBusy(RuntimeError):
@@ -55,6 +171,7 @@ class DesktopBackend(Protocol):
     async def type_text(self, text: str) -> None: ...
     async def key(self, combo: str) -> None: ...
     async def scroll(self, x: int, y: int, dx: int, dy: int) -> None: ...
+    async def input_event(self, ev: dict[str, Any]) -> None: ...
 
 
 def tiny_png(width: int = 1, height: int = 1, rgb: tuple[int, int, int] = (0, 0, 0)) -> bytes:
@@ -101,12 +218,21 @@ class FakeBackend:
     async def scroll(self, x: int, y: int, dx: int, dy: int) -> None:
         self.calls.append(("scroll", (x, y, dx, dy)))
 
+    async def input_event(self, ev: dict[str, Any]) -> None:
+        self.calls.append(("input", (ev,)))
+
 
 class XdoBackend:
-    """xdotool for input, ImageMagick ``import`` for the screen."""
+    """xdotool for input, ImageMagick ``import`` for the screen.
 
-    def __init__(self, display: str = ":0"):
+    ``width`` and ``height`` are the screen size; stream input events carry
+    coordinates normalized over the video frame, which shows the whole screen.
+    """
+
+    def __init__(self, display: str = ":0", width: int = 1280, height: int = 800):
         self.display = display
+        self.width = width
+        self.height = height
         for tool in ("xdotool", "import"):
             if shutil.which(tool) is None:
                 raise RuntimeError(f"{tool} is not installed")
@@ -148,16 +274,78 @@ class XdoBackend:
         if dx:
             await self._run("xdotool", "click", "--repeat", str(abs(dx)), "7" if dx > 0 else "6")
 
+    async def input_event(self, ev: dict[str, Any]) -> None:
+        for argv in input_argv(ev, self.width, self.height):
+            await self._run("xdotool", *argv)
 
-def make_backend(kind: str, display: str = ":0") -> DesktopBackend:
+
+def input_argv(ev: dict[str, Any], width: int, height: int) -> list[list[str]]:
+    """xdotool argument lists for one stream input event. Unknown events map to none."""
+    kind = ev.get("kind")
+
+    def px() -> tuple[str, str]:
+        x = min(max(float(ev.get("x", 0) or 0), 0.0), 1.0)
+        y = min(max(float(ev.get("y", 0) or 0), 0.0), 1.0)
+        return str(int(round(x * (width - 1)))), str(int(round(y * (height - 1))))
+
+    def button() -> str:
+        return str(int(ev.get("button", 0) or 0) + 1)
+
+    if kind == InputKind.MOUSE_MOVE:
+        return [["mousemove", *px()]]
+    if kind == InputKind.MOUSE_DOWN:
+        return [["mousemove", *px()], ["mousedown", button()]]
+    if kind == InputKind.MOUSE_UP:
+        return [["mousemove", *px()], ["mouseup", button()]]
+    if kind == InputKind.WHEEL:
+        out = [["mousemove", *px()]]
+        dy = float(ev.get("dy", 0) or 0)
+        dx = float(ev.get("dx", 0) or 0)
+        # A browser wheel notch is about 100 px. One xdotool click per notch, at least one.
+        if dy:
+            out.append(["click", "--repeat", str(_notches(dy)), "5" if dy > 0 else "4"])
+        if dx:
+            out.append(["click", "--repeat", str(_notches(dx)), "7" if dx > 0 else "6"])
+        return out
+    if kind in (InputKind.KEY_DOWN, InputKind.KEY_UP):
+        sym = keysym(ev.get("key"), ev.get("code"))
+        if sym is None:
+            return []
+        return [["keydown" if kind == InputKind.KEY_DOWN else "keyup", sym]]
+    if kind == InputKind.TOUCH:
+        phase = ev.get("key")
+        if phase == "start":
+            return [["mousemove", *px()], ["mousedown", "1"]]
+        if phase == "move":
+            return [["mousemove", *px()]]
+        if phase == "end":
+            return [["mousemove", *px()], ["mouseup", "1"]]
+    return []
+
+
+def _notches(delta: float) -> int:
+    return max(1, min(10, int(round(abs(delta) / 100))))
+
+
+def make_backend(
+    kind: str, display: str = ":0", width: int = 1280, height: int = 800
+) -> DesktopBackend:
     if kind == "xdo":
-        return XdoBackend(display)
+        return XdoBackend(display, width, height)
     if kind == "fake":
         return FakeBackend()
     raise ValueError(f"unknown desktop backend {kind!r}")
 
 
-async def run_action(backend: DesktopBackend, args: dict[str, Any]) -> dict[str, Any]:
+class CaptureRefused(RuntimeError):
+    """The screen may not be captured right now (a handoff or user control began)."""
+
+
+async def run_action(
+    backend: DesktopBackend,
+    args: dict[str, Any],
+    capture_allowed: Callable[[], bool] | None = None,
+) -> dict[str, Any]:
     """Run one ``computer`` action and return ``{"image_b64", "output"}``.
 
     Every action ends with a screenshot, so the model sees the result.
@@ -195,7 +383,12 @@ async def run_action(backend: DesktopBackend, args: dict[str, Any]) -> dict[str,
         x, y = xy()
         await backend.scroll(x, y, int(args.get("dx", 0)), int(args.get("dy", 0)))
     if action != "screenshot":
-        await asyncio.sleep(float(args.get("settle_seconds", 0.3)))
+        # The model may set settle_seconds; it is clamped so a call cannot park on the desktop.
+        await asyncio.sleep(min(max(float(args.get("settle_seconds", 0.3)), 0.0), 2.0))
         note = f"{action} done. "
+    # Re-check right before the capture: a handoff or user control may have begun
+    # while the action settled. Nothing captures the screen in that case.
+    if capture_allowed is not None and not capture_allowed():
+        raise CaptureRefused("capture_refused: the user holds the screen; no screenshot")
     png = await backend.screenshot()
     return {"image_b64": base64.b64encode(png).decode(), "output": note + "Screenshot attached."}

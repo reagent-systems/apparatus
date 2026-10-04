@@ -77,6 +77,20 @@ from this page.
 | `vm.desktop_lock_wait_seconds` | int | `5` | A second task waits this long for the desktop before `desktop_busy`. |
 | `vm.disk_home` | string | `"/home/agent"` | Home of the agent user on the VM. The disk layout lives under it. |
 
+### `[stream]`
+
+The screen stream: WebRTC from the VM to one client device, signaled through the server.
+
+| Field | Type | Default | Use |
+|---|---|---|---|
+| `stream.stun_url` | string | `"stun:stun.l.google.com:19302"` | STUN server every peer uses. Empty sends no STUN entry. |
+| `stream.turn_ttl_seconds` | int | `3600` | Lifetime of one minted TURN credential. |
+| `stream.fps` | int | `12` | Capture rate agentd uses for the stream. |
+| `stream.width` | int | `1280` | Frame width. Match the Xvfb screen in `vm/setup.sh`. |
+| `stream.height` | int | `800` | Frame height. |
+
+TURN credentials follow coturn `use-auth-secret`: username is `<unix expiry>:apparatus`, credential is `base64(HMAC-SHA1(secret, username))`. The server mints one pair per `screen.open` and sends it in `screen.opened` as part of `ice_servers`.
+
 ### `[credits]`
 
 | Field | Type | Default | Use |
@@ -120,6 +134,8 @@ from this page.
 | `GCE_PROJECT` / `GCE_ZONE` | empty | For the `gce` controller. |
 | `APPARATUS_PUSH` | `log` | Push adapter: `log` or `fcm`. |
 | `APPARATUS_WEB_DIST` | `web/dist` | Folder with the built web app, served at `/`. |
+| `APPARATUS_TURN_URL` | empty | TURN relay for the screen stream, for example `turn:1.2.3.4:3478?transport=udp`. Empty: STUN only. |
+| `APPARATUS_TURN_SECRET` | empty | The coturn `static-auth-secret`. Needed with `APPARATUS_TURN_URL`. |
 
 ### agentd (on the VM)
 
@@ -137,4 +153,6 @@ from this page.
 | `AGENTD_KERNEL_USER` | unset | Run kernels as this user through sudo. |
 | `AGENTD_MAX_OUTPUT_CHARS` | `50000` | Truncate one python call's output beyond this. |
 | `AGENTD_RECONNECT_MIN_SECONDS` / `AGENTD_RECONNECT_MAX_SECONDS` | `1` / `30` | Backoff for the outbound link. |
+| `AGENTD_STREAM_FPS` | `12` | Capture rate of the screen stream (`ffmpeg x11grab`). Match `stream.fps`. |
+| `AGENTD_STREAM_WIDTH` / `AGENTD_STREAM_HEIGHT` | `1280` / `800` | Frame size of the screen stream and the pixel space for stream input. Match `stream.width` and `stream.height`. |
 

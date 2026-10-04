@@ -29,8 +29,9 @@ from apparatus_protocol import (
 
 from . import disk
 from .config import AgentdConfig
-from .desktop import DesktopBackend, DesktopBusy, DesktopLock, run_action
+from .desktop import CaptureRefused, DesktopBackend, DesktopBusy, DesktopLock, run_action
 from .kernel import Kernel, KernelDead
+from .stream import FakeFrameSource, FrameSource, StreamManager, X11FrameSource
 from .tasklog import TaskLog
 
 log = logging.getLogger("agentd")
@@ -75,13 +76,45 @@ class Task:
 
 
 class AgentdCore:
-    def __init__(self, cfg: AgentdConfig, backend: DesktopBackend, send: Send):
+    def __init__(
+        self,
+        cfg: AgentdConfig,
+        backend: DesktopBackend,
+        send: Send,
+        streams: StreamManager | None = None,
+    ):
         self.cfg = cfg
         self.backend = backend
         self.send = send
         self.tasks: dict[str, Task] = {}
         self.lock = DesktopLock(cfg.desktop_lock_wait_seconds)
+        self.user_control = False
+        # The stream of the device that holds control; input flows on it alone.
+        self.control_stream_id: str | None = None
+        self._running: set[asyncio.Task] = set()
+        self.streams = streams or StreamManager(
+            backend, self._frame_source, self._send_signal, self.input_allowed
+        )
         disk.ensure_layout(cfg.home)
+
+    def _frame_source(self) -> FrameSource:
+        c = self.cfg
+        if c.desktop == "xdo":
+            return X11FrameSource(c.display, c.stream_fps, c.stream_width, c.stream_height)
+        return FakeFrameSource(c.stream_fps, 160, 120, backend=self.backend)
+
+    async def _send_signal(self, stream_id: str, payload: dict[str, Any]) -> None:
+        await self.send(msg(A2S.SIGNAL, stream_id=stream_id, payload=payload))
+
+    def input_allowed(self, stream_id: str) -> bool:
+        """Stream input reaches the desktop during a handoff, or from the controlling stream."""
+        if self.handoff_active:
+            return True
+        return self.user_control and stream_id == self.control_stream_id
+
+    def capture_allowed(self) -> bool:
+        """A task may capture the screen only while nobody else holds it."""
+        return not self.handoff_active and not self.user_control
 
     # ------------------------------------------------------------------ #
     # Server -> agentd
@@ -102,6 +135,9 @@ class AgentdCore:
             S2A.HANDOFF_RESUME: self.handoff_resume,
             S2A.APPROVAL_ANSWER: self.approval_answer,
             S2A.API_RESULT: self.api_result,
+            S2A.STREAM_START: self.stream_start,
+            S2A.STREAM_STOP: self.stream_stop,
+            S2A.CONTROL: self.control,
             S2A.SIGNAL: self.signal,
             S2A.VM_STATUS: self.vm_status,
         }[t]
@@ -145,6 +181,9 @@ class AgentdCore:
         if restored:
             prior = tlog.restore()
             task.steps = prior["steps"]
+            # A handoff that was open when agentd stopped is still open on the server.
+            task.paused = bool(prior.get("paused"))
+            task.handoff_id = prior.get("handoff_id") if task.paused else None
         self.tasks[task_id] = task
         tlog.append(
             "task.start", job_id=task.job_id, request=task.request, budget=budget, restored=restored
@@ -211,6 +250,13 @@ class AgentdCore:
             return await fail(f"budget_exceeded: wall time of {task.wall_seconds:.0f} s used")
         task.steps += 1
         task.tlog.append("tool.call", id=call_id, name=name, args=_trim_args(args))
+        # The call runs on its own so the link keeps handling handoff.resume,
+        # approval.answer and control while a step blocks in agentlib.
+        runner = asyncio.ensure_future(self._run_tool(task, call_id, name, args))
+        self._running.add(runner)
+        runner.add_done_callback(self._running.discard)
+
+    async def _run_tool(self, task: Task, call_id: str, name: str, args: dict[str, Any]) -> None:
         started = time.monotonic()
         try:
             if name == "python":
@@ -220,6 +266,8 @@ class AgentdCore:
             else:
                 result = {"ok": False, "error": f"unknown_tool: {name}"}
         except DesktopBusy as e:
+            result = {"ok": False, "error": str(e)}
+        except CaptureRefused as e:
             result = {"ok": False, "error": str(e)}
         except KernelDead as e:
             result = {"ok": False, "error": f"kernel_dead: {e}"}
@@ -234,7 +282,7 @@ class AgentdCore:
             output_chars=len(result.get("output") or ""),
             files=result.get("files"),
         )
-        await self.send(msg(A2S.TOOL_RESULT, id=call_id, task_id=task_id, **result))
+        await self.send(msg(A2S.TOOL_RESULT, id=call_id, task_id=task.task_id, **result))
 
     async def _python(self, task: Task, args: dict[str, Any]) -> dict[str, Any]:
         code = args.get("code")
@@ -261,8 +309,18 @@ class AgentdCore:
                 "ok": False,
                 "error": "handoff_active: the user controls the screen; no screenshots",
             }
+        if self.user_control:
+            return {"ok": False, "error": "user_control: the user controls the desktop"}
         await self.lock.acquire(task.task_id)
-        out = await run_action(self.backend, args)
+        # The wait for the lock is a window: check again before touching the desktop.
+        if self.handoff_active:
+            return {
+                "ok": False,
+                "error": "handoff_active: the user controls the screen; no screenshots",
+            }
+        if self.user_control:
+            return {"ok": False, "error": "user_control: the user controls the desktop"}
+        out = await run_action(self.backend, args, capture_allowed=self.capture_allowed)
         return {"ok": True, **out}
 
     async def handoff_resume(self, m: dict[str, Any]) -> None:
@@ -290,16 +348,37 @@ class AgentdCore:
         reply = {"ok": bool(m["ok"]), "result": m.get("result"), "error": m.get("error")}
         self._resolve(task, m["request_id"], reply)
 
-    async def signal(self, m: dict[str, Any]) -> None:
-        # WebRTC signaling for the screen stream. The stream server (Selkies
-        # or equivalent) is a separate process; it is not part of this build.
-        await self.send(
-            msg(
-                A2S.LOG,
-                level="info",
-                message=f"signal for handoff {m['handoff_id']} ignored: no stream server",
+    # ------------------------------------------------------------------ #
+    # screen stream and control
+    # ------------------------------------------------------------------ #
+
+    async def stream_start(self, m: dict[str, Any]) -> None:
+        try:
+            await self.streams.start(m["stream_id"], m["ice_servers"])
+        except Exception as e:  # noqa: BLE001 - a failed stream is reported, not fatal
+            log.warning("stream %s failed to start: %s", m["stream_id"], e)
+            await self.send(
+                msg(A2S.LOG, level="warning", message=f"stream {m['stream_id']} failed: {e}")
             )
-        )
+        await self.send(self.vm_state())
+
+    async def stream_stop(self, m: dict[str, Any]) -> None:
+        await self.streams.stop(m["stream_id"])
+        await self.send(self.vm_state())
+
+    async def control(self, m: dict[str, Any]) -> None:
+        self.user_control = bool(m["active"])
+        sid = m.get("stream_id")
+        self.control_stream_id = str(sid) if self.user_control and sid else None
+        await self.send(self.vm_state())
+
+    async def signal(self, m: dict[str, Any]) -> None:
+        try:
+            await self.streams.signal(m["stream_id"], m["payload"])
+        except Exception as e:  # noqa: BLE001 - a bad answer ends that stream only
+            log.warning("signal for stream %s failed: %s", m["stream_id"], e)
+            await self.streams.stop(m["stream_id"])
+            await self.send(self.vm_state())
 
     async def vm_status(self, m: dict[str, Any]) -> None:
         await self.send(self.vm_state())
@@ -309,6 +388,9 @@ class AgentdCore:
             A2S.VM_STATE,
             tasks=[t.state() for t in self.tasks.values()],
             handoff_active=self.handoff_active,
+            streams=self.streams.stream_ids,
+            user_control=self.user_control,
+            control_stream_id=self.control_stream_id,
         )
         out["desktop_owner"] = self.lock.owner  # explicit null: "nobody" is information
         return out
@@ -378,6 +460,11 @@ class AgentdCore:
     # ------------------------------------------------------------------ #
 
     async def shutdown(self) -> None:
+        for t in list(self._running):
+            t.cancel()
+        if self._running:
+            await asyncio.gather(*self._running, return_exceptions=True)
+        await self.streams.stop_all()
         for task in list(self.tasks.values()):
             await task.kernel.kill()
 

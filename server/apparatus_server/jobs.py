@@ -377,7 +377,13 @@ class JobManager:
         )
         parts: list[dict[str, Any]] = []
         response: dict[str, Any]
-        if call.name in ("python", "computer"):
+        if call.name == "computer" and self.handoff_active_for(job.user_id):
+            # Belt to agentd's own refusal: nothing captures the screen during a handoff.
+            response = {
+                "ok": False,
+                "error": "handoff_active: the user controls the screen; no screenshots",
+            }
+        elif call.name in ("python", "computer"):
             timeout = (
                 self.s.jobs.python_timeout_seconds
                 + 60
@@ -391,8 +397,10 @@ class JobManager:
                 response["error"] = wrap_external(str(r["error"]), f"vm:{call.name}")
             if r.get("files"):
                 response["files"] = r["files"]
-            if r.get("image_b64"):
+            if r.get("image_b64") and not self.handoff_active_for(job.user_id):
                 parts.append({"inline_data": {"mime_type": "image/png", "data": r["image_b64"]}})
+            elif r.get("image_b64"):
+                response["error"] = "handoff_active: the screenshot was dropped; a handoff began"
         elif call.name == "show":
             content = str(call.args.get("content", ""))
             await self.clients.broadcast(
@@ -522,7 +530,7 @@ class JobManager:
 
     async def on_vm_event(self, user_id: str, m: dict[str, Any]) -> None:
         if m["type"] != "event":
-            return  # signals are relayed by the socket layer
+            return  # stream signals are routed to the owning device by the socket layer
         job = self._job_for_task(user_id, m["task_id"])
         if job is None:
             return
@@ -572,6 +580,9 @@ class JobManager:
                 await link.api_result(
                     job.task_id, request_id, ok=False, error="no connected services in version 1"
                 )
+
+    def handoff_active_for(self, user_id: str) -> bool:
+        return any(h.user_id == user_id for h in self.handoffs.values())
 
     def _job_for_task(self, user_id: str, task_id: str) -> Job | None:
         for job in self.jobs.values():

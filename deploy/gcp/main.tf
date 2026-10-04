@@ -228,6 +228,17 @@ resource "google_secret_manager_secret_version" "vm_enroll_secret" {
   secret_data = var.vm_enroll_secret
 }
 
+# The coturn static-auth-secret. The server mints short-lived TURN credentials from it.
+resource "google_secret_manager_secret" "turn_secret" {
+  secret_id = "turn-secret"
+  replication { auto {} }
+}
+
+resource "google_secret_manager_secret_version" "turn_secret" {
+  secret      = google_secret_manager_secret.turn_secret.id
+  secret_data = var.turn_secret
+}
+
 resource "google_secret_manager_secret_iam_member" "server_reads_key" {
   secret_id = google_secret_manager_secret.gemini_api_key.id
   role      = "roles/secretmanager.secretAccessor"
@@ -236,6 +247,12 @@ resource "google_secret_manager_secret_iam_member" "server_reads_key" {
 
 resource "google_secret_manager_secret_iam_member" "server_reads_enroll" {
   secret_id = google_secret_manager_secret.vm_enroll_secret.id
+  role      = "roles/secretmanager.secretAccessor"
+  member    = "serviceAccount:${google_service_account.server.email}"
+}
+
+resource "google_secret_manager_secret_iam_member" "server_reads_turn" {
+  secret_id = google_secret_manager_secret.turn_secret.id
   role      = "roles/secretmanager.secretAccessor"
   member    = "serviceAccount:${google_service_account.server.email}"
 }
@@ -304,6 +321,19 @@ resource "google_cloud_run_v2_service" "server" {
         value_source {
           secret_key_ref {
             secret  = google_secret_manager_secret.vm_enroll_secret.secret_id
+            version = "latest"
+          }
+        }
+      }
+      env {
+        name  = "APPARATUS_TURN_URL"
+        value = "turn:${google_compute_address.turn.address}:3478?transport=udp"
+      }
+      env {
+        name = "APPARATUS_TURN_SECRET"
+        value_source {
+          secret_key_ref {
+            secret  = google_secret_manager_secret.turn_secret.secret_id
             version = "latest"
           }
         }

@@ -23,7 +23,7 @@ The rules keep the text short, clear and easy to translate.
 The user interface holds no explanatory text.
 State the thing; never reassure about it.
 Do not add a tooltip, a hint or a help line unless a human asks for one.
-The only labels are the button titles: Talk, Stop, Done, Cancel, Approve, Deny.
+The only labels are the button titles: Talk, Stop, Done, Cancel, Approve, Deny, Control, Release, Screen, Output, and the two sidebar entries Audit and Credits.
 State shows through the orb and the feed content, not through badges, pills or toasts.
 
 ## Spoken text
@@ -48,6 +48,8 @@ Detail goes to the screen with `show`. The voice calls the VM "your computer".
 | Talk, Stop | Record, Mute, Pause |
 | Done, Cancel | Finish, Abort, Close |
 | Approve, Deny | Allow, Reject, OK |
+| Control, Release | Take over, Give back, Remote |
+| Screen, Output | Live view, Stream, Desktop (as a button title) |
 | voice session | call, stream |
 | saved tool | script, macro, skill |
 | memory note | fact, memory item |

@@ -119,6 +119,7 @@ def test_full_job_through_both_sockets(world):
         vm.send_json(
             msg(A2S.HELLO, vm_id="vm-1", user_id="carol", auth="", version=1, capabilities={})
         )
+        assert vm.receive_json()["type"] == "control"  # state sync on connect
         with client.websocket_connect("/ws/client?auth=carol&device=web") as ws:
             ws.receive_json()  # ready
             ws.send_json({"type": "hello", "device": "web", "wants_voice": True})
@@ -201,3 +202,47 @@ def test_live_usage_is_metered_and_session_state_is_kept(world):
     r = client.post("/token", headers={"Authorization": "Bearer dave"}).json()
     assert r["resumption_handle"] == "h-9"
     assert "book a flight" in json.dumps(r["setup"])
+
+
+def test_static_routes_serve_the_vite_layout_and_nothing_outside_dist(settings, tmp_path):
+    dist = tmp_path / "dist"
+    (dist / "assets").mkdir(parents=True)
+    (dist / "index.html").write_text("<!doctype html><title>apparatus</title>")
+    (dist / "assets" / "app-abc123.js").write_text("console.log(1)")
+    (dist / "bridge.js").write_text("window.bridge = {}")
+    (dist / "worklet.js").write_text("registerProcessor('x', class {})")
+    (dist / "favicon.svg").write_text("<svg/>")
+    (tmp_path / "secret.txt").write_text("no")
+    from dataclasses import replace
+
+    deps = build_deps(
+        replace(settings, web_dist=str(dist)), model=FakeSmartModel([]), tokens=FakeTokenMinter()
+    )
+    with TestClient(create_app(deps)) as client:
+        r = client.get("/")
+        assert r.status_code == 200 and "apparatus" in r.text
+        assert r.headers["content-type"].startswith("text/html")
+        r = client.get("/assets/app-abc123.js")
+        assert r.status_code == 200 and r.text == "console.log(1)"
+        for name in ("bridge.js", "worklet.js"):
+            r = client.get(f"/{name}")
+            assert r.status_code == 200 and r.headers["content-type"].startswith("text/javascript")
+        r = client.get("/favicon.svg")
+        assert r.status_code == 200 and r.headers["content-type"].startswith("image/svg+xml")
+        assert client.get("/nope.js").status_code == 404
+        assert client.get("/..%2Fsecret.txt").status_code == 404
+        assert client.get("/health").status_code == 200  # API routes win over the catch-all
+
+
+def test_static_routes_work_without_an_assets_folder(settings, tmp_path):
+    dist = tmp_path / "dist"
+    dist.mkdir()
+    (dist / "index.html").write_text("<!doctype html>")
+    from dataclasses import replace
+
+    deps = build_deps(
+        replace(settings, web_dist=str(dist)), model=FakeSmartModel([]), tokens=FakeTokenMinter()
+    )
+    with TestClient(create_app(deps)) as client:
+        assert client.get("/").status_code == 200
+        assert client.get("/assets/x.js").status_code == 404

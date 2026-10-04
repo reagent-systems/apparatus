@@ -5,7 +5,9 @@ from apparatus_protocol import (
     C2S,
     EXTERNAL_CLOSE,
     EXTERNAL_OPEN,
+    INPUT_CHANNEL,
     S2A,
+    InputKind,
     JobResult,
     ProtocolError,
     dumps,
@@ -98,3 +100,44 @@ def test_every_constant_of_each_link_class_is_in_its_all_set():
             v for k, v in vars(cls).items() if k.isupper() and k != "ALL" and isinstance(v, str)
         }
         assert names == set(cls.ALL), f"{cls.__name__}.ALL drifted: {names ^ set(cls.ALL)}"
+
+
+def test_signal_carries_stream_id_on_every_link():
+    for allowed in (C2S.ALL, S2A.ALL, A2S.ALL):
+        parse('{"type":"signal","stream_id":"s1","payload":{"candidate":{}}}', allowed)
+        with pytest.raises(ProtocolError, match="missing field 'stream_id'"):
+            parse('{"type":"signal","handoff_id":"h1","payload":{}}', allowed)
+
+
+def test_screen_and_control_shapes():
+    parse('{"type":"screen.open"}', C2S.ALL)
+    parse('{"type":"screen.close","stream_id":"s1"}', C2S.ALL)
+    with pytest.raises(ProtocolError, match="missing field 'stream_id'"):
+        parse('{"type":"screen.close"}', C2S.ALL)
+    parse('{"type":"control.take"}', C2S.ALL)
+    parse('{"type":"control.release"}', C2S.ALL)
+    parse('{"type":"stream.start","stream_id":"s1","ice_servers":[{"urls":["stun:x"]}]}', S2A.ALL)
+    with pytest.raises(ProtocolError, match="must be list"):
+        parse('{"type":"stream.start","stream_id":"s1","ice_servers":"stun:x"}', S2A.ALL)
+    parse('{"type":"stream.stop","stream_id":"s1"}', S2A.ALL)
+    parse('{"type":"control","active":true}', S2A.ALL)
+    with pytest.raises(ProtocolError, match="must be bool"):
+        parse('{"type":"control","active":"yes"}', S2A.ALL)
+    # Client-only and agentd-only types do not cross links.
+    with pytest.raises(ProtocolError, match="unknown message type"):
+        parse('{"type":"screen.open"}', S2A.ALL)
+    with pytest.raises(ProtocolError, match="unknown message type"):
+        parse('{"type":"stream.start","stream_id":"s1","ice_servers":[]}', C2S.ALL)
+
+
+def test_input_kinds_and_channel_name():
+    assert INPUT_CHANNEL == "input"
+    assert InputKind.ALL == {
+        "mouse.move",
+        "mouse.down",
+        "mouse.up",
+        "wheel",
+        "key.down",
+        "key.up",
+        "touch",
+    }

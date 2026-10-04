@@ -27,7 +27,11 @@ The server checks every inbound message at the edge with `parse()`. A bad messag
 | `live.usage` | `audio_in_ms`, `audio_out_ms`, `input_tokens`, `output_tokens` | Relay of Live `usageMetadata` for metering. |
 | `live.resumption` | `handle` | Latest session resumption handle. The server stores it. |
 | `live.closed` | `reason` | The Live session closed. |
-| `signal` | `handoff_id`, `payload` | WebRTC signaling for the screen stream. Relayed to the VM. |
+| `screen.open` | | Start a screen stream for this device. The server answers `screen.opened`. |
+| `screen.close` | `stream_id` | End the stream. |
+| `control.take` | | Take the desktop. The server tells agentd and broadcasts `control`. |
+| `control.release` | | Give the desktop back. |
+| `signal` | `stream_id`, `payload` | WebRTC signaling for the screen stream. Relayed to the VM. `payload` is `{description: {type, sdp}}` or `{candidate: {candidate, sdpMid, sdpMLineIndex}}`. |
 | `push.register` | `platform` (fcm, apns, web), `token` | Register this device for push notifications: handoff, approval, job done. |
 | `ping` | | Keepalive. |
 
@@ -37,7 +41,7 @@ Any message may carry a `voice` string. The device that holds the voice session 
 
 | Type | Fields | Meaning |
 |---|---|---|
-| `ready` | `user_id`, `device_id`, `voice_holder`, `balance`, `gate` | Sent after `hello`. `gate` is the threshold table from `config/apparatus.toml`. |
+| `ready` | `user_id`, `device_id`, `voice_holder`, `balance`, `gate`, `jobs`, `control`, `streams` | Sent after `hello`. `gate` is the threshold table from `config/apparatus.toml`. `jobs` is the list of the user's active jobs in the `GET /jobs` shape. `control` is `{active, by}`. `streams` is the list of this device's open stream ids. |
 | `voice.granted` | | This device holds the voice session. |
 | `voice.revoked` | `by` | Another device took it. Close the Live session. |
 | `transcript` | `role`, `text` | For the feed on devices without the voice session. |
@@ -45,13 +49,16 @@ Any message may carry a `voice` string. The device that holds the voice session 
 | `job.progress` | `job_id`, `text`, `percent` | |
 | `job.done` | `job_id`, `status`, `say`, `show`, `artifacts`, `voice` | Result contract. |
 | `show` | `content` (markdown), `target` | Content for the large pane. |
-| `handoff.requested` | `handoff_id`, `job_id`, `reason`, `url`, `voice` | Open the live view. On a watch: show the notification only. |
+| `handoff.requested` | `handoff_id`, `job_id`, `reason`, `url`, `voice` | Open the live view: send `screen.open` when no stream is open, show Done and Cancel. On a watch: show the notification only. |
 | `handoff.ended` | `handoff_id`, `outcome` (done, cancel, timeout) | Close the live view. |
 | `approval.requested` | `approval_id`, `job_id`, `action`, `details`, `voice` | |
 | `approval.ended` | `approval_id`, `approved` | |
 | `tool.result` | `call_id`, `name`, `response`, `scheduling` | Answer to a relayed `tool.call`. The client sends it into the Live session as a function response with the given scheduling. |
 | `credits` | `balance`, `state` (ok, low, out), `voice` | `voice` is set once at low and once at out. |
-| `signal` | `handoff_id`, `payload` | WebRTC signaling from the VM. |
+| `screen.opened` | `stream_id`, `ice_servers` | The stream exists. `ice_servers` is a WebRTC `RTCIceServer[]`: `[{urls: [...]}, {urls: [...], username, credential}]`. The offer arrives as `signal`. |
+| `screen.closed` | `stream_id`, `reason` | The stream ended: `closed`, `vm.disconnect`, `device.disconnect`, `vm.closed` (agentd ended it; the server learns it from `vm.state`). |
+| `control` | `active`, `by` | Who holds the desktop. Sent to every device of the user. |
+| `signal` | `stream_id`, `payload` | WebRTC signaling from the VM. Sent only to the device that owns `stream_id`, never broadcast. |
 | `error` | `code`, `message` | |
 | `pong` | | |
 
@@ -66,7 +73,10 @@ Any message may carry a `voice` string. The device that holds the voice session 
 | `handoff.resume` | `task_id`, `handoff_id`, `outcome` | End the pause. |
 | `approval.answer` | `task_id`, `approval_id`, `approved` | Unblock `agentlib.request_approval`. |
 | `api.result` | `task_id`, `request_id`, `ok`, `result` or `error` | Unblock `agentlib.api`. |
-| `signal` | `handoff_id`, `payload` | WebRTC signaling from the client. |
+| `stream.start` | `stream_id`, `ice_servers` | Make an `RTCPeerConnection`, add the screen video track, create the `input` data channel, make the offer and send it as `signal`. |
+| `stream.stop` | `stream_id` | Close the peer connection. |
+| `control` | `active`, `stream_id` | The user holds the desktop. `stream_id` is the open stream of the controlling device, or null when it has none. Refuse `computer` with `user_control: the user controls the desktop` while true. Code-only tasks keep running. The server sends this on every VM connect, so a reconnected agentd never keeps a stale state. |
+| `signal` | `stream_id`, `payload` | WebRTC signaling from the client. |
 | `vm.status` | | Ask for `vm.state`. |
 
 ## agentd → server (`A2S`)
@@ -78,9 +88,27 @@ Any message may carry a `voice` string. The device that holds the voice session 
 | `task.stopped` | `task_id` | |
 | `tool.result` | `id`, `task_id`, `ok`, `output`, `error`, `image_b64`, `files` | `image_b64` is a PNG from `computer`. `files` are new paths in the task folder. |
 | `event` | `task_id`, `kind`, `request_id`, `payload` | Raised by agentlib or by a tool. Kinds: `say`, `progress`, `show`, `handoff.request`, `approval.request`, `api.request`. |
-| `signal` | `handoff_id`, `payload` | |
-| `vm.state` | `tasks`, `desktop_owner`, `handoff_active` | |
+| `signal` | `stream_id`, `payload` | The offer and ICE candidates for one stream. |
+| `vm.state` | `tasks`, `desktop_owner`, `handoff_active`, `streams`, `user_control`, `control_stream_id` | `streams` is the list of open stream ids. The server closes any registry stream missing from `streams` with reason `vm.closed`. |
 | `log` | `level`, `message` | |
+
+## Screen stream and input
+
+One stream per `screen.open`. The VM makes the offer; the client answers. Video flows whenever a stream is open. Input events travel on the WebRTC data channel named `input`, one JSON object per message, client → agentd:
+
+```json
+{"kind": "mouse.move", "x": 0.5, "y": 0.5, "button": 0, "dx": 0, "dy": 0, "key": "a", "code": "KeyA"}
+```
+
+| `kind` | Fields | Meaning |
+|---|---|---|
+| `mouse.move` | `x`, `y` | Move the pointer. `x` and `y` are 0..1 over the video frame; the client corrects for letterboxing. |
+| `mouse.down`, `mouse.up` | `x`, `y`, `button` | `button`: 0 left, 1 middle, 2 right. |
+| `wheel` | `x`, `y`, `dx`, `dy` | Scroll. |
+| `key.down`, `key.up` | `key`, `code` | DOM `KeyboardEvent.key` and `.code`. |
+| `touch` | `x`, `y`, `key` | `key` is the phase: `start`, `move`, `end`. Applied as the left button. |
+
+agentd applies an input event to the desktop only while a handoff is active, or while the user holds control AND the event arrived on the controlling device's stream (`control.stream_id`). Every other event is dropped and counted. The server-side belt: while a handoff is active for a user, `jobs.py` refuses `computer` calls before they reach the VM and drops any screenshot that arrives. The server audits `control.take`, `control.release`, `screen.open` and `screen.close` with the device id.
 
 ## agentlib → agentd (`LIB`)
 

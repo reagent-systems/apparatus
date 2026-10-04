@@ -88,8 +88,13 @@ class World:
         return [m for m in self.received if m["type"] == type_]
 
     async def wait_done(self, job, limit=15):
+        """Until the job ended AND its job.done message reached the client."""
+
+        def announced() -> bool:
+            return any(m.get("job_id") == job.job_id for m in self.messages(S2C.JOB_DONE))
+
         async with asyncio.timeout(limit):
-            while job.active:
+            while job.active or (self.clients.has_session(USER) and not announced()):
                 await asyncio.sleep(0.02)
         return job
 
@@ -309,3 +314,29 @@ async def test_vm_never_connecting_fails_the_job_cleanly(settings, tmp_path):
         assert (await w.ledger.account(USER))["holds"] == {}
     finally:
         await w.stop()
+
+
+async def test_computer_is_refused_on_the_server_while_a_handoff_is_open(world_factory):
+    """A second job cannot capture the screen while the first waits in a handoff."""
+
+    def script(history):
+        last = json.dumps(history[-1])
+        if "Job: first" in last:
+            return ModelReply(
+                calls=[FunctionCall("h", "handoff", {"reason": "login", "url": "https://x"})]
+            )
+        if "Job: second" in last:
+            return ModelReply(calls=[FunctionCall("c", "computer", {"action": "screenshot"})])
+        return final(say="Done.")
+
+    w = await world_factory(FakeSmartModel(script))
+    first = await w.jobs.start(USER, "first")
+    req = await w.wait_message(S2C.HANDOFF_REQUESTED)
+    second = await w.jobs.start(USER, "second")
+    await w.wait_done(second)
+    history = json.dumps(await w.store.get("job_history", second.job_id))
+    assert "handoff_active" in history and "inline_data" not in history
+    assert w.core.handoff_active is True
+    await w.jobs.end_handoff(req["handoff_id"], "done", USER)
+    await w.wait_done(first)
+    assert first.status == JobStatus.DONE

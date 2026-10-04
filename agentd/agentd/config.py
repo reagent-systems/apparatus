@@ -23,6 +23,9 @@ class AgentdConfig:
     max_output_chars: int
     reconnect_min_seconds: float
     reconnect_max_seconds: float
+    stream_fps: int
+    stream_width: int
+    stream_height: int
 
     @classmethod
     def from_env(cls, env: dict[str, str] | None = None) -> AgentdConfig:
@@ -47,4 +50,7 @@ class AgentdConfig:
             max_output_chars=int(e.get("AGENTD_MAX_OUTPUT_CHARS", "50000")),
             reconnect_min_seconds=float(e.get("AGENTD_RECONNECT_MIN_SECONDS", "1")),
             reconnect_max_seconds=float(e.get("AGENTD_RECONNECT_MAX_SECONDS", "30")),
+            stream_fps=int(e.get("AGENTD_STREAM_FPS", "12")),
+            stream_width=int(e.get("AGENTD_STREAM_WIDTH", "1280")),
+            stream_height=int(e.get("AGENTD_STREAM_HEIGHT", "800")),
         )

@@ -121,8 +121,18 @@ class VmLink:
             )
         )
 
-    async def signal(self, handoff_id: str, payload: dict[str, Any]) -> None:
-        await self._send(msg(S2A.SIGNAL, handoff_id=handoff_id, payload=payload))
+    async def stream_start(self, stream_id: str, ice_servers: list[dict[str, Any]]) -> None:
+        await self._send(msg(S2A.STREAM_START, stream_id=stream_id, ice_servers=ice_servers))
+
+    async def stream_stop(self, stream_id: str) -> None:
+        await self._send(msg(S2A.STREAM_STOP, stream_id=stream_id))
+
+    async def control(self, active: bool, stream_id: str | None = None) -> None:
+        """``stream_id`` is the controlling device's open stream, or None."""
+        await self._send(msg(S2A.CONTROL, active=active, stream_id=stream_id))
+
+    async def signal(self, stream_id: str, payload: dict[str, Any]) -> None:
+        await self._send(msg(S2A.SIGNAL, stream_id=stream_id, payload=payload))
 
     # -------------------------------------------------------------- #
     # messages from the VM

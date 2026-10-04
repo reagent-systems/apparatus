@@ -74,6 +74,15 @@ class Vm:
 
 
 @dataclass(frozen=True)
+class Stream:
+    stun_url: str = "stun:stun.l.google.com:19302"
+    turn_ttl_seconds: int = 3600
+    fps: int = 12
+    width: int = 1280
+    height: int = 800
+
+
+@dataclass(frozen=True)
 class Credits:
     credit_price_usd: float = 0.01
     trial_grant: int = 500
@@ -105,6 +114,7 @@ class Settings:
     gate: Gate = field(default_factory=Gate)
     jobs: Jobs = field(default_factory=Jobs)
     vm: Vm = field(default_factory=Vm)
+    stream: Stream = field(default_factory=Stream)
     credits: Credits = field(default_factory=Credits)
     prices: Prices = field(default_factory=Prices)
 
@@ -122,6 +132,8 @@ class Settings:
     gce_zone: str = ""
     push: str = "log"  # log | fcm
     web_dist: str = "web/dist"
+    turn_url: str = ""  # empty: no TURN relay, STUN only
+    turn_secret: str = ""  # coturn use-auth-secret
     config_path: str = "config/apparatus.toml"
 
     def gate_dict(self) -> dict[str, Any]:
@@ -134,6 +146,7 @@ _SECTIONS = {
     "gate": Gate,
     "jobs": Jobs,
     "vm": Vm,
+    "stream": Stream,
     "credits": Credits,
     "prices": Prices,
 }
@@ -193,5 +206,7 @@ def load_settings(env: dict[str, str] | None = None) -> Settings:
         gce_zone=e.get("GCE_ZONE", ""),
         push=e.get("APPARATUS_PUSH", "log"),
         web_dist=e.get("APPARATUS_WEB_DIST", "web/dist"),
+        turn_url=e.get("APPARATUS_TURN_URL", ""),
+        turn_secret=e.get("APPARATUS_TURN_SECRET", ""),
         config_path=config_path,
     )

@@ -35,7 +35,8 @@ class Agentd:
     def __init__(self, cfg: AgentdConfig):
         self.cfg = cfg
         self.outbox: asyncio.Queue[dict[str, Any]] = asyncio.Queue()
-        self.core = AgentdCore(cfg, make_backend(cfg.desktop, cfg.display), self.outbox.put)
+        backend = make_backend(cfg.desktop, cfg.display, cfg.stream_width, cfg.stream_height)
+        self.core = AgentdCore(cfg, backend, self.outbox.put)
         self.lib = LibServer(cfg.socket_path, self.core.lib_request)
         self.stopping = asyncio.Event()
 
@@ -46,7 +47,7 @@ class Agentd:
             user_id=self.cfg.user_id,
             auth=enrollment_auth(self.cfg.enroll_secret, self.cfg.vm_id),
             version=PROTOCOL_VERSION,
-            capabilities={"desktop": self.cfg.desktop != "fake", "python": True},
+            capabilities={"desktop": self.cfg.desktop != "fake", "python": True, "stream": True},
         )
 
     async def run(self) -> None:

@@ -4,7 +4,7 @@
 FROM python:3.11-slim
 ENV DEBIAN_FRONTEND=noninteractive PYTHONUNBUFFERED=1
 RUN apt-get update && apt-get install -y --no-install-recommends \
-      xvfb xdotool imagemagick x11-utils xfce4-session xfwm4 xfce4-panel \
+      xvfb xdotool imagemagick x11-utils xfce4-session xfwm4 xfce4-panel ffmpeg \
       chromium fonts-dejavu-core curl ca-certificates iptables sudo \
     && rm -rf /var/lib/apt/lists/*
 RUN useradd --create-home --shell /bin/bash agent
@@ -19,5 +19,6 @@ RUN mkdir -p server/apparatus_server && touch server/apparatus_server/__init__.p
 COPY vm/entrypoint.sh /usr/local/bin/entrypoint.sh
 RUN chmod +x /usr/local/bin/entrypoint.sh
 ENV DISPLAY=:0 AGENTD_HOME=/home/agent AGENTD_DESKTOP=xdo AGENTD_KERNEL_USER=agent \
+    AGENTD_STREAM_FPS=12 AGENTD_STREAM_WIDTH=1280 AGENTD_STREAM_HEIGHT=800 \
     AGENTD_SERVER_URL=ws://host.docker.internal:8080/ws/agentd AGENTD_VM_ID=local AGENTD_USER_ID=dev
 ENTRYPOINT ["/usr/local/bin/entrypoint.sh"]
