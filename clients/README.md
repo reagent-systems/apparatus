@@ -1,6 +1,6 @@
 # Clients
 
-Native shells around the web client in `web/`, plus 2 native watch apps. Each shell builds `web/dist`, copies it into its own `dist/`, and replaces `bridge.js` with its own build of `src/bridge.ts`. The web app reads `window.apparatusBridge` at startup and gets the OS keychain, notifications, push, and the session server origin from it. The watch apps run no web view: they speak the same protocol natively, with push to talk and notifications only (`clients/watchos/README.md`, `clients/wearos/README.md`).
+Native shells around the web client in `web/`, plus 2 native watch apps. Each shell builds `web/dist`, copies the whole tree into its own `dist/`, and overwrites `bridge.js` with its own build of `src/bridge.ts`. The web app reads `window.apparatusBridge` at startup and gets the OS keychain, notifications, push, and the session server origin from it. The watch apps run no web view: they speak the same protocol natively, with push to talk and notifications only (`clients/watchos/README.md`, `clients/wearos/README.md`).
 
 | Platform | Shell | Build command | CI job | Artifact |
 |---|---|---|---|---|
@@ -33,7 +33,24 @@ interface ApparatusBridge {
 }
 ```
 
-`index.html` loads `./bridge.js` as a module before `./app.js`. Each shell freezes the bridge object and defines `window.apparatusBridge` as read-only.
+`dist/bridge.js` is a classic script, not a module. `index.html` loads it with `<script src="/bridge.js">` before the app module, so it sets `window.apparatusBridge` synchronously at load. `scripts/bridge.mjs` bundles it with esbuild in `iife` format with no top-level await. Each shell freezes the bridge object and defines `window.apparatusBridge` as read-only.
+
+## Dist layout
+
+`web/dist` after `npm --prefix web run build`:
+
+| Path | Content |
+|---|---|
+| `dist/index.html` | Loads `/bridge.js` as a classic script, then the app module from `/assets/`. |
+| `dist/assets/*` | Hashed JS and CSS from Vite. |
+| `dist/bridge.js` | The web default bridge. A shell overwrites it. |
+| `dist/worklet.js` | The AudioWorklet module. |
+
+`prepare-dist` copies this tree with `cpSync(..., { recursive: true })`, checks that `index.html`, `worklet.js`, `bridge.js` and a non-empty `assets/` exist, then runs `scripts/bridge.mjs` over `dist/bridge.js`. The paths in `index.html` are absolute (`/assets/...`, `/bridge.js`). Tauri serves the dist root at `/` through its custom protocol. Capacitor with `androidScheme: "https"` serves the app root at `https://localhost/`. Both resolve the absolute paths.
+
+## VM screen widget
+
+The web app holds the VM screen widget. On a phone it opens full screen. On desktop it lives in the center pane. Control takes the desktop; Release gives it back. The widget is a `<video>` element on a WebRTC stream and the orb is a bundled canvas library. Neither loads anything external.
 
 ## Desktop: Tauri 2
 
@@ -57,7 +74,7 @@ cd web && npm ci && cd ../clients/desktop && npm ci
 npm run dev
 ```
 
-`npm run dev` writes `src-tauri/gen/server.conf.json`, then runs `tauri dev --config` with it. `tauri dev` runs `npm run prepare-dist` first. That script builds `web/`, copies `web/dist` to `dist/`, and bundles the bridge. It also generates `src-tauri/icons` from `src-tauri/app-icon.png` when `icon.png` is missing.
+`npm run dev` writes `src-tauri/gen/server.conf.json`, then runs `tauri dev --config` with it. `tauri dev` runs `npm run prepare-dist` first. That script builds `web/`, copies the `web/dist` tree (with `assets/`) to `dist/`, and bundles the bridge over `dist/bridge.js`. It also generates `src-tauri/icons` from `src-tauri/app-icon.png` when `icon.png` is missing.
 
 ### Build
 
@@ -65,7 +82,7 @@ npm run dev
 APPARATUS_SERVER_ORIGIN=https://session.example.com npm run build
 ```
 
-Bundles land in `src-tauri/target/release/bundle/`. The origin lands in 2 places: `dist/bridge.js` and the CSP `connect-src` in `src-tauri/gen/server.conf.json`. The base CSP in `src-tauri/tauri.conf.json` allows `'self'`, `ipc:`, `http://ipc.localhost` and `generativelanguage.googleapis.com` over https and wss.
+Bundles land in `src-tauri/target/release/bundle/`. The origin lands in 2 places: `dist/bridge.js` and the CSP `connect-src` in `src-tauri/gen/server.conf.json`. The base CSP in `src-tauri/tauri.conf.json` allows `'self'`, `ipc:`, `http://ipc.localhost` and `generativelanguage.googleapis.com` over https and wss. `media-src 'self' blob:` covers the `<video>` element of the VM screen widget. `worker-src 'self' blob:` covers the AudioWorklet. `img-src 'self' data: blob:` covers the orb canvas and screen frames. WebRTC, STUN and TURN are not governed by CSP.
 
 For `cargo check` without a web build: `npm run icons`, then put any `index.html` in `dist/`.
 
@@ -78,9 +95,11 @@ For `cargo check` without a web build: `npm run icons`, then put any `index.html
 - `cargo check` on Linux with `libwebkit2gtk-4.1-dev` and `libdbus-1-dev`: 0 warnings.
 - `npx tauri build --debug --no-bundle --config src-tauri/gen/server.conf.json` on Linux. It ran `npm run prepare-dist` against the real `web/dist` and built `target/debug/apparatus-desktop`.
 - `npx tsc --noEmit` on `src/bridge.ts`.
+- `node scripts/bridge.mjs` emits an `iife` classic script; loaded in a bare `window`, it sets `window.apparatusBridge` before the script returns.
 
 ### Unverified in the sandbox that wrote this
 
+- `tauri dev` and `tauri build` against the Vite dist layout (`assets/`, absolute `/bridge.js`) ran in no build.
 - No macOS, no Windows. The macOS and Windows builds, the Keychain and Credential Manager paths, and the Hardened Runtime entitlement ran in no build.
 - Microphone permission prompts on WebKitGTK and WebView2 ran in no build.
 
@@ -148,7 +167,9 @@ npx cap sync ios && xcodebuild -workspace ios/App/App.xcworkspace -scheme App -c
 
 - `npm run prepare-dist` against the real `web/dist`, `npx cap sync android`, and `./gradlew assembleDebug` with SDK platform 34 and build-tools 34.0.0. The APK holds the 4 permissions, `usesCleartextTraffic="false"`, and this shell's `bridge.js`.
 - `npx tsc --noEmit` on `src/bridge.ts` and `capacitor.config.ts`.
+- `node scripts/bridge.mjs` emits an `iife` classic script; loaded in a bare `window`, it sets `window.apparatusBridge` before the script returns.
 
 ### Unverified in the sandbox that wrote this
 
+- `cap sync` and the Android build against the Vite dist layout (`assets/`, absolute `/bridge.js`) ran in no build.
 - No macOS and no Xcode. `cap add ios` ran on Linux and skipped `pod install`. The `App.xcworkspace` contents file appears after the first `pod install`. The `project.pbxproj` edit, the entitlements, and the IPA export ran in no build.

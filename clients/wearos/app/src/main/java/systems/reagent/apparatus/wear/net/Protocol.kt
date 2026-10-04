@@ -20,6 +20,11 @@ object C2S {
     const val SIGNAL = "signal"
     const val PUSH_REGISTER = "push.register"
     const val PING = "ping"
+    // Screen stream and desktop control. The watch has no screen view and never sends them.
+    const val SCREEN_OPEN = "screen.open"
+    const val SCREEN_CLOSE = "screen.close"
+    const val CONTROL_TAKE = "control.take"
+    const val CONTROL_RELEASE = "control.release"
 }
 
 object S2C {
@@ -38,6 +43,10 @@ object S2C {
     const val TOOL_RESULT = "tool.result"
     const val CREDITS = "credits"
     const val SIGNAL = "signal"
+    // Screen stream and desktop control: parsed and ignored on the watch.
+    const val SCREEN_OPENED = "screen.opened"
+    const val SCREEN_CLOSED = "screen.closed"
+    const val CONTROL = "control"
     const val ERROR = "error"
     const val PONG = "pong"
 }

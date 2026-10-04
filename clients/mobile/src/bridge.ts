@@ -1,6 +1,6 @@
 // Mobile bridge. esbuild bundles this file to dist/bridge.js, which replaces
-// the web build's bridge.js. index.html loads it before app.js, and app.js
-// reads window.apparatusBridge at startup.
+// the web build's bridge.js. index.html loads it as a classic script before
+// the app module, and the app reads window.apparatusBridge at startup.
 //
 // The server origin is a build-time constant. esbuild replaces
 // process.env.APPARATUS_SERVER_ORIGIN with a string literal
