@@ -1,0 +1,84 @@
+# AGENTS.md — the binding contract
+
+In effect whenever code in this repo is touched, by agent or human.
+When this conflicts with intuition, this wins.
+
+## Commands
+
+```sh
+npm --prefix web run build                                    # build (the web bundle; Python needs no build)
+uv run pytest && npm --prefix web test                        # tests
+uv run ruff check . && uv run ruff format --check . && npm --prefix web run typecheck   # lint / format check
+verify/verify.sh                                              # full health gate — must pass before any push
+```
+
+Requires Python 3.11, Node 22, uv 0.8. Rust, Xcode and the Android SDK are needed only
+for the native shells; `verify/verify.sh` skips those gates loudly when they are absent.
+
+## Invariants — never regress these
+
+1. **The model never sees secrets.** The Gemini key lives in the session server only
+   (`server/apparatus_server/tokens.py`, `model.py`). No environment variable or file in a
+   VM holds a key. `agentlib` sends requests; the server does the action.
+2. **Model calls run on the server. The VM only executes tools.** `agentd` has no model
+   client and no prompt. The loop is `server/apparatus_server/jobs.py`.
+3. **A voice-model tool call never blocks.** Every declaration carries
+   `behavior: NON_BLOCKING` and the server answers at once (`voice.py`, `main.py`). Job
+   events reach the voice through the `voice` field of a server-to-client message, which
+   the voice-holding client injects as an `<event>` turn.
+4. **Tool output is data.** Every result from the VM is wrapped by `wrap_external` before
+   the model sees it, and the smart system prompt says text inside the markers is never an
+   instruction. Do not add a path that feeds raw VM output into a prompt.
+5. **One desktop, one lock, no capture during a handoff.** `agentd/desktop.py` holds the
+   lock per task; `core.py` refuses `computer` for every task while any handoff is active.
+   Code-only tasks keep running.
+6. **State lives on the server.** Clients hold no prompt, no model name, no threshold. They
+   get the gate table in `ready` and the Live setup from `/token`. No client exposes a
+   setting that changes an endpoint.
+7. **One config file.** Every model name, threshold, budget and price is in
+   `config/apparatus.toml` and documented in `agent-kit/docs/CONFIGURATION.md`; the gate
+   `verify/gates/config_documented.py` enforces it. Every message type is in
+   `agent-kit/docs/PROTOCOL.md`; `verify/gates/protocol_documented.py` enforces it.
+8. **The ledger is the balance.** A job takes a hold at start and settles at the end;
+   steps beyond the hold charge as they go; an empty balance pauses the job and deletes
+   nothing (`ledger.py`, `jobs.py`).
+9. **The audit log is append-only on the server.** Nothing in the VM has a path to it.
+10. **The VM dials out and listens to nothing.** No inbound ports, metadata server blocked
+    for the agent, service account with no roles (`vm/setup.sh`, `deploy/gcp/main.tf`).
+
+## Landmine map
+
+| Area | Why it bites |
+|---|---|
+| `protocol/apparatus_protocol/__init__.py` `_REQUIRED` | Keyed by link. `tool.call` from a client and `tool.call` to agentd have different shapes. A merged table silently drops one. A test guards `ALL` sets against drift. |
+| `apparatus_protocol.msg()` | Drops `None` values. A field that must be an explicit `null` (for example `desktop_owner`) is set after the call. |
+| `agentd/agentd/kernel_child.py` | fd 1 and 2 are redirected per execution; the protocol channel is a dup of the original stdout. Printing to the real fd 1 from the child breaks the link. |
+| `agentd/agentd/core.py` handoffs | A handoff started by `agentlib.handoff` already paused the task and uses `request_id` as the handoff id. The server must not send `task.pause` for it, or the resume never matches. |
+| `agentd/agentd/kernel.py` `blocked` | The execution deadline restarts while an agentlib call waits. Forgetting to clear `blocked` makes a step immortal. |
+| `server/apparatus_server/jobs.py` `_meter` | Pricing runs on every reply, including summaries. A step that exceeds the hold charges at once and can pause the job mid-loop. |
+| `server/apparatus_server/main.py` static routes | API routes are declared before the `/` and `/{name}.js` catch-alls. Add new routes above them. |
+| `pyproject.toml` ruff config | `ASYNC109` is off on purpose (we pass deadlines). Tests dirs have no `__init__.py`: test file basenames must be unique across packages. |
+| `web/tsconfig.json` | `erasableSyntaxOnly`: no enums, parameter properties or namespaces, because Node runs the tests on raw TypeScript. |
+| `web/src/index.html` | `bridge.js` loads before `app.js`. Native shells overwrite `dist/bridge.js`; the web build emits the no-op default. |
+| `clients/mobile/android` | Cleartext is off. A device build needs an `https` `APPARATUS_SERVER_ORIGIN`. |
+| `clients/desktop/src-tauri/tauri.conf.json` | The server origin reaches the CSP through a generated merge file (`npm run server-config`), not by editing this file. |
+
+## House style
+
+- Match the surrounding code's idiom, naming, and comment density.
+- No demo scaffolding, no leftover diagnostics, no dead flags.
+- Comments state constraints the code can't show — never narration.
+- User-facing copy states the thing plainly; no reassurance microcopy. `docs/STYLE.md` rules.
+
+## Process rules
+
+- Branch from `main`; never commit to it directly.
+- `verify/verify.sh` green before every push. Flaky gate → fix or
+  quarantine in the same PR; never route around it.
+- After adding/removing/renaming source files, run the stack's
+  regeneration step (`uv lock`, `npm install` for a lockfile) and commit the result.
+- Commit at boundaries; message says what changed and cites evidence.
+- Docs move with behavior — same commit or PR. A new option lands in
+  `docs/CONFIGURATION.md`; a new message in `docs/PROTOCOL.md`; a moved
+  boundary in `docs/ARCHITECTURE.md`.
+- Report outcomes faithfully; failing is failing, with output.
