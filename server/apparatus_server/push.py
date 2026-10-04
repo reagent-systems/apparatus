@@ -48,18 +48,7 @@ class FcmPush:
         bearer = await self.token_provider()
         ok = 0
         for token in tokens:
-            message = {
-                "message": {
-                    "token": token,
-                    "notification": {"title": title, "body": body},
-                    "data": {k: str(v) for k, v in data.items()},
-                    "android": {"priority": "high"},
-                    "apns": {
-                        "headers": {"apns-priority": "10"},
-                        "payload": {"aps": {"sound": "default"}},
-                    },
-                }
-            }
+            message = {"message": fcm_message(token, title, body, data)}
             try:
                 r = await self.client.post(
                     self.url, json=message, headers={"Authorization": f"Bearer {bearer}"}
@@ -71,6 +60,30 @@ class FcmPush:
             except httpx.HTTPError as e:
                 log.warning("fcm error: %s", e)
         return ok
+
+
+# Notification categories the watch and phone apps register. A category gives
+# the notification its action buttons (Approve, Deny) on the device.
+CATEGORIES = {"handoff": "apparatus.handoff", "approval": "apparatus.approval"}
+
+
+def fcm_message(token: str, title: str, body: str, data: dict[str, str]) -> dict[str, Any]:
+    """One FCM v1 message with the APNs category and Android channel set from ``data['kind']``."""
+    kind = str(data.get("kind", ""))
+    category = CATEGORIES.get(kind)
+    aps: dict[str, Any] = {"sound": "default"}
+    if category:
+        aps["category"] = category
+    message: dict[str, Any] = {
+        "token": token,
+        "notification": {"title": title, "body": body},
+        "data": {k: str(v) for k, v in data.items()},
+        "android": {"priority": "high", "notification": {"channel_id": kind or "apparatus"}},
+        "apns": {"headers": {"apns-priority": "10"}, "payload": {"aps": aps}},
+    }
+    if category:
+        message["android"]["notification"]["click_action"] = category
+    return message
 
 
 async def gce_metadata_token() -> str:
