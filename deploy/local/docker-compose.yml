@@ -1,0 +1,33 @@
+# Local development: the session server plus one VM stand-in with a virtual desktop.
+#   cp .env.example .env   # fill GEMINI_API_KEY for real voice; leave empty to run the fake model
+#   docker compose -f deploy/local/docker-compose.yml up --build
+# Then open http://localhost:8080 (dev auth: the user id is "dev").
+services:
+  server:
+    build:
+      context: ../..
+      dockerfile: server/Dockerfile
+    ports: ["8080:8080"]
+    env_file: ../../.env
+    environment:
+      APPARATUS_STORE: file
+      APPARATUS_DATA_DIR: /data
+      APPARATUS_VM_CONTROLLER: local
+      APPARATUS_AUTH_MODE: dev
+    volumes: ["server-data:/data"]
+  vm:
+    build:
+      context: ../..
+      dockerfile: vm/Dockerfile
+    depends_on: [server]
+    environment:
+      AGENTD_SERVER_URL: ws://server:8080/ws/agentd
+      AGENTD_USER_ID: dev
+      AGENTD_VM_ID: local
+      APPARATUS_VM_ENROLL_SECRET: ${APPARATUS_VM_ENROLL_SECRET:-}
+    volumes: ["agent-home:/home/agent"]
+    cap_add: [NET_ADMIN]
+    shm_size: 1g
+volumes:
+  server-data: {}
+  agent-home: {}

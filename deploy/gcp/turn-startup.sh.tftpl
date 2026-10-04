@@ -1,0 +1,17 @@
+#!/usr/bin/env bash
+set -euo pipefail
+apt-get update && apt-get install -y coturn
+cat > /etc/turnserver.conf <<CONF
+listening-port=3478
+fingerprint
+use-auth-secret
+static-auth-secret=${turn_secret}
+realm=${realm}
+total-quota=100
+no-tcp-relay
+min-port=49152
+max-port=65535
+no-cli
+CONF
+sed -i 's/^#TURNSERVER_ENABLED=1/TURNSERVER_ENABLED=1/' /etc/default/coturn
+systemctl enable --now coturn

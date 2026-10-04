@@ -1,0 +1,22 @@
+[Unit]
+Description=apparatus agentd (one outbound link to the session server)
+After=network-online.target apparatus-display.service
+Wants=network-online.target
+
+[Service]
+User=agentd
+Group=agentd
+WorkingDirectory=/opt/apparatus
+# Deployment facts only. No API keys here, ever.
+EnvironmentFile=/etc/apparatus/agentd.env
+Environment=DISPLAY=:0 AGENTD_HOME=/home/agent AGENTD_DESKTOP=xdo AGENTD_KERNEL_USER=agent
+Environment=APPARATUS_VM_ENROLL_SECRET_FILE=/etc/apparatus/enroll.secret
+ExecStart=/opt/apparatus/.venv/bin/agentd
+Restart=always
+RestartSec=3
+NoNewPrivileges=false
+ProtectSystem=strict
+ReadWritePaths=/home/agent /var/lib/agentd /tmp
+
+[Install]
+WantedBy=multi-user.target

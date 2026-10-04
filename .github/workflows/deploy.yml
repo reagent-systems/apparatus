@@ -1,0 +1,67 @@
+# Deploy the session server to Cloud Run and refresh the user-VM image family.
+# Runs after a release tag, or by hand. Needs Workload Identity Federation:
+#   vars.GCP_PROJECT, vars.GCP_REGION, vars.GCP_ZONE, vars.GCP_WORKLOAD_IDENTITY_PROVIDER,
+#   vars.GCP_DEPLOY_SERVICE_ACCOUNT
+# Without GCP_PROJECT every job skips. Nothing here holds a key.
+name: Deploy
+on:
+  push:
+    tags: ['v*.*.*']
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: Target environment
+        default: staging
+        type: choice
+        options: [staging, production]
+permissions:
+  contents: read
+  id-token: write
+jobs:
+  cloud-run:
+    if: vars.GCP_PROJECT != ''
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    environment: ${{ inputs.environment || 'production' }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ vars.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+          service_account: ${{ vars.GCP_DEPLOY_SERVICE_ACCOUNT }}
+      - uses: google-github-actions/setup-gcloud@v2
+      - name: Build and push the server image to Artifact Registry
+        run: |
+          IMAGE="${{ vars.GCP_REGION }}-docker.pkg.dev/${{ vars.GCP_PROJECT }}/apparatus/server:${{ github.sha }}"
+          gcloud auth configure-docker "${{ vars.GCP_REGION }}-docker.pkg.dev" --quiet
+          docker build -f server/Dockerfile -t "$IMAGE" .
+          docker push "$IMAGE"
+          echo "IMAGE=$IMAGE" >> "$GITHUB_ENV"
+      - name: Deploy to Cloud Run
+        run: |
+          gcloud run deploy apparatus-server \
+            --project "${{ vars.GCP_PROJECT }}" --region "${{ vars.GCP_REGION }}" \
+            --image "$IMAGE" --platform managed \
+            --no-cpu-throttling --min-instances 1 --max-instances 20 \
+            --session-affinity --timeout 3600 --port 8080 \
+            --set-env-vars "APPARATUS_AUTH_MODE=firebase,APPARATUS_STORE=file,APPARATUS_VM_CONTROLLER=gce,APPARATUS_PUSH=fcm,GCE_PROJECT=${{ vars.GCP_PROJECT }},GCE_ZONE=${{ vars.GCP_ZONE }},FIREBASE_PROJECT_ID=${{ vars.GCP_PROJECT }}" \
+            --set-secrets "GEMINI_API_KEY=gemini-api-key:latest,APPARATUS_VM_ENROLL_SECRET=vm-enroll-secret:latest" \
+            --quiet
+
+  vm-image:
+    if: vars.GCP_PROJECT != ''
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    environment: ${{ inputs.environment || 'production' }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ vars.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+          service_account: ${{ vars.GCP_DEPLOY_SERVICE_ACCOUNT }}
+      - uses: google-github-actions/setup-gcloud@v2
+      - name: Build the user-VM image with vm/setup.sh on a builder instance
+        run: deploy/gcp/build-vm-image.sh
+        env:
+          GCP_PROJECT: ${{ vars.GCP_PROJECT }}
+          GCP_ZONE: ${{ vars.GCP_ZONE }}
