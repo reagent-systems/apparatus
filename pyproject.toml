@@ -1,0 +1,49 @@
+[project]
+name = "apparatus"
+version = "0.1.0"
+description = "Live voice agent with a cloud desktop VM per user."
+requires-python = ">=3.11"
+dependencies = [
+  "apparatus-protocol",
+  "apparatus-server",
+  "agentd",
+]
+
+[dependency-groups]
+dev = [
+  "pytest>=8",
+  "pytest-asyncio>=0.24",
+  "ruff>=0.6",
+  "pyyaml>=6",
+]
+
+[tool.uv]
+package = false
+
+[tool.uv.workspace]
+members = ["protocol", "server", "agentd"]
+
+[tool.uv.sources]
+apparatus-protocol = { workspace = true }
+apparatus-server = { workspace = true }
+agentd = { workspace = true }
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+extend-exclude = ["web", ".venv"]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "B", "UP", "ASYNC"]
+ignore = ["E501", "ASYNC109"]
+
+[tool.ruff.lint.per-file-ignores]
+"*/tests/*" = ["ASYNC110"]
+
+[tool.ruff.lint.isort]
+known-first-party = ["agentd", "agentlib", "apparatus_protocol", "apparatus_server"]
+
+[tool.pytest.ini_options]
+testpaths = ["protocol/tests", "server/tests", "agentd/tests"]
+asyncio_mode = "auto"
+asyncio_default_fixture_loop_scope = "function"

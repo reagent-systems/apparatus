@@ -1,0 +1,90 @@
+# apparatus.toml - the one config file.
+# Every model name, threshold, budget and price lives here.
+# docs: agent-kit/docs/CONFIGURATION.md lists every field with its default.
+
+[models]
+# Confirm each string in Google AI Studio before you run against the paid tier.
+voice = "gemini-3.8-live"
+voice_premium = "gemini-3.8-live-extended-thinking"
+smart = "gemini-3.8-flash"
+smart_upgrade = "gemini-3.1-pro-preview"
+# Use the upgrade model for every job. Per-job override: start_job context "model=pro".
+smart_use_upgrade = false
+
+[live]
+# Ephemeral token lifetimes, seconds. Google defaults: 60 to start, 1800 to send.
+token_new_session_seconds = 60
+token_expire_seconds = 1800
+# Close the Live session after this many seconds with no speech and no job event.
+idle_close_seconds = 120
+# Audio formats the Live API accepts and emits.
+input_sample_rate = 16000
+output_sample_rate = 24000
+# The gate controls turns. Automatic activity detection is off.
+automatic_activity_detection = false
+session_resumption = true
+context_window_compression = true
+# Rolling conversation summary loaded into each new Live session.
+summary_max_chars = 2000
+
+[gate]
+# Voice gate thresholds. The server sends this table to every client at /config.
+# Log every decision with its reason, never the audio.
+vad_energy_threshold = 0.015
+vad_hangover_ms = 240
+min_speech_ms = 300
+# Two silence limits for the turn detector.
+silence_complete_ms = 500
+silence_incomplete_ms = 2500
+# Barge-in while the model speaks.
+bargein_min_voice_ms = 300
+bargein_min_words = 2
+# Stop playback within this many ms after a valid interruption.
+bargein_stop_ms = 200
+speaker_check = false
+speaker_match_threshold = 0.75
+
+[jobs]
+max_steps = 40
+max_tokens = 400000
+max_wall_seconds = 900
+# Replace old steps with a summary when the context passes this many characters.
+context_summary_chars = 60000
+# Steps to keep verbatim after a summary.
+context_keep_steps = 6
+# Per python call.
+python_timeout_seconds = 120
+# Handoff wait limit, minutes. The task stays paused after it.
+handoff_wait_minutes = 30
+approval_wait_minutes = 30
+
+[vm]
+idle_stop_minutes = 30
+# Only one task controls the desktop. A second task waits this long before desktop_busy.
+desktop_lock_wait_seconds = 5
+disk_home = "/home/agent"
+
+[credits]
+# One credit = credit_price_usd. Balances are whole numbers.
+credit_price_usd = 0.01
+trial_grant = 500
+monthly_grant = 3000
+rollover = false
+daily_cap = 1500
+low_balance_fraction = 0.20
+# Hold per job at start. Unused part returns at job end.
+job_hold = 100
+
+[prices]
+# List prices from the Google pricing page, Oct 2026. Measure before you trust them.
+live_audio_in_usd_per_minute = 0.005
+live_audio_out_usd_per_minute = 0.018
+smart_input_usd_per_mtok = 0.75
+smart_output_usd_per_mtok = 3.75
+smart_cached_input_usd_per_mtok = 0.075
+upgrade_input_usd_per_mtok = 2.0
+upgrade_output_usd_per_mtok = 12.0
+vm_usd_per_hour = 0.10
+disk_usd_per_month = 2.0
+# Margin over cost when turning dollars into credits.
+markup = 1.5
