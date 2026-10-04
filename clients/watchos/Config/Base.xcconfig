@@ -1,0 +1,15 @@
+// Build settings shared by Debug and Release.
+//
+// APPARATUS_SERVER_ORIGIN becomes the Info.plist key ApparatusServerOrigin.
+// It is the only server setting and it is fixed at build time. Override on
+// the command line:
+//   xcodebuild ... APPARATUS_SERVER_ORIGIN='https:/$()/apparatus.example'
+// xcconfig reads `//` as a comment start, so the empty `$()` breaks the pair.
+// `localhost` resolves to the Mac in the watchOS Simulator only. A real
+// watch needs a reachable https origin.
+APPARATUS_SERVER_ORIGIN = http:/$()/localhost:8080
+
+// Signing. No team is committed. Pass DEVELOPMENT_TEAM=TEAMID on the
+// command line, or set it in Xcode > Signing & Capabilities (local only).
+CODE_SIGN_STYLE = Automatic
+DEVELOPMENT_TEAM =

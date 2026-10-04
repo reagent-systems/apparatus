@@ -1,0 +1,236 @@
+package systems.reagent.apparatus.wear.net
+
+import android.util.Base64
+import android.util.Log
+import java.util.concurrent.atomic.AtomicBoolean
+import okhttp3.OkHttpClient
+import okhttp3.Request
+import okhttp3.Response
+import okhttp3.WebSocket
+import okhttp3.WebSocketListener
+import okio.ByteString
+import org.json.JSONArray
+import org.json.JSONException
+import org.json.JSONObject
+
+const val INPUT_RATE = 16000
+const val OUTPUT_RATE = 24000
+
+class FunctionCall(val id: String, val name: String, val args: JSONObject)
+
+/** One Gemini Live server message, flattened. One message can carry several of these. */
+sealed interface LiveEvent {
+    data object SetupComplete : LiveEvent
+    class Audio(val pcm: ByteArray, val sampleRate: Int) : LiveEvent
+    class Text(val text: String) : LiveEvent
+    data object Interrupted : LiveEvent
+    data object TurnComplete : LiveEvent
+    data object GenerationComplete : LiveEvent
+    class InputTranscription(val text: String, val finished: Boolean) : LiveEvent
+    class OutputTranscription(val text: String, val finished: Boolean) : LiveEvent
+    class ToolCall(val calls: List<FunctionCall>) : LiveEvent
+    class ToolCallCancellation(val ids: List<String>) : LiveEvent
+    class Usage(val promptTokens: Int, val responseTokens: Int) : LiveEvent
+    class Resumption(val newHandle: String?, val resumable: Boolean) : LiveEvent
+    class GoAway(val timeLeftMs: Long?) : LiveEvent
+    /** The socket is gone. Not sent after a local [LiveSession.close]. */
+    class Closed(val reason: String) : LiveEvent
+}
+
+/**
+ * One WebSocket to Gemini Live, opened with an ephemeral token from the session server.
+ *
+ * The first message is `setup`, verbatim from `POST /token`. Events arrive on OkHttp threads.
+ * Wire shapes are camelCase JSON as in web/src/live/messages.ts.
+ */
+class LiveSession(
+    private val client: OkHttpClient,
+    private val token: String,
+    private val setup: JSONObject,
+    private val onEvent: (LiveEvent) -> Unit,
+) {
+    @Volatile private var socket: WebSocket? = null
+    private val finished = AtomicBoolean(false)
+
+    fun open() {
+        val request = Request.Builder().url("$ENDPOINT?access_token=$token").build()
+        socket = client.newWebSocket(request, object : WebSocketListener() {
+            override fun onOpen(webSocket: WebSocket, response: Response) {
+                webSocket.send(JSONObject().put("setup", setup).toString())
+            }
+
+            override fun onMessage(webSocket: WebSocket, text: String) = deliver(text)
+
+            override fun onMessage(webSocket: WebSocket, bytes: ByteString) = deliver(bytes.utf8())
+
+            override fun onClosing(webSocket: WebSocket, code: Int, reason: String) {
+                webSocket.close(code, reason)
+            }
+
+            override fun onClosed(webSocket: WebSocket, code: Int, reason: String) {
+                finish("closed $code ${reason.ifEmpty { "-" }}")
+            }
+
+            override fun onFailure(webSocket: WebSocket, t: Throwable, response: Response?) {
+                val http = response?.code?.let { " http $it" } ?: ""
+                finish("failure ${t.message ?: t.javaClass.simpleName}$http")
+            }
+        })
+    }
+
+    /** 16 kHz mono PCM16, little-endian. */
+    fun sendAudio(pcm: ByteArray, sampleRate: Int = INPUT_RATE): Boolean {
+        val audio = JSONObject()
+            .put("data", Base64.encodeToString(pcm, Base64.NO_WRAP))
+            .put("mimeType", "audio/pcm;rate=$sampleRate")
+        return send(JSONObject().put("realtimeInput", JSONObject().put("audio", audio)))
+    }
+
+    fun activityStart(): Boolean = send(JSONObject().put("realtimeInput", JSONObject().put("activityStart", JSONObject())))
+
+    fun activityEnd(): Boolean = send(JSONObject().put("realtimeInput", JSONObject().put("activityEnd", JSONObject())))
+
+    /** The answer to a relayed tool call, with the scheduling the server chose. */
+    fun sendToolResponse(callId: String, name: String, response: JSONObject, scheduling: String): Boolean {
+        val functionResponse = JSONObject()
+            .put("id", callId)
+            .put("name", name)
+            .put("response", response)
+            .put("scheduling", scheduling)
+        val toolResponse = JSONObject().put("functionResponses", JSONArray().put(functionResponse))
+        return send(JSONObject().put("toolResponse", toolResponse))
+    }
+
+    /** An S2C `voice` string as a user turn: `<event>text</event>`, turn complete. */
+    fun sendEventTurn(voiceText: String): Boolean {
+        val safe = voiceText.replace(Regex("(?i)</event>"), "")
+        val turn = JSONObject()
+            .put("role", "user")
+            .put("parts", JSONArray().put(JSONObject().put("text", "<event>$safe</event>")))
+        val content = JSONObject().put("turns", JSONArray().put(turn)).put("turnComplete", true)
+        return send(JSONObject().put("clientContent", content))
+    }
+
+    fun close(reason: String) {
+        if (!finished.compareAndSet(false, true)) return
+        val current = socket
+        socket = null
+        current?.close(NORMAL_CLOSE, reason.take(MAX_CLOSE_REASON))
+    }
+
+    private fun send(message: JSONObject): Boolean = socket?.send(message.toString()) ?: false
+
+    private fun deliver(text: String) {
+        val json = try {
+            JSONObject(text)
+        } catch (e: JSONException) {
+            Log.w(TAG, "live sent non-JSON")
+            return
+        }
+        for (event in parseServerMessage(json)) onEvent(event)
+    }
+
+    private fun finish(reason: String) {
+        if (!finished.compareAndSet(false, true)) return
+        socket = null
+        onEvent(LiveEvent.Closed(reason))
+    }
+
+    companion object {
+        private const val TAG = "LiveSession"
+        private const val NORMAL_CLOSE = 1000
+        private const val MAX_CLOSE_REASON = 120
+
+        // Confirm the path and the query parameter name against the current Gemini Live API
+        // docs (ai.google.dev/api/live) before the paid tier. The "Constrained" method is the
+        // one that accepts an ephemeral token.
+        const val ENDPOINT =
+            "wss://generativelanguage.googleapis.com/ws/google.ai.generativelanguage.v1alpha.GenerativeService.BidiGenerateContentConstrained"
+    }
+}
+
+/** `audio/pcm;rate=24000` -> 24000. Falls back to the Live output rate. */
+fun parseMimeRate(mimeType: String): Int =
+    Regex("rate=(\\d+)").find(mimeType)?.groupValues?.get(1)?.toIntOrNull() ?: OUTPUT_RATE
+
+/** A protobuf Duration as JSON (`"12.5s"` or `{seconds, nanos}`) to milliseconds. */
+fun parseDurationMs(value: Any?): Long? = when (value) {
+    is String -> Regex("^(-?\\d+(?:\\.\\d+)?)s$").find(value.trim())
+        ?.groupValues?.get(1)?.toDoubleOrNull()?.let { Math.round(it * 1000) }
+    is JSONObject -> {
+        val seconds = value.opt("seconds").let { (it as? String)?.toDoubleOrNull() ?: (it as? Number)?.toDouble() ?: 0.0 }
+        val nanos = (value.opt("nanos") as? Number)?.toDouble() ?: 0.0
+        Math.round(seconds * 1000 + nanos / 1e6)
+    }
+    is Number -> Math.round(value.toDouble() * 1000)
+    else -> null
+}
+
+/** Flattens one Live server message into events, in wire order. Mirrors web/src/live/messages.ts. */
+fun parseServerMessage(json: JSONObject): List<LiveEvent> {
+    val events = ArrayList<LiveEvent>(4)
+
+    if (json.has("setupComplete")) events += LiveEvent.SetupComplete
+
+    json.optJSONObject("serverContent")?.let { sc ->
+        if (sc.optBoolean("interrupted")) events += LiveEvent.Interrupted
+        sc.optJSONObject("modelTurn")?.optJSONArray("parts")?.let { parts ->
+            for (i in 0 until parts.length()) {
+                val part = parts.optJSONObject(i) ?: continue
+                val inline = part.optJSONObject("inlineData")
+                val data = inline?.str("data")
+                if (inline != null && data != null) {
+                    val mimeType = inline.str("mimeType") ?: "audio/pcm;rate=$OUTPUT_RATE"
+                    val pcm = try {
+                        Base64.decode(data, Base64.DEFAULT)
+                    } catch (e: IllegalArgumentException) {
+                        continue
+                    }
+                    events += LiveEvent.Audio(pcm, parseMimeRate(mimeType))
+                } else {
+                    part.str("text")?.let { events += LiveEvent.Text(it) }
+                }
+            }
+        }
+        sc.optJSONObject("inputTranscription")?.let { t ->
+            t.str("text")?.let { events += LiveEvent.InputTranscription(it, t.optBoolean("finished")) }
+        }
+        sc.optJSONObject("outputTranscription")?.let { t ->
+            t.str("text")?.let { events += LiveEvent.OutputTranscription(it, t.optBoolean("finished")) }
+        }
+        if (sc.optBoolean("generationComplete")) events += LiveEvent.GenerationComplete
+        if (sc.optBoolean("turnComplete")) events += LiveEvent.TurnComplete
+    }
+
+    json.optJSONObject("toolCall")?.optJSONArray("functionCalls")?.let { array ->
+        val calls = ArrayList<FunctionCall>(array.length())
+        for (i in 0 until array.length()) {
+            val call = array.optJSONObject(i) ?: continue
+            val name = call.str("name") ?: continue
+            calls += FunctionCall(call.str("id").orEmpty(), name, call.optJSONObject("args") ?: JSONObject())
+        }
+        events += LiveEvent.ToolCall(calls)
+    }
+
+    json.optJSONObject("toolCallCancellation")?.optJSONArray("ids")?.let { array ->
+        val ids = ArrayList<String>(array.length())
+        for (i in 0 until array.length()) (array.opt(i) as? String)?.let(ids::add)
+        events += LiveEvent.ToolCallCancellation(ids)
+    }
+
+    json.optJSONObject("usageMetadata")?.let { um ->
+        val prompt = um.optInt("promptTokenCount")
+        val response = if (um.has("responseTokenCount")) um.optInt("responseTokenCount") else um.optInt("candidatesTokenCount")
+        events += LiveEvent.Usage(prompt, response)
+    }
+
+    json.optJSONObject("sessionResumptionUpdate")?.let { s ->
+        events += LiveEvent.Resumption(s.str("newHandle")?.takeIf { it.isNotEmpty() }, s.optBoolean("resumable"))
+    }
+
+    json.optJSONObject("goAway")?.let { g ->
+        events += LiveEvent.GoAway(parseDurationMs(g.opt("timeLeft")))
+    }
+
+    return events
+}

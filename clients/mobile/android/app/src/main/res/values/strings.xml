@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">Apparatus</string>
+    <string name="title_activity_main">Apparatus</string>
+    <string name="package_name">systems.reagent.apparatus</string>
+    <string name="custom_url_scheme">systems.reagent.apparatus</string>
+</resources>

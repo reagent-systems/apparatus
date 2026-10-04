@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<!-- clients-mobile.yml fills teamID and provisioningProfiles from the
+	     provisioning profile before xcodebuild -exportArchive runs. -->
+	<key>method</key>
+	<string>app-store-connect</string>
+	<key>signingStyle</key>
+	<string>manual</string>
+	<key>teamID</key>
+	<string>TEAM_ID</string>
+	<key>provisioningProfiles</key>
+	<dict>
+		<key>systems.reagent.apparatus</key>
+		<string>PROFILE_NAME</string>
+	</dict>
+	<key>uploadSymbols</key>
+	<true/>
+	<key>compileBitcode</key>
+	<false/>
+</dict>
+</plist>

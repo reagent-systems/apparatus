@@ -1,0 +1,13 @@
+# Gradle output and the wrapper a developer generates with `gradle wrapper`.
+.gradle/
+build/
+.kotlin/
+gradlew
+gradlew.bat
+gradle/wrapper/
+
+# Machine-local SDK path and secrets.
+local.properties
+app/google-services.json
+*.jks
+*.keystore

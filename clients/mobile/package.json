@@ -1,0 +1,32 @@
+{
+  "name": "apparatus-mobile",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Capacitor 6 shell for the Apparatus web client: iOS, Android.",
+  "scripts": {
+    "bridge": "node scripts/bridge.mjs",
+    "prepare-dist": "node scripts/prepare-dist.mjs",
+    "typecheck": "tsc --noEmit -p tsconfig.json",
+    "sync": "cap sync",
+    "android": "cap open android",
+    "ios": "cap open ios",
+    "cap": "cap"
+  },
+  "dependencies": {
+    "@capacitor/android": "^6.2.0",
+    "@capacitor/app": "^6.0.0",
+    "@capacitor/browser": "^6.0.0",
+    "@capacitor/core": "^6.2.0",
+    "@capacitor/ios": "^6.2.0",
+    "@capacitor/local-notifications": "^6.1.0",
+    "@capacitor/push-notifications": "^6.0.0",
+    "capacitor-secure-storage-plugin": "^0.10.0"
+  },
+  "devDependencies": {
+    "@capacitor/cli": "^6.2.0",
+    "@types/node": "^22.0.0",
+    "esbuild": "^0.28.0",
+    "typescript": "^5.6.0"
+  }
+}

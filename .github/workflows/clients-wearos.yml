@@ -1,0 +1,65 @@
+name: clients-wearos
+
+on:
+  workflow_call: {}
+  workflow_dispatch: {}
+  pull_request:
+    paths:
+      - "clients/wearos/**"
+      - ".github/workflows/clients-wearos.yml"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: clients-wearos-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    defaults:
+      run:
+        working-directory: clients/wearos
+    env:
+      # Secrets are not readable in step `if`; mapped to env they are.
+      WEAROS_GOOGLE_SERVICES_JSON: ${{ secrets.WEAROS_GOOGLE_SERVICES_JSON }}
+      ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+      ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+      ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+      ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+      APPARATUS_SERVER_ORIGIN: ${{ vars.APPARATUS_SERVER_ORIGIN || 'http://10.0.2.2:8080' }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - uses: android-actions/setup-android@v3
+        with:
+          packages: "platforms;android-34 build-tools;34.0.0 platform-tools"
+          log-accepted-android-sdk-licenses: false
+
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: "8.9"
+
+      - name: Write google-services.json
+        if: env.WEAROS_GOOGLE_SERVICES_JSON != ''
+        run: printf '%s' "$WEAROS_GOOGLE_SERVICES_JSON" > app/google-services.json
+
+      - name: Build debug APK
+        run: gradle assembleDebug -PAPPARATUS_SERVER_ORIGIN="$APPARATUS_SERVER_ORIGIN"
+
+      - name: Build signed release APK
+        if: env.ANDROID_KEYSTORE_BASE64 != '' && env.ANDROID_KEYSTORE_PASSWORD != '' && env.ANDROID_KEY_ALIAS != '' && env.ANDROID_KEY_PASSWORD != ''
+        run: gradle assembleRelease -PAPPARATUS_SERVER_ORIGIN="$APPARATUS_SERVER_ORIGIN"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: wearos
+          path: clients/wearos/app/build/outputs/apk/**/*.apk
+          if-no-files-found: error

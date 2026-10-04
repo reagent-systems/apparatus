@@ -1,0 +1,91 @@
+# XcodeGen spec for the Apple Watch client. Run `xcodegen generate` here.
+# One single-target watchOS app (Xcode 14+ style): type `application` on
+# platform `watchOS` applies XcodeGen's watchOS presets (SDKROOT watchos,
+# TARGETED_DEVICE_FAMILY 4). The generated ApparatusWatch.xcodeproj is not
+# committed; regenerate after any file add, remove or rename.
+name: ApparatusWatch
+
+options:
+  bundleIdPrefix: systems.reagent.apparatus
+  deploymentTarget:
+    watchOS: "10.0"
+  xcodeVersion: "15.0"
+  createIntermediateGroups: true
+  generateEmptyDirectories: false
+  groupSortPosition: top
+
+configs:
+  Debug: debug
+  Release: release
+
+# One xcconfig for both configurations. It holds APPARATUS_SERVER_ORIGIN and
+# the signing defaults. Override at build time with
+# `xcodebuild ... APPARATUS_SERVER_ORIGIN=https://host DEVELOPMENT_TEAM=TEAMID`.
+configFiles:
+  Debug: Config/Base.xcconfig
+  Release: Config/Base.xcconfig
+
+settings:
+  base:
+    SWIFT_VERSION: "5.9"
+    SWIFT_STRICT_CONCURRENCY: minimal
+    ENABLE_USER_SCRIPT_SANDBOXING: "YES"
+  configs:
+    Debug:
+      SWIFT_OPTIMIZATION_LEVEL: "-Onone"
+      SWIFT_ACTIVE_COMPILATION_CONDITIONS: DEBUG
+    Release:
+      SWIFT_OPTIMIZATION_LEVEL: "-O"
+
+targets:
+  ApparatusWatch:
+    type: application
+    platform: watchOS
+    deploymentTarget: "10.0"
+    sources:
+      - path: Sources
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: systems.reagent.apparatus.watch
+        PRODUCT_NAME: ApparatusWatch
+        MARKETING_VERSION: "0.1.0"
+        CURRENT_PROJECT_VERSION: "1"
+        # XcodeGen's watchOS platform preset sets SKIP_INSTALL YES (for a
+        # watch app embedded in an iOS app). A watch-only app is the product
+        # of the archive, so it must install.
+        SKIP_INSTALL: "NO"
+        GENERATE_INFOPLIST_FILE: "NO"
+        # No asset catalog yet: Xcode reports a missing AppIcon as a warning
+        # only when this setting is empty.
+        ASSETCATALOG_COMPILER_APPICON_NAME: ""
+        ENABLE_PREVIEWS: "YES"
+    info:
+      path: Generated/Info.plist
+      properties:
+        CFBundleDisplayName: Apparatus
+        CFBundleShortVersionString: $(MARKETING_VERSION)
+        CFBundleVersion: $(CURRENT_PROJECT_VERSION)
+        # Single-target watchOS app with no iOS companion.
+        WKApplication: true
+        WKWatchOnly: true
+        NSMicrophoneUsageDescription: "Hold Talk to speak."
+        UIBackgroundModes:
+          - audio
+          - remote-notification
+        # The only server setting. It is fixed at build time (xcconfig).
+        # There is no UI to change it: design spec, Security rule 9.
+        ApparatusServerOrigin: $(APPARATUS_SERVER_ORIGIN)
+        # Permits http://localhost:8080 in the simulator and other local
+        # servers. Any other host must use https / wss.
+        NSAppTransportSecurity:
+          NSAllowsLocalNetworking: true
+    entitlements:
+      path: Generated/ApparatusWatch.entitlements
+      properties:
+        # The App ID needs the Push Notifications capability. Archive builds
+        # for App Store Connect switch this to `production` through the
+        # provisioning profile.
+        aps-environment: development
+    scheme:
+      testTargets: []
+      gatherCoverageData: false
