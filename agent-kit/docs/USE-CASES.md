@@ -27,6 +27,12 @@ Each case has the same shape.
 **Work.** The page asks for a login. The agent calls handoff. The feed shows the request; the phone gets a push; the voice says one sentence. The user opens the live view, logs in, and taps Done. The browser profile on the VM keeps the session, so the next job needs no login. During the handoff the agent takes no screenshot.
 **Hear.** "Your order ships on Thursday."
 
+## Watch and take the screen
+
+**Say.** "Show me what you are doing." The user picks Screen in the pane, or taps the handoff card on the phone.
+**Work.** The widget opens a stream; the VM sends its video over WebRTC through the TURN relay. The job keeps running. The user taps Control: the server tells the VM, and the agent's computer tool refuses until Release. Pointer and key events reach the desktop only while the user holds control or a handoff is active. Every take and release lands in the audit log.
+**Hear.** Nothing changes in the voice. The pane shows the desktop live; the orb shows working. On a watch, nothing: the watch has no screen stream.
+
 ## Approve a send
 
 **Say.** "Reply to Dana that Thursday works."

@@ -41,6 +41,45 @@ Evidence: <commit / tag / gate run / screenshot>
 
 <!-- Entries below, newest first. -->
 
+## 2026-10-04 — The refuters found three holes in the new screen control, and we closed them
+
+After the React client, the orb and the VM screen widget landed, 15 refuter agents attacked
+5 security claims. 3 claims fell. The input gate was one flag per VM, so a second device of the
+same user could type while another held control. Control lived in agentd's memory across a
+reconnect, so a release during a link outage left every computer call refused forever. And a
+computer call that waited for the desktop lock was never re-checked, so a screenshot could land
+after a handoff began. I fixed all three with tests: the gate is per stream and the server names
+the controlling stream; the server syncs control and open handoffs on every VM connect; the
+gates run again after the lock and right before the capture, and the server refuses computer
+during a handoff on its own. I also detached tool execution from agentd's message pump, which
+would have deadlocked a real handoff. The suites now hold 106 Python and 110 Node tests. One
+hole stays open and is on the roadmap: a kernel can still reach the X socket by hand.
+
+Evidence: commit "fix: per-stream input gate, control sync, capture gate"; `verify/verify.sh` green.
+
+## 2026-10-04 — The React client, the orb, the VM screen and the stream protocol
+
+I rebuilt the web client on React 19, Vite, Tailwind CSS 4 and shadcn/ui, in the layout
+from the sketches: on a desktop a job list, one large pane and a column of cards with the
+orb at the bottom right; on a phone the card stack; on a watch the orb alone. The orb is
+a `thinking-orbs` canvas; the voice state picks its animation. The pane now has a Screen
+button: the VM streams its desktop over WebRTC, and Control gives the user the mouse and
+the keyboard until Release. The agent's computer tool refuses while the user holds
+control. Code-only jobs keep running. The handoff view is gone; a handoff opens the same
+screen with Done and Cancel. The stream runs on aiortc inside agentd with `ffmpeg
+x11grab`; the server relays signaling to the one device that owns the stream and mints
+TURN credentials. `signal` now carries `stream_id` instead of `handoff_id` on all 3 links.
+Three things broke on the way. The server mounted the dist root at `/assets`, so every
+Vite bundle 404ed until the mount moved to `dist/assets`. The native shells copied
+`app.js` by name, a file that no longer exists; they now copy the whole dist tree. The
+`bridge.js` had to become a classic IIFE, because a module script runs after the app
+boots. One thing is wrong and not fixed: `test_jobs.py::test_job_runs_python_on_the_vm_and_speaks_the_result`
+failed in 3 of 15 full runs (`wait_done` returns before the `job.done` broadcast lands).
+Nothing has run in a browser or on a real VM: the stream is proven in loopback only.
+
+Evidence: `uv run pytest -q` 98 passed in 12 runs and 1 failed in 3 runs; `npm --prefix web run verify` green with 110 tests; `verify/verify.sh` green on 2026-10-04.
+
+
 ## 2026-10-04 — Correction: the Wear OS app did build here
 
 The entry below says Wear OS builds wait for CI. That was wrong by the end of the day. A

@@ -12,7 +12,7 @@ VM. One API key, on the server only. Users pay a subscription that includes cred
 | Session server | `server/` | Python. Client and VM sockets, Live tokens, the agent loop, jobs, credits, audit. |
 | agentd + agentlib | `agentd/` | Python. Runs on the VM. One kernel per task, tools, desktop lock, handoff pause. |
 | Protocol | `protocol/` | The wire contract the three links share. |
-| Web client | `web/` | TypeScript, no dependencies. Audio, the voice gate, feed, pane, handoff view. |
+| Web client | `web/` | React 19, Vite, Tailwind CSS 4, shadcn/ui. Audio, the voice gate, the feed, the pane, the orb, the VM screen widget with Control and Release. |
 | Native shells | `clients/` | Tauri 2 (Windows, macOS, Linux), Capacitor 6 (iOS, Android), SwiftUI (watchOS), Compose (Wear OS). |
 | Deployment | `deploy/gcp`, `vm/` | Terraform for GCP, VM image scripts, a local docker-compose. |
 | Config | `config/apparatus.toml` | Every model name, threshold, budget and price. |
@@ -27,6 +27,14 @@ uv run apparatus-server          # http://localhost:8080, dev auth: the user id 
 AGENTD_HOME=/tmp/agent-home uv run agentd   # in a second shell: a local VM stand-in
 ```
 
+For work on the web client, run the Vite dev server instead of `npm run build`:
+
+```sh
+cd web && npm run dev          # http://localhost:5173; proxies /token, /credits, /audit, /jobs, /config, /prompts and /ws to :8080
+```
+
+The VM screen needs `ffmpeg`, `xdotool` and an X display on the agentd side; `vm/setup.sh` and `deploy/local/docker-compose.yml` install them. Without them the stream fails to start and agentd logs it.
+
 Or with a virtual desktop in a container: `docker compose -f deploy/local/docker-compose.yml up --build`.
 
 ## Check it
@@ -35,7 +43,7 @@ Or with a virtual desktop in a container: `docker compose -f deploy/local/docker
 verify/verify.sh
 ```
 
-Lint, typecheck, build, 144 tests, and the repo gates. CI runs the same script.
+Lint, typecheck, build, 208 tests, and the repo gates. CI runs the same script.
 
 ## Build the apps
 

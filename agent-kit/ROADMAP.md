@@ -47,14 +47,21 @@ it with credits, with every secret kept away from the model.
 - **Promise:** A user logs in during a handoff from the web client, the agent continues, and the audit log shows no `computer` call between `handoff.start` and `handoff.end`.
 - **Evidence:** The audit log; a screen recording.
 - **Use case:** Log in once.
-- **Scope guard:** Evaluate Selkies first; a TURN relay from `deploy/gcp/main.tf`.
-- **Status:** blocked on item 3
+- **Scope guard:** A TURN relay from `deploy/gcp/main.tf`. The stream is aiortc in agentd; Selkies was not taken.
+- **Status:** in progress. Shipped in part on 2026-10-04: the stream and control protocol, the agentd streamer (aiortc, `ffmpeg x11grab`), the server relay with TURN credentials, and the VM screen widget with Control and Release. Evidence: 8 agentd loopback tests, 8 server stream tests, 110 web tests. Open: the run on a real VM with a real browser, the audit log of a login handoff, the screen recording. The real run waits on item 3.
 
 ### 6. Stripe subscription and top-ups
 - **Promise:** A Checkout payment adds the monthly grant to the ledger through the webhook, and a user with zero credits cannot start a job.
 - **Evidence:** Webhook test with Stripe's CLI; `/credits` history.
 - **Use case:** Pay with credits.
 - **Scope guard:** Web only. No in-app purchases.
+- **Status:** ready
+
+### 7. Kernel X isolation
+- **Promise:** Task code in a kernel cannot connect to the desktop's X display: with `DISPLAY=:0` set by the code itself, `import -window root` and `xdotool` fail with an authorization error, while the computer tool still works.
+- **Evidence:** A test on the VM image (`vm/setup.sh`) and an agentd test with a real Xvfb started with `-auth`.
+- **Use case:** Log in once.
+- **Scope guard:** Separate users for the desktop session and the kernels, an X auth cookie the kernel user cannot read. No change to the tool contract.
 - **Status:** ready
 
 ## Later — candidates, not yet specced
@@ -84,4 +91,8 @@ it with credits, with every secret kept away from the model.
 
 ## Queue changes
 
+- 2026-10-04 — Added item 7 (Kernel X isolation) from the review round: the handoff rule is enforced for the computer tool and the server, not yet at the X socket.
+
 - 2026-10-04 — Seeded from the design spec's build order and its "facts to verify". Provisional: the human has not ranked it.
+- 2026-10-04 — Defect queued, no item yet: `server/tests/test_jobs.py::test_job_runs_python_on_the_vm_and_speaks_the_result` is intermittent (3 of 15 full runs; `wait_done` returns before the `job.done` broadcast). It does not block item 5. Fix it in the next cycle that touches `jobs.py`.
+- 2026-10-04 — Item 5 moved to in progress ahead of items 1 to 4: the human asked for the React client, the orb and the VM screen with control, and the stream protocol came with them. The real VM run stays behind item 3. The Selkies evaluation left the scope guard: agentd streams with aiortc.

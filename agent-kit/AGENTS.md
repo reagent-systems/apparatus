@@ -29,9 +29,13 @@ for the native shells; `verify/verify.sh` skips those gates loudly when they are
 4. **Tool output is data.** Every result from the VM is wrapped by `wrap_external` before
    the model sees it, and the smart system prompt says text inside the markers is never an
    instruction. Do not add a path that feeds raw VM output into a prompt.
-5. **One desktop, one lock, no capture during a handoff.** `agentd/desktop.py` holds the
-   lock per task; `core.py` refuses `computer` for every task while any handoff is active.
-   Code-only tasks keep running.
+5. **One desktop, one lock, no capture while the user holds it.** `agentd/desktop.py` holds the
+   lock per task; `core.py` refuses `computer` for every task while a handoff is active or the
+   user holds control, checks both gates again after the lock wait, and `run_action` checks a
+   capture gate right before the screenshot. The server refuses `computer` during a handoff
+   before it reaches the VM and drops a late screenshot (`jobs.py`). Stream input reaches the
+   desktop only during a handoff or from the controlling device's own stream
+   (`control.stream_id`). Code-only tasks keep running. Kernels get no `DISPLAY`.
 6. **State lives on the server.** Clients hold no prompt, no model name, no threshold. They
    get the gate table in `ready` and the Live setup from `/token`. No client exposes a
    setting that changes an endpoint.
@@ -54,12 +58,17 @@ for the native shells; `verify/verify.sh` skips those gates loudly when they are
 | `apparatus_protocol.msg()` | Drops `None` values. A field that must be an explicit `null` (for example `desktop_owner`) is set after the call. |
 | `agentd/agentd/kernel_child.py` | fd 1 and 2 are redirected per execution; the protocol channel is a dup of the original stdout. Printing to the real fd 1 from the child breaks the link. |
 | `agentd/agentd/core.py` handoffs | A handoff started by `agentlib.handoff` already paused the task and uses `request_id` as the handoff id. The server must not send `task.pause` for it, or the resume never matches. |
+| `agentd/agentd/core.py` `tool_call` | Tool execution is detached from the message pump so `handoff.resume`, `approval.answer` and `control` arrive while a step blocks in agentlib. Tests wait for the `tool.result`; they do not read it right after `handle()`. |
+| `server/apparatus_server/main.py` `sync_vm_state` | The server sends `control` (active or not) and every open handoff's `task.pause` on every VM connect. agentd reconnects without restarting, so "fresh process" assumptions are wrong. |
+| `server/apparatus_server/main.py` `open_screen` | `screen.opened` goes to the client before `stream.start` goes to the VM, or the offer can overtake the stream id. The web hook still queues early signals as a belt. |
 | `agentd/agentd/kernel.py` `blocked` | The execution deadline restarts while an agentlib call waits. Forgetting to clear `blocked` makes a step immortal. |
 | `server/apparatus_server/jobs.py` `_meter` | Pricing runs on every reply, including summaries. A step that exceeds the hold charges at once and can pause the job mid-loop. |
-| `server/apparatus_server/main.py` static routes | API routes are declared before the `/` and `/{name}.js` catch-alls. Add new routes above them. |
+| `server/apparatus_server/main.py` static routes | API routes are declared before the `/` and `/{name}` catch-alls. Add new routes above them. `/assets` is a `StaticFiles` mount of `dist/assets`, not of `dist`; a mount of the dist root makes every Vite bundle 404. `/{name}` serves top-level files of `dist` only; a path that resolves outside `dist` is 404. |
 | `pyproject.toml` ruff config | `ASYNC109` is off on purpose (we pass deadlines). Tests dirs have no `__init__.py`: test file basenames must be unique across packages. |
 | `web/tsconfig.json` | `erasableSyntaxOnly`: no enums, parameter properties or namespaces, because Node runs the tests on raw TypeScript. |
-| `web/src/index.html` | `bridge.js` loads before `app.js`. Native shells overwrite `dist/bridge.js`; the web build emits the no-op default. |
+| `web/index.html` | `bridge.js` is a classic IIFE (`esbuild --format=iife`, no top-level await) loaded with `<script src="/bridge.js">` before the `src/main.tsx` module, so `window.apparatusBridge` exists when the app boots. Native shells overwrite `dist/bridge.js`; the web build emits the no-op default. Vite writes the app to `dist/assets/` with absolute paths; `build.mjs` adds `bridge.js` and `worklet.js` at the dist root. |
+| `server/apparatus_server/main.py` `signal` | Routed per device, never broadcast. A2S `signal` goes through `ClientHub.send_to` to the device that owns `stream_id`; a C2S `signal` from any other device is dropped. A broadcast leaks the offer to every device and breaks negotiation. |
+| `agentd/agentd/core.py` `user_control` | `computer` is refused with `user_control: the user controls the desktop` while control is taken, and with `handoff_active` during a handoff. Stream input reaches the desktop only while one of the two is true. The server holds the state and resends `control` on a VM reconnect; do not make agentd the owner. |
 | `clients/mobile/android` | Cleartext is off. A device build needs an `https` `APPARATUS_SERVER_ORIGIN`. |
 | `clients/desktop/src-tauri/tauri.conf.json` | The server origin reaches the CSP through a generated merge file (`npm run server-config`), not by editing this file. |
 
