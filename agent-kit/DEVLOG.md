@@ -41,6 +41,16 @@ Evidence: <commit / tag / gate run / screenshot>
 
 <!-- Entries below, newest first. -->
 
+## 2026-10-04 — Correction: the Wear OS app did build here
+
+The entry below says Wear OS builds wait for CI. That was wrong by the end of the day. A
+subagent installed the Android SDK in the sandbox and `gradle assembleDebug` produced the
+debug APK after one Kotlin type fix. The release build and a device run are still untested.
+Push payloads now carry both the short `kind` and the matching message `type`, because the
+two watch apps keyed on different names.
+
+Evidence: commit "fix(wearos): give the server socket an explicit type"; `verify/verify.sh` green.
+
 ## 2026-10-04 — Installed the agent kit and built the version 1 skeleton
 
 I started from an empty repository and the design spec. apparatus is a voice agent: the

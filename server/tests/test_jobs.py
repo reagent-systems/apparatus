@@ -242,6 +242,19 @@ async def test_agentlib_approval_from_inside_python(world_factory):
     assert "approval.request" in kinds and "approval.answer" in kinds
 
 
+async def test_push_carries_kind_and_type_when_no_client_has_a_session(world_factory):
+    w = await world_factory(FakeSmartModel([final(say="Finished while you were away.")]))
+    await w.clients.register_push(USER, w.conn.device_id, "fcm", "tok-1")
+    w.clients.detach(w.conn)  # no open session: the server must push
+    job = await w.jobs.start(USER, "x")
+    await w.wait_done(job)
+    assert w.push.sent, "no push was sent"
+    data = w.push.sent[-1]["data"]
+    assert (
+        data["kind"] == "job.done" and data["type"] == "job.done" and data["job_id"] == job.job_id
+    )
+
+
 async def test_agentlib_say_and_progress_reach_the_feed(world_factory):
     code = "import agentlib\nagentlib.say('half way')\nagentlib.progress('page 2', percent=50)"
     w = await world_factory(FakeSmartModel([py(code), final()]))

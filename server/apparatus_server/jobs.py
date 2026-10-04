@@ -42,6 +42,12 @@ from .vm import VmController, VmDisconnected, VmLink, VmRegistry, VmUnavailable
 log = logging.getLogger("apparatus.jobs")
 JOBS = "jobs"
 HISTORY = "job_history"
+PUSH_TYPE_BY_KIND = {
+    "handoff": S2C.HANDOFF_REQUESTED,
+    "approval": S2C.APPROVAL_REQUESTED,
+    "job.done": S2C.JOB_DONE,
+    "credits": S2C.CREDITS,
+}
 
 
 @dataclass
@@ -758,6 +764,9 @@ class JobManager:
         )
 
     async def _push(self, user_id: str, title: str, body: str, data: dict[str, str]) -> None:
+        # ``kind`` is the short name; ``type`` is the matching S2C message type,
+        # so a native client can key on either.
+        data = {**data, "type": PUSH_TYPE_BY_KIND.get(data.get("kind", ""), data.get("kind", ""))}
         tokens = await self.clients.push_tokens(user_id)
         if tokens:
             try:

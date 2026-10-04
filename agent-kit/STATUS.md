@@ -11,9 +11,9 @@ behavior change. The weekly cycle (WEEKLY.md step 5) refreshes it.
 | Session server (`server/`) | ✅ | 39 tests: config, ledger, store, Live setup, job loop against a real in-process agentd core, both WebSockets |
 | Web client (`web/`) | ✅ unit · ❌ live | 74 node tests for gate, turn, barge-in, Live wire; no microphone or Gemini key has run it |
 | Desktop shell (`clients/desktop`, Tauri 2) | 🚧 | `cargo check` clean, debug binary built on Linux; bundles for macOS and Windows unbuilt |
-| Phone shells (`clients/mobile`, Capacitor 6) | 🚧 | Android debug APK built with the web dist inside; iOS project generated, never compiled here |
+| Phone shells (`clients/mobile`, Capacitor 6) | 🚧 | Android debug APK built with the web dist inside; iOS project generated and patched, never compiled here |
 | watchOS app (`clients/watchos`) | 🚧 | Swift written, XcodeGen spec written, no Xcode here |
-| Wear OS app (`clients/wearos`) | 🚧 | Kotlin written, no Gradle build here |
+| Wear OS app (`clients/wearos`) | 🚧 | `gradle assembleDebug` built `app-debug.apk` (25.8 MB) on Linux with SDK 34; no device run, release build untested |
 | CI: verify, nightly, release, client builds | ✅ parse · ❌ run | `workflows_parse` gate; no run on GitHub yet |
 | GCP: Terraform, VM image, Cloud Run deploy | 🚧 | Written under `deploy/gcp`, `vm/`; never applied |
 | Voice shell on the paid tier (build order 1) | ❌ | Needs a key and a microphone |
