@@ -72,7 +72,7 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
         .build()
     private val store = SecureStore.of(application)
     private val tokens = TokenClient(http, BuildConfig.SERVER_ORIGIN)
-    private val server = ServerSocket(http, BuildConfig.SERVER_ORIGIN, { auth() }, object : ServerSocket.Listener {
+    private val server: ServerSocket = ServerSocket(http, BuildConfig.SERVER_ORIGIN, { auth() }, object : ServerSocket.Listener {
         override fun onOpen() = onMain {
             server.send(Messages.hello())
             server.send(Messages.voiceClaim())
