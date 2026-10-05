@@ -146,7 +146,7 @@ export function AppShell({ rail, main, pane, composer, statusBar, pip }: AppShel
           </ResizablePanel>
           {paneOpen ? (
             <>
-              <ResizableHandle className="transition-colors duration-150 hover:bg-ring/40" />
+              <ResizableHandle className="transition-colors duration-150 hover:bg-ring/40 flat:hover:bg-transparent" />
               <ResizablePanel id="pane" defaultSize={panePixels(paneWidth, window.innerWidth)} minSize={360} maxSize={640} className="min-w-[360px] max-w-[640px]">
                 <div className="flex h-full min-h-0 flex-col border-l">{pane}</div>
               </ResizablePanel>

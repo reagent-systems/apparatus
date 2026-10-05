@@ -14,7 +14,7 @@ export function ScrollToEnd({ unseen, onClick }: { unseen: number; onClick: () =
         aria-label="End"
         data-unseen={unseen}
         onClick={onClick}
-        className="pointer-events-auto h-9 rounded-full px-3 shadow-md animate-in fade-in duration-200 motion-reduce:animate-none"
+        className="pointer-events-auto h-9 rounded-full px-3 shadow-md flat:bg-background flat:shadow-float animate-in fade-in duration-200 motion-reduce:animate-none"
       >
         <ChevronDown strokeWidth={1.5} />
         {unseen > 0 ? <span className="text-xs tabular-nums">{unseen}</span> : null}

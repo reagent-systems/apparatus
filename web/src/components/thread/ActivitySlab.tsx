@@ -31,7 +31,7 @@ export function ActivitySlab({ history, live, running }: ActivitySlabProps) {
     const rows = past.slice(-3);
     if (rows.length === 0 && live.length === 0) return null;
     return (
-      <div data-slot="activity" data-activity="running" className="mx-4 mb-3 rounded-lg bg-muted/60 px-3 py-2">
+      <div data-slot="activity" data-activity="running" className="mx-4 mb-3 rounded-lg bg-muted/60 px-3 py-2 flat:bg-transparent">
         {rows.map((text, i) => (
           <Row key={`${i}-${text}`} text={text} />
         ))}
@@ -46,7 +46,7 @@ export function ActivitySlab({ history, live, running }: ActivitySlabProps) {
   }
   if (history.length === 0) return null;
   return (
-    <Collapsible open={open} onOpenChange={setOpen} data-slot="activity" data-activity="ended" className="mx-4 mb-3 rounded-lg bg-muted/60 px-3 py-2">
+    <Collapsible open={open} onOpenChange={setOpen} data-slot="activity" data-activity="ended" className="mx-4 mb-3 rounded-lg bg-muted/60 px-3 py-2 flat:bg-transparent">
       <CollapsibleTrigger
         className={`${ROW} w-full cursor-pointer rounded-sm text-left outline-none focus-visible:ring-2 focus-visible:ring-ring/40 [&[data-state=open]_svg]:rotate-90`}
       >

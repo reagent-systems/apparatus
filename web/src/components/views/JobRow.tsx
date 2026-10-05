@@ -65,7 +65,7 @@ export function JobRow({ jobId }: { jobId: string }) {
           !selected && "hover:bg-muted/60",
         )}
       >
-        <span className="flex size-7 shrink-0 items-center justify-center rounded-full bg-muted">
+        <span className="flex size-7 shrink-0 items-center justify-center rounded-full bg-muted flat:bg-transparent">
           <StatusGlyph glyph={glyphOf(job, feed)} />
         </span>
         <span className="flex min-w-0 flex-1 flex-col">

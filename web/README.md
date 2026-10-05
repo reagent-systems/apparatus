@@ -78,7 +78,7 @@ rather than taking long prop lists.
 | `src/lib/status.ts` | Pure: `bucketOf`, `glyphOf`, `relativeTime`, `elapsedTime`. Tested in `test/status.test.ts`. |
 | `src/lib/jobs-list.ts`, `src/lib/api.ts` | The Jobs desk's filter chips, counts, groups and row subtitles (`test/jobs-list.test.ts`); `apiGet` and the `/audit` and `/credits` parsers (`test/api.test.ts`). |
 | `src/components/layout/` | `AppShell` (rail, column, pane in a `ResizablePanelGroup`; sheets on tablet and phone), `Titlebar`, `StatusBar`, `CommandPalette`. |
-| `src/components/rail/` | `Rail`, `RailNav` (Thread, Jobs, Screen, Audit, Credits), `RailJobRow` and the Needs you / Running / Recent groups, `RailFooter` (settings popover: Appearance, Notifications, Status bar). |
+| `src/components/rail/` | `Rail`, `RailNav` (Thread, Jobs, Screen, Audit, Credits), `RailJobRow` and the Needs you / Running / Recent groups, `RailFooter` (settings popover: Appearance with Borders, Notifications, Status bar). |
 | `src/components/thread/` | `Thread` and its cards: speech, job (activity slab, say, show, artifacts), approval, handoff, credits line, day divider, turn header, scroll-to-end. |
 | `src/components/composer/` | `VoiceComposer`: the orb and, beside it, what the model heard of the current user turn (interim at opacity-70, solid once final, cleared when the agent replies). Nothing shows while nobody speaks. |
 | `src/composer/orb-gesture.ts` | Pure: `HOLD_MS` (350), `tapAction`, `startPress` / `isHold` / `endPress`. Tested in `test/orb-gesture.test.ts`. |
@@ -87,7 +87,7 @@ rather than taking long prop lists.
 | `src/components/pane/` | `Inspector` (Output / Screen), `JobInspector` (Receipt / Steps / Artifacts), `ShowOutput`. |
 | `src/components/vm/` | `ScreenFrame` (watch or handoff, the control ring, input), `ScreenPip`, `useScreen`. |
 | `src/components/views/` | `JobsView` and `JobRow`, `AuditView` (`GET /audit`), `CreditsView` (`GET /credits`, Top up disabled). |
-| `src/components/theme/` | `ThemeProvider` / `useTheme()`: Light, Dark or System; `.dark` on `<html>` before first paint (an inline script in `index.html`), persisted under `apparatus.theme`. |
+| `src/components/theme/` | `ThemeProvider` / `useTheme()`: Light, Dark or System; `.dark` on `<html>` before first paint (an inline script in `index.html`), persisted under `apparatus.theme`. Borders on or off the same way: `data-borders="off"` on `<html>`, persisted under `apparatus.borders`; the pure rules are in `borders.ts` (`test/borders.test.ts`). |
 | `src/components/ui/*` | shadcn/ui primitives. No tooltip, sonner or toast: the UI holds no helper text. |
 | `src/hooks/` | `use-breakpoint` (phone < 768, tablet 768..1023, desktop >= 1024; `isTabletWidth()` for `hello.device`), `shortcuts` (pure key matcher) and `use-shortcuts` (the window binding). |
 | `src/vm/input.ts` | Pure: the `input` data-channel shape, pointer math over a letterboxed video, perfect-negotiation decisions. Tested in `test/vm-input.test.ts`. |

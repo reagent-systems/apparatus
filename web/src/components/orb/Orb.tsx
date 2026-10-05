@@ -63,7 +63,7 @@ export function Orb({ state, held, live, control, size = 48, className }: OrbPro
         "focus-visible:ring-2 focus-visible:ring-ring/50",
         BOX[size],
         render.dimmed && "opacity-40",
-        control.pressed && "scale-[.97] ring-2 ring-primary ring-offset-2 ring-offset-background dark:ring-2 dark:ring-primary",
+        control.pressed && "scale-[.97] ring-2 ring-primary ring-offset-2 ring-offset-background dark:ring-2 dark:ring-primary flat:not-focus-visible:ring-transparent",
         className,
       )}
     >

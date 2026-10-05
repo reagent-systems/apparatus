@@ -48,7 +48,7 @@ export function ApprovalCard({ card }: { card: ApprovalCardModel }) {
       }}
       className={cn(
         "group flex w-full flex-col gap-2 rounded-xl border bg-card px-4 py-3 transition-[border-color,opacity] duration-200 outline-none focus-visible:ring-2 focus-visible:ring-ring/40",
-        pending && "border-l-2 border-l-status-wait",
+        pending && "border-l-2 border-l-status-wait flat:border-l-transparent",
         card.approved === false && "opacity-70",
       )}
     >

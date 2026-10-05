@@ -44,12 +44,16 @@ export type ScreenRingInput = {
   controlledByMe: boolean;
 };
 
+/** With borders off the ring goes; the header's dot and holder chip and the
+ *  bar's buttons still say who holds the desktop. A focus ring stays. */
+const RING_OFF = "flat:not-focus-visible:ring-transparent";
+
 /** The ring of the frame and the PiP: this device holds it, a handoff runs,
  *  the agent drives; none without a stream. */
 export function screenRing({ status, handoff, controlledByMe }: ScreenRingInput): string {
   if (status === "closed") return "";
-  if (controlledByMe) return "ring-2 ring-primary ring-offset-2 ring-offset-background";
-  if (handoff) return "ring-2 ring-status-wait";
+  if (controlledByMe) return `ring-2 ring-primary ring-offset-2 ring-offset-background ${RING_OFF}`;
+  if (handoff) return `ring-2 ring-status-wait ${RING_OFF}`;
   return "ring-1 ring-border";
 }
 
@@ -233,7 +237,7 @@ export function ScreenFrame({ mode, handoffId }: ScreenFrameProps) {
         onKeyUp={onKey("key.up")}
       />
       {status === "opening" || status === "connecting" ? (
-        <Skeleton className="pointer-events-none absolute inset-0 rounded-none bg-white/10" />
+        <Skeleton className="pointer-events-none absolute inset-0 rounded-none bg-white/10 flat:dark:bg-white/[0.03]" />
       ) : null}
     </div>
   );
@@ -243,7 +247,7 @@ export function ScreenFrame({ mode, handoffId }: ScreenFrameProps) {
       data-slot="screen-bar"
       className={cn(
         "flex shrink-0 items-center justify-end gap-2",
-        phone ? "absolute inset-x-0 bottom-0 min-h-11 border-t bg-background/90 px-4 pt-1 pb-[max(0.25rem,env(safe-area-inset-bottom))] backdrop-blur" : "mt-2 h-11",
+        phone ? "absolute inset-x-0 bottom-0 min-h-11 border-t bg-background/90 flat:bg-background px-4 pt-1 pb-[max(0.25rem,env(safe-area-inset-bottom))] backdrop-blur" : "mt-2 h-11",
       )}
     >
       {mode === "handoff" ? (

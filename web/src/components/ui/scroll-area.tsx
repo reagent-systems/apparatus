@@ -2,11 +2,19 @@ import * as React from "react"
 import { cn } from "@/lib/utils"
 import { ScrollArea as ScrollAreaPrimitive } from "radix-ui"
 
+/** Borders off: the main views' viewport fades its top 12 px and bottom 16 px
+ *  instead of cutting through a line of text, since no panel edge sits there. */
+const flatEdgeFade =
+  "flat:[mask-image:linear-gradient(to_bottom,transparent,black_12px,black_calc(100%_-_16px),transparent)]"
+
 function ScrollArea({
   className,
+  viewportClassName,
   children,
   ...props
-}: React.ComponentProps<typeof ScrollAreaPrimitive.Root>) {
+}: React.ComponentProps<typeof ScrollAreaPrimitive.Root> & {
+  viewportClassName?: string
+}) {
   return (
     <ScrollAreaPrimitive.Root
       data-slot="scroll-area"
@@ -15,7 +23,7 @@ function ScrollArea({
     >
       <ScrollAreaPrimitive.Viewport
         data-slot="scroll-area-viewport"
-        className="size-full rounded-[inherit] [&>div]:block! [&>div]:min-w-0! transition-[color,box-shadow] outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50 focus-visible:outline-1"
+        className={cn("size-full rounded-[inherit] [&>div]:block! [&>div]:min-w-0! transition-[color,box-shadow] outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50 focus-visible:outline-1", viewportClassName)}
       >
         {children}
       </ScrollAreaPrimitive.Viewport>
@@ -46,10 +54,10 @@ function ScrollBar({
     >
       <ScrollAreaPrimitive.ScrollAreaThumb
         data-slot="scroll-area-thumb"
-        className="relative flex-1 rounded-full bg-border"
+        className="relative flex-1 rounded-full bg-border flat:bg-foreground/20"
       />
     </ScrollAreaPrimitive.ScrollAreaScrollbar>
   )
 }
 
-export { ScrollArea, ScrollBar }
+export { ScrollArea, ScrollBar, flatEdgeFade }

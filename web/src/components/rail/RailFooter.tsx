@@ -2,7 +2,8 @@
 // the device name and the settings popover. Settings live here and nowhere
 // else: Appearance, Notifications; on the desktop the status bar switch, the
 // way back after a right-click hid it. Nothing addresses a model or an
-// endpoint, and there is no input setting: voice is full duplex.
+// endpoint, and there is no input setting: voice is full duplex. Borders
+// sits under Appearance: off hides every line and flattens every surface.
 
 import { Settings2 } from "lucide-react";
 import { useTheme, type Theme } from "@/components/theme/ThemeProvider";
@@ -30,7 +31,7 @@ function SettingLabel({ children }: { children: string }) {
 }
 
 function Settings() {
-  const { theme, setTheme } = useTheme();
+  const { theme, setTheme, borders, setBorders } = useTheme();
   const { notifications, setNotifications, statusBar, setStatusBar } = useSelection();
   const breakpoint = useBreakpoint();
   return (
@@ -53,6 +54,10 @@ function Settings() {
             </ToggleGroupItem>
           ))}
         </ToggleGroup>
+        <div className="flex items-center justify-between gap-3">
+          <SettingLabel>Borders</SettingLabel>
+          <Switch checked={borders === "on"} onCheckedChange={(on) => setBorders(on ? "on" : "off")} aria-label="Borders" />
+        </div>
       </div>
       <div className="flex items-center justify-between gap-3">
         <SettingLabel>Notifications</SettingLabel>

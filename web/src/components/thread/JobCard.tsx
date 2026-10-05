@@ -97,10 +97,10 @@ export function JobCard({ jobId, at, highlighted = false }: JobCardProps) {
       data-job-id={jobId}
       data-selected={selected || undefined}
       className={cn(
-        "group w-full rounded-xl border bg-card transition-[box-shadow,opacity,border-color] duration-200",
-        job.status === "failed" && "border-destructive/40",
+        "group w-full rounded-xl border bg-card transition-[box-shadow,opacity,border-color,background-color] duration-200",
+        job.status === "failed" && "border-destructive/40 flat:border-transparent",
         job.status === "cancelled" && "opacity-70",
-        highlighted && "ring-2 ring-ring/40",
+        highlighted && "ring-2 ring-ring/40 flat:ring-transparent",
       )}
     >
       <div
@@ -149,7 +149,7 @@ export function JobCard({ jobId, at, highlighted = false }: JobCardProps) {
               type="button"
               data-path={path}
               onClick={open}
-              className="cursor-pointer rounded-md bg-muted px-2 py-1 font-mono text-xs transition-colors duration-150 outline-none hover:bg-accent hover:text-accent-foreground focus-visible:ring-2 focus-visible:ring-ring/40"
+              className="cursor-pointer rounded-md bg-muted flat:bg-transparent flat:hover:bg-accent px-2 py-1 font-mono text-xs transition-colors duration-150 outline-none hover:bg-accent hover:text-accent-foreground focus-visible:ring-2 focus-visible:ring-ring/40"
             >
               {basename(path)}
             </button>

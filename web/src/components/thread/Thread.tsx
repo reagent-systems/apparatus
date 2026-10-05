@@ -7,7 +7,7 @@
 
 import { useCallback, useEffect, useLayoutEffect, useRef, useState, type ReactNode } from "react";
 import { Orb } from "@/components/orb/Orb";
-import { ScrollArea } from "@/components/ui/scroll-area";
+import { ScrollArea, flatEdgeFade } from "@/components/ui/scroll-area";
 import { useOrbControl } from "@/components/orb/use-orb-control";
 import { runningJobs, type FeedCard, type FeedState } from "@/feed/reducer";
 import { foldsIntoRequest, sameDay } from "@/lib/status";
@@ -204,7 +204,7 @@ export function Thread() {
 
   return (
     <div ref={root} data-kind="thread" data-state={empty ? "empty" : "cards"} className="relative flex min-h-0 min-w-0 flex-1 flex-col">
-      <ScrollArea className="min-h-0 flex-1">
+      <ScrollArea className="min-h-0 flex-1" viewportClassName={flatEdgeFade}>
         {empty ? (
           <div className="flex min-h-[60vh] w-full items-center justify-center">
             <Orb state="idle" held={voice.holdsVoice} live={voice.liveOpen} control={orb} size={128} />

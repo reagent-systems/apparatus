@@ -41,6 +41,19 @@ Evidence: <commit / tag / gate run / screenshot>
 
 <!-- Entries below, newest first. -->
 
+## 2026-10-05 — A Borders switch takes every line and every panel off the screen
+
+The author asked for a toggle that removes borders and dividers and makes everything one background.
+Borders is now a switch under Appearance and a row in the command palette, stored per device.
+Off sets one attribute on the page; one block of colour tokens then turns every line transparent and every surface into the page colour.
+Lines keep their width, so nothing moves when the switch flips.
+Nine hard-coded line colours needed their own rule, among them the amber bar on a pending approval and the red edge on a failed job.
+Those states still show through the amber or red glyph the card already had.
+Buttons, chips, the orb, progress bars and selected rows keep their fill; popovers and sheets keep their shadow.
+Nobody has looked at the off mode on a screen yet: the checks are a build, unit tests and a test that reads the stylesheet.
+
+Evidence: `npm --prefix web run verify` and `verify/verify.sh` (results in the report of this change); `web/test/borders.test.ts`.
+
 ## 2026-10-05 — The watches became the thinking orb alone, and a tap is a phone call
 
 The author asked for the watch screen to be the thinking orb and nothing else: no text, no buttons.

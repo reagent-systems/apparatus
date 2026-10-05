@@ -7,14 +7,20 @@
 <title>apparatus</title>
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
 <script>
-// Theme before first paint: the localStorage copy of "apparatus.theme"
-// (light | dark; absent = system). ThemeProvider re-applies it from the
-// bridge's secure store once the app boots.
+// Theme and borders before first paint: the localStorage copies of
+// "apparatus.theme" (light | dark; absent = system) and "apparatus.borders"
+// (off; absent = on). ThemeProvider re-applies both from the bridge's
+// secure store once the app boots.
 (function () {
+  var root = document.documentElement;
   var t = null;
   try { t = localStorage.getItem("apparatus.theme"); } catch (e) {}
   var dark = t === "dark" || (t !== "light" && matchMedia("(prefers-color-scheme: dark)").matches);
-  document.documentElement.classList.toggle("dark", dark);
+  root.classList.toggle("dark", dark);
+  var b = null;
+  try { b = localStorage.getItem("apparatus.borders"); } catch (e) {}
+  if (b === "off") root.setAttribute("data-borders", "off");
+  else root.removeAttribute("data-borders");
 })();
 </script>
 </head>

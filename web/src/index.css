@@ -4,6 +4,9 @@
 @import "@fontsource-variable/jetbrains-mono";
 
 @custom-variant dark (&:is(.dark *));
+/* Borders off (`data-borders="off"` on <html>). `:root` in the selector lifts
+   a `flat:` utility one step above the `dark:` and `data-*` rules it overrides. */
+@custom-variant flat (&:is(:root[data-borders="off"] *));
 
 /* Paper and ink (DESIGN.md section 8): warm neutrals on hue 60–85, one
    ink-blue accent on hue 264, amber / green / red for state only. */
@@ -53,6 +56,9 @@
   --orb-disc: oklch(0.20 0.010 60);
   --orb-ring: oklch(0.20 0.010 60 / 0%);
   --composer-shadow: 0 8px 24px -12px oklch(0.20 0.010 60 / 25%);
+  /* Borders off only (`flat:shadow-float`): the floating layers' one depth.
+     The zero-offset part shades every side, the top included. */
+  --float-shadow: 0 16px 40px -12px oklch(0.20 0.010 60 / 35%), 0 0 24px oklch(0.20 0.010 60 / 12%);
 }
 
 .dark {
@@ -98,6 +104,22 @@
   --orb-disc: oklch(0.12 0.006 60);
   --orb-ring: oklch(1 0 0 / 14%);
   --composer-shadow: 0 8px 24px -12px oklch(0 0 0 / 60%);
+  --float-shadow: 0 16px 48px -8px oklch(0 0 0 / 80%), 0 0 32px oklch(0 0 0 / 60%);
+}
+
+/* Borders off: no line, one background. It out-ranks `.dark` (both sit on
+   <html>), so it holds in either theme. Lines keep their width and turn
+   transparent, so nothing shifts. --input stays: the Switch track uses it.
+   Floating layers swap their shadow-md / shadow-lg for `flat:shadow-float`,
+   the only depth left; the composer loses its shadow. Hard-coded colours carry a `flat:` utility where they are drawn. */
+:root[data-borders="off"] {
+  --border: transparent;
+  --sidebar-border: transparent;
+  --card: var(--background);
+  --popover: var(--background);
+  --sidebar: var(--background);
+  --orb-ring: transparent;
+  --composer-shadow: 0 0 #0000;
 }
 
 @theme inline {
@@ -145,6 +167,7 @@
   --color-orb-disc: var(--orb-disc);
   --color-orb-ring: var(--orb-ring);
   --shadow-composer: var(--composer-shadow);
+  --shadow-float: var(--float-shadow);
 
   /* Motion: hover and press; nothing enters from the edge, glows or bounces. */
   --ease-ui: cubic-bezier(0.2, 0, 0, 1);
@@ -234,7 +257,7 @@
   .show-output ul { @apply list-disc pl-6; }
   .show-output ol { @apply list-decimal pl-6; }
   .show-output blockquote { @apply border-l-2 pl-4 text-muted-foreground; }
-  .show-output pre { @apply overflow-auto rounded-md bg-muted p-3 font-mono text-[13px] leading-5; }
+  .show-output pre { @apply overflow-auto rounded-md bg-muted p-3 font-mono text-[13px] leading-5 flat:bg-transparent; }
   .show-output code { @apply font-mono text-[0.92em]; }
   .show-output a { @apply underline underline-offset-4; }
   .show-output hr { @apply my-6; }

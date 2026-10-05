@@ -35,12 +35,12 @@ export function ScreenPip() {
       data-status={status}
       onClick={() => setView("screen")}
       className={cn(
-        "relative block h-[135px] w-[240px] cursor-pointer overflow-hidden rounded-lg border bg-black shadow-md outline-none transition-[box-shadow] duration-150 ease-[cubic-bezier(0.2,0,0,1)] focus-visible:ring-2 focus-visible:ring-ring/50",
+        "relative block h-[135px] w-[240px] cursor-pointer overflow-hidden rounded-lg border bg-black shadow-md flat:shadow-float outline-none transition-[box-shadow] duration-150 ease-[cubic-bezier(0.2,0,0,1)] focus-visible:ring-2 focus-visible:ring-ring/50",
         screenRing({ status, handoff: feed.handoff !== null, controlledByMe }),
       )}
     >
       <video ref={video} autoPlay playsInline muted tabIndex={-1} className="pointer-events-none h-full w-full object-contain" />
-      {status !== "live" ? <Skeleton className="pointer-events-none absolute inset-0 rounded-none bg-white/10" /> : null}
+      {status !== "live" ? <Skeleton className="pointer-events-none absolute inset-0 rounded-none bg-white/10 flat:dark:bg-white/[0.03]" /> : null}
     </button>
   );
 }

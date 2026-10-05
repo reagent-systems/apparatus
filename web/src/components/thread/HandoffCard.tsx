@@ -62,7 +62,7 @@ export function HandoffCard({ card }: { card: HandoffCardModel }) {
       }}
       className={cn(
         "group flex w-full flex-col gap-2 rounded-xl border bg-card px-4 py-3 transition-[border-color] duration-200 outline-none focus-visible:ring-2 focus-visible:ring-ring/40",
-        active && "cursor-pointer border-l-2 border-l-status-wait",
+        active && "cursor-pointer border-l-2 border-l-status-wait flat:border-l-transparent",
       )}
     >
       <div className="flex items-center gap-2">

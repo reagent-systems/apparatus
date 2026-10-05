@@ -1,4 +1,4 @@
-// Boot: bridge, auth, theme, device, then the React tree. Providers mount in
+// Boot: bridge, auth, theme and borders, device, then the React tree. Providers mount in
 // the contract order: Theme > Server > Voice > Feed > Selection > Screen.
 
 import { StrictMode } from "react";
@@ -6,7 +6,7 @@ import { createRoot } from "react-dom/client";
 import "./index.css";
 import { App } from "./App.tsx";
 import { getBridge, type BridgePlatform } from "./bridge.ts";
-import { ThemeProvider, readStoredTheme } from "./components/theme/ThemeProvider.tsx";
+import { ThemeProvider, readStoredBorders, readStoredTheme } from "./components/theme/ThemeProvider.tsx";
 import { isTabletWidth } from "./hooks/use-breakpoint.ts";
 import type { Device } from "./protocol.ts";
 import { FeedProvider } from "./state/feed.tsx";
@@ -28,13 +28,13 @@ async function boot(): Promise<void> {
   if (bridge.platform === "desktop" && navigator.platform.startsWith("Mac")) {
     document.documentElement.classList.add("tauri-mac");
   }
-  const [auth, theme] = await Promise.all([bridge.secureStore.get(AUTH_KEY), readStoredTheme(bridge)]);
+  const [auth, theme, borders] = await Promise.all([bridge.secureStore.get(AUTH_KEY), readStoredTheme(bridge), readStoredBorders(bridge)]);
   const httpOrigin = (bridge.serverOrigin ?? location.origin).replace(/\/+$/, "");
   const device = detectDevice(bridge.platform);
   const root = document.getElementById("app") ?? document.body.appendChild(document.createElement("div"));
   createRoot(root).render(
     <StrictMode>
-      <ThemeProvider bridge={bridge} initial={theme}>
+      <ThemeProvider bridge={bridge} initial={theme} initialBorders={borders}>
         <ServerProvider bridge={bridge} auth={auth ?? "dev"} device={device} httpOrigin={httpOrigin}>
           <VoiceProvider>
             <FeedProvider>

@@ -24,6 +24,10 @@ Conversation-first won the judging; it took the Jobs view, the Receipt / Steps /
 | Palette | Warm paper neutrals (hue 60–85), one ink-blue accent (hue 264), amber / green / red for state only | Calm; Antigravity's identity is an editor preset | Claude Desktop, Quick, Paseo |
 | Type | Inter Variable 14 px UI / 15 px prose; JetBrains Mono Variable 13 px | Antigravity's type is "really, really small" | Quick, Paseo |
 | Elevation | Borders, not shadows; one shadow on the composer | Flat surfaces read faster | Paseo, Claude Desktop |
+| Borders toggle | One preference, `borders: on \| off`, per device like the theme: a Borders switch under Appearance and a Borders row in the palette. Off hides every border, divider, rule and outline ring and puts every surface on the page background | The author: "add a toggle to remove borders and dividers"; "the toggle would make everything the same background" | The author |
+| Borders by token | Off is one block, `:root[data-borders="off"]`: `--border` and `--sidebar-border` go transparent, `--card`, `--popover` and `--sidebar` become `var(--background)`, the composer loses its shadow. A `flat:` utility covers each hard-coded colour | Lines keep their width, so nothing shifts; one block switches every primitive at once; the few hard-coded colours are named where they are drawn | — |
+| Borders default | On: the look above, unchanged | The spec's hairlines and stepped surfaces are the designed look; off is a preference, not a fix | The author |
+| What keeps its fill | Controls and states: filled buttons (Approve, Done, Top up), the Switch, the orb, a selected, hovered or pressed row, chip or tab, status chips and badges, keycaps, progress bars, skeletons, the scrollbar thumb, the screen video and its letterbox. Floating layers keep their shadow | A fill on a control or a state is information, not a surface. The shadow is the only depth left, so a popover still separates from the page it covers | — |
 | Theme | Light default; dark on the same hue; System follows the OS | Antigravity's light mode was an afterthought | Quick, Paseo |
 | Copy | Every visible string is content or a one-word label from the `docs/STYLE.md` list. No placeholders, hints, captions, helper lines, empty-state text or toasts; icon buttons carry icons only; status is a glyph, a ring, a bar or a one-word chip | The author: "remove explanatory microcopy; no little reassurances; it's obvious what the buttons do" | The author, Cowork |
 | Filters | The Jobs chips are Needs you, Running, Done; the Audit chips are the kinds the server returned. No chip selected shows everything, so no chip says All | "All" is a label the list does not need | The author |
@@ -93,7 +97,7 @@ The thread is the screen. A 48 px top bar holds `PanelLeft` (the rail as `Sheet 
 
 ### Command palette
 
-shadcn `Command` inside a `Dialog`, Cmd/Ctrl+K. Four groups with no headings, split by a `CommandSeparator`: the five surfaces (Thread, Jobs, Screen, Audit, Credits), every job by request text with its glyph, Control or Release, and Light, Dark, System. One label and a trailing `Kbd` per row; no headings, no descriptions. Voice has no row: the orb, Space and Esc carry it.
+shadcn `Command` inside a `Dialog`, Cmd/Ctrl+K. Four groups with no headings, split by a `CommandSeparator`: the five surfaces (Thread, Jobs, Screen, Audit, Credits), every job by request text with its glyph, Control or Release, and Light, Dark, System, Borders. One label and a trailing `Kbd` or check per row; Borders carries a check while borders show, and a selection toggles it; no headings, no descriptions. Voice has no row: the orb, Space and Esc carry it.
 
 ## 3. The orb and the voice composer
 
@@ -173,7 +177,7 @@ Picture-in-picture: on desktop, when the pane is closed and a stream is open, a 
 
 **Credits** (Cmd/Ctrl+5): the balance at `text-5xl font-medium tabular-nums`, a 10 px dot beside it (`--status-ok` ok, `--status-wait` low, `--destructive` out), then the history as a two-column list (time, signed delta in mono). **Top up** stays a disabled primary button until a payment path exists.
 
-**Settings** live in the rail footer `Popover` and nowhere else: **Appearance** (Light / Dark / System, a `ToggleGroup`), **Notifications** (a `Switch`), and on the desktop **Status bar** (a `Switch`). There is no input setting: voice is full duplex. `theme/ThemeProvider.tsx` replaces `lib/theme.ts`: it writes `.dark` on `<html>` before first paint and persists the choice under `apparatus.theme`. Nothing addresses an endpoint or a model.
+**Settings** live in the rail footer `Popover` and nowhere else: **Appearance** (Light / Dark / System, a `ToggleGroup`, and under it **Borders**, a `Switch` that is checked while borders show), **Notifications** (a `Switch`), and on the desktop **Status bar** (a `Switch`). There is no input setting: voice is full duplex. `theme/ThemeProvider.tsx` replaces `lib/theme.ts`: it writes `.dark` on `<html>` before first paint and persists the choice under `apparatus.theme`. It does the same for Borders: `data-borders="off"` on `<html>` from the same inline script in `index.html`, persisted under `apparatus.borders` (only "off" is stored; on removes the key), exposed as `borders` / `setBorders` on `useTheme()`. On boot both choices come from the secure store, or from the localStorage copy when the store holds none; the provider then rewrites that copy, so the next first paint matches. The pure rules are `theme/borders.ts`, tested in `test/borders.test.ts`. Nothing addresses an endpoint or a model.
 
 ## 8. Visual language
 
@@ -188,6 +192,7 @@ Paper and ink: warm paper neutrals (hue 60–85, chroma 0.004–0.010), one ink-
 @import "@fontsource-variable/jetbrains-mono";
 
 @custom-variant dark (&:is(.dark *));
+@custom-variant flat (&:is(:root[data-borders="off"] *));
 
 :root {
   --radius: 0.75rem;
@@ -235,6 +240,7 @@ Paper and ink: warm paper neutrals (hue 60–85, chroma 0.004–0.010), one ink-
   --orb-disc: oklch(0.20 0.010 60);
   --orb-ring: oklch(0.20 0.010 60 / 0%);
   --composer-shadow: 0 8px 24px -12px oklch(0.20 0.010 60 / 25%);
+  --float-shadow: 0 16px 40px -12px oklch(0.20 0.010 60 / 35%), 0 0 24px oklch(0.20 0.010 60 / 12%); /* borders off only */
 }
 
 .dark {
@@ -280,6 +286,18 @@ Paper and ink: warm paper neutrals (hue 60–85, chroma 0.004–0.010), one ink-
   --orb-disc: oklch(0.12 0.006 60);
   --orb-ring: oklch(1 0 0 / 14%);
   --composer-shadow: 0 8px 24px -12px oklch(0 0 0 / 60%);
+  --float-shadow: 0 16px 48px -8px oklch(0 0 0 / 80%), 0 0 32px oklch(0 0 0 / 60%);
+}
+
+/* Borders off: out-ranks .dark (0,2,0 against 0,1,0); both sit on <html>. */
+:root[data-borders="off"] {
+  --border: transparent;
+  --sidebar-border: transparent;
+  --card: var(--background);
+  --popover: var(--background);
+  --sidebar: var(--background);
+  --orb-ring: transparent;
+  --composer-shadow: 0 0 #0000; /* not `none`: it sits inside the box-shadow list */
 }
 
 @theme inline {
@@ -292,6 +310,7 @@ Paper and ink: warm paper neutrals (hue 60–85, chroma 0.004–0.010), one ink-
   --color-orb-disc: var(--orb-disc);
   --color-orb-ring: var(--orb-ring);
   --shadow-composer: var(--composer-shadow);
+  --shadow-float: var(--float-shadow);
 }
 
 @layer base {
@@ -333,6 +352,25 @@ Weights 400 and 500 only; 600 nowhere. `tabular-nums` on every number.
 
 **Elevation**: borders, not shadows. Surfaces step by one token: `background` → `sidebar` → `card` → `muted`. The composer alone carries `shadow-composer`; popovers, dialogs and the PiP carry `shadow-md`.
 
+**Borders off**: one background and no lines. The token block above makes every border, divider, separator, the resizable handle, the table rows, the turn-header and Jobs rules, the credit history's `divide-y`, the filter chips' outline, `ring-1 ring-border`, the status bar's and the rail's edges and every sheet, dialog, popover and PiP edge transparent, and puts the rail, the status bar, the cards, the composer and every floating layer on `--background`. `--input` stays, because the Switch track draws with it. The `flat:` variant covers what a token cannot:
+
+| Drawn with | Off |
+|---|---|
+| `border-l-2 border-l-status-wait` (pending approval, active handoff) | `flat:border-l-transparent`; the amber `Hand` or `Monitor` glyph and the buttons carry the state |
+| `border-destructive/40` (failed job) | `flat:border-transparent`; the red `CircleX` glyph carries it |
+| The screen ring `ring-primary` / `ring-status-wait` (frame and PiP), the orb's held ring | `flat:not-focus-visible:ring-transparent`; the stream dot, the holder chip and the bar's buttons say who holds the desktop; the orb's press shows by `scale-[.97]` and its animation |
+| Outline buttons and toggles (`border-input`, `shadow-xs`, `bg-input/30` in dark) | `flat:border-transparent flat:shadow-none flat:bg-transparent`; no fill in either theme, only the hover fill (`flat:hover:bg-accent`, `flat:dark:hover:bg-input/50`) |
+| Inspector `TabsList` `bg-muted`; the active tab | the list goes transparent; the active tab takes the state fill `bg-accent` |
+| Activity slab, user speech, Jobs glyph circle, `show` and Audit `pre` (`bg-muted`), artifact chips (`bg-muted`), the palette `Kbd` (`bg-muted`, `bg-foreground/10` in dark), the phone screen bar (`bg-background/90`) | flattened onto the background; artifact chips keep their hover fill |
+| Sheet and dialog scrims (`bg-black/50`) | transparent; the layer's shadow separates it |
+| The screen skeleton in dark (`bg-white/10` over the black frame, which nears the dark page) | `flat:dark:bg-white/[0.03]`; the frame stays near-black and parts from the page as the live video does, and the pulse still shows |
+| Floating layer shadows (`shadow-md`, `shadow-lg`) on popover, dialog, palette, sheet, PiP and the scroll-to-end button | `flat:shadow-float`: a deeper shadow with a zero-offset part, so every edge, the top included, shows in both themes; the scroll-to-end button sits on `flat:bg-background` |
+| The pane's resize handle hover (`hover:bg-ring/40`) | `flat:hover:bg-transparent`; the `col-resize` cursor and the focus-visible ring mark it |
+| The hard cut where Thread, Jobs, Audit and Credits scroll out of view | the viewport fades its top 12 px and bottom 16 px (`flatEdgeFade` in `ui/scroll-area.tsx`), since no panel edge sits there |
+| ScrollArea thumb (`bg-border`) | `bg-foreground/20`, the native thumb's ink |
+
+Focus-visible rings stay: they point at where the user is, they do not frame a surface. The 2 s selection highlight (`ring-2 ring-ring/40`) is a ring, so off drops it and adds no fill: a card is a surface, and the scroll to the card and the pane open on its job already say which job it is. Floating layers (popover, dialog, palette, sheet, PiP, the scroll-to-end button) keep a shadow (`shadow-float`); it is the only depth left.
+
 **Density**: 4 px grid. Rail rows 36 px, nav rows 32 px, Jobs rows 56 px, card gap 16 px, card padding 16 px, composer padding 12 px, thread gutters 24 px (16 on phone).
 
 **Iconography**: lucide-react, 16 px, `strokeWidth={1.5}`, `currentColor`; 14 px inside activity rows; 20 px in the phone top bar. Colored glyphs are only the status set.
@@ -360,7 +398,7 @@ Custom components, all under `web/src/components`:
 - `pane/Inspector.tsx` (evolves `Pane`), `pane/JobInspector.tsx` (Receipt / Steps / Artifacts tabs), `pane/ShowOutput.tsx` (keep).
 - `vm/ScreenFrame.tsx` (evolves `VmScreen`), `vm/ScreenPip.tsx`.
 - `views/JobsView.tsx`, `views/JobRow.tsx`, `views/AuditView.tsx` (table + filter), `views/CreditsView.tsx`.
-- `theme/ThemeProvider.tsx`.
+- `theme/ThemeProvider.tsx` (theme and borders), `theme/theme.ts` and `theme/borders.ts` (pure).
 
 State and logic changes:
 

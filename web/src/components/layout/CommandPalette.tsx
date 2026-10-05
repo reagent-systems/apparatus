@@ -1,8 +1,8 @@
 // The command palette (DESIGN.md 2): shadcn Command in a Dialog on
 // Cmd/Ctrl+K. Four unlabeled groups split by a hairline: the five surfaces,
-// the jobs, Control or Release, the themes. One label and a trailing Kbd
-// per row; no headings, no descriptions, no placeholder. Voice has no row:
-// the orb, Space and Esc carry it.
+// the jobs, Control or Release, the themes and Borders. One label and a
+// trailing Kbd or check per row; no headings, no descriptions, no
+// placeholder. Voice has no row: the orb, Space and Esc carry it.
 
 import { Check } from "lucide-react";
 import { StatusGlyph } from "@/components/status/StatusGlyph";
@@ -44,7 +44,7 @@ export function CommandPalette({ open, onOpenChange }: CommandPaletteProps) {
   const [feed] = useFeed();
   const { setView, selectJob } = useSelection();
   const screen = useScreenStore();
-  const { theme, setTheme } = useTheme();
+  const { theme, setTheme, borders, setBorders } = useTheme();
   const jobs = [...runningJobs(feed), ...recentJobs(feed)];
 
   const run = (action: () => void) => () => {
@@ -107,6 +107,10 @@ export function CommandPalette({ open, onOpenChange }: CommandPaletteProps) {
                   {theme === t ? <Check {...CHECK} className="text-foreground" /> : null}
                 </CommandItem>
               ))}
+              <CommandItem value="theme Borders" onSelect={run(() => setBorders(borders === "on" ? "off" : "on"))}>
+                <span className="flex-1">Borders</span>
+                {borders === "on" ? <Check {...CHECK} className="text-foreground" /> : null}
+              </CommandItem>
             </CommandGroup>
           </CommandList>
         </Command>

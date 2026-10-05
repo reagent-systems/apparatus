@@ -5,7 +5,7 @@
 // render.
 
 import { useState } from "react";
-import { ScrollArea } from "@/components/ui/scroll-area";
+import { ScrollArea, flatEdgeFade } from "@/components/ui/scroll-area";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { useBreakpoint } from "@/hooks/use-breakpoint";
 import { useNow } from "@/hooks/use-now";
@@ -25,7 +25,7 @@ export function JobsView() {
   const groups = groupJobs(feed, filter, now);
 
   return (
-    <ScrollArea className="min-h-0 flex-1">
+    <ScrollArea className="min-h-0 flex-1" viewportClassName={flatEdgeFade}>
       <div data-slot="jobs" data-filter={filter} className={cn("mx-auto flex w-full max-w-[760px] flex-col gap-6 pt-6 pb-6", phone ? "px-4" : "px-6")}>
         <ToggleGroup
           type="single"

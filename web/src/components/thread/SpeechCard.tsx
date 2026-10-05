@@ -26,7 +26,7 @@ export function SpeechCard({ card }: { card: TranscriptCard }) {
           data-role="user"
           data-state={state}
           className={cn(
-            "rounded-2xl bg-muted px-4 py-2.5 text-[15px] leading-[1.55] break-words whitespace-pre-wrap transition-opacity",
+            "rounded-2xl bg-muted flat:bg-transparent px-4 py-2.5 text-[15px] leading-[1.55] break-words whitespace-pre-wrap transition-opacity",
             !card.final && "opacity-70",
           )}
         >

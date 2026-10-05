@@ -6,7 +6,7 @@
 
 import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
-import { ScrollArea } from "@/components/ui/scroll-area";
+import { ScrollArea, flatEdgeFade } from "@/components/ui/scroll-area";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useBreakpoint } from "@/hooks/use-breakpoint";
 import { useNow } from "@/hooks/use-now";
@@ -54,7 +54,7 @@ export function CreditsView() {
   const rows = creditHistory(fetched?.history ?? []);
 
   return (
-    <ScrollArea className="min-h-0 flex-1">
+    <ScrollArea className="min-h-0 flex-1" viewportClassName={flatEdgeFade}>
       <div data-slot="credits" data-state={state} className={cn("mx-auto flex w-full max-w-[760px] flex-col gap-8 pt-[60px] pb-6", phone ? "px-4" : "px-6")}>
         <div className="flex items-center gap-4">
           {balance === null ? (

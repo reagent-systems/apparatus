@@ -7,7 +7,7 @@
 import { Fragment, useEffect, useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Collapsible, CollapsibleContent } from "@/components/ui/collapsible";
-import { ScrollArea } from "@/components/ui/scroll-area";
+import { ScrollArea, flatEdgeFade } from "@/components/ui/scroll-area";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Table, TableBody, TableCell, TableRow } from "@/components/ui/table";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
@@ -50,7 +50,7 @@ function Entry({ entry }: { entry: AuditEntry }) {
         <CollapsibleContent asChild>
           <tr className="border-b">
             <td colSpan={3} className="p-2 pt-0">
-              <pre className="overflow-x-auto rounded-md bg-muted px-3 py-2 font-mono text-[13px] leading-5 whitespace-pre-wrap break-all">
+              <pre className="overflow-x-auto rounded-md bg-muted flat:bg-transparent px-3 py-2 font-mono text-[13px] leading-5 whitespace-pre-wrap break-all">
                 {JSON.stringify(entry, null, 2)}
               </pre>
             </td>
@@ -88,7 +88,7 @@ export function AuditView() {
   const days = auditDays(entries ?? [], shown, now);
 
   return (
-    <ScrollArea className="min-h-0 flex-1">
+    <ScrollArea className="min-h-0 flex-1" viewportClassName={flatEdgeFade}>
       <div data-slot="audit" className={cn("mx-auto flex w-full max-w-[760px] flex-col gap-4 pt-6 pb-6", phone ? "px-4" : "px-6")}>
         {kinds.length > 0 ? (
           <ToggleGroup

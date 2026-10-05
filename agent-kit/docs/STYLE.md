@@ -39,7 +39,7 @@ The only labels are these words:
 | Group labels | Needs you, Running, Recent, Done, Failed, Today, Earlier |
 | Result chips | Approved, Denied, Cancelled, Timed out |
 | Pane tabs | Output, Screen, Receipt, Steps, Artifacts |
-| Settings | Appearance, Light, Dark, System, Notifications, Status bar |
+| Settings | Appearance, Light, Dark, System, Borders, Notifications, Status bar |
 
 Accessible names are not visible and are not labels. They stay short: Talk (the orb), Settings, Rail, Pane, Close, Output, Screen, End, Kind, Commands.
 
