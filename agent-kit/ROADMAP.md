@@ -80,6 +80,7 @@ it with credits, with every secret kept away from the model.
 | Week | Feature | Release | Evidence |
 |---|---|---|---|
 | 2026-10-04 | Version 1 skeleton: protocol, agentd, server, web client, native shells, CI, GCP Terraform | unreleased | `verify/verify.sh` green at the install commit |
+| 2026-10-05 | Web app redesign to `docs/DESIGN.md` (Ink on Paper), shipped in part: thread and voice composer that types, rail, Jobs desk, inspector, command palette, status bar, progress steps, demo mode | unreleased | `npm --prefix web test` 154 pass; 63 server tests; `verify/verify.sh` green; 54 + 62 headless Chromium screenshots against demo mode, judged twice against DESIGN.md. Open: a run with a microphone and a key, typed text into a live Live session, the orb at DPR 2, the macOS overlay titlebar |
 
 ## Explicitly not doing
 
@@ -91,6 +92,7 @@ it with credits, with every secret kept away from the model.
 
 ## Queue changes
 
+- 2026-10-05 — The human asked for a redesign of the web app against 5 reference products; it ran outside the numbered queue and serves Ask and hear, Approve a send and Log in once. `docs/DESIGN.md` is its spec. Shipped in part (see Shipped); the open checks ride on items 1 and 5. The queue order is unchanged.
 - 2026-10-04 — Added item 7 (Kernel X isolation) from the review round: the handoff rule is enforced for the computer tool and the server, not yet at the X socket.
 
 - 2026-10-04 — Seeded from the design spec's build order and its "facts to verify". Provisional: the human has not ranked it.

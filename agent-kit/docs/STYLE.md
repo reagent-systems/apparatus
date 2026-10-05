@@ -20,11 +20,58 @@ The rules keep the text short, clear and easy to translate.
 
 ## User interface
 
+`docs/DESIGN.md` is the visual law for the web app: tokens, type, layout, components, states and keys.
+This file governs the words on screen; DESIGN.md governs everything else.
 The user interface holds no explanatory text.
 State the thing; never reassure about it.
-Do not add a tooltip, a hint or a help line unless a human asks for one.
-The only labels are the button titles: Talk, Stop, Done, Cancel, Approve, Deny, Control, Release, Screen, Output, and the two sidebar entries Audit and Credits.
-State shows through the orb and the feed content, not through badges, pills or toasts.
+Do not add a tooltip, a hint, a placeholder, a tagline or a help line unless a human asks for one.
+Do not add a toast. Nothing on screen pops up to announce a state.
+The only labels are these words:
+
+| Place | Labels |
+|---|---|
+| Buttons | Talk, Stop, Done, Cancel, Approve, Deny, Control, Release, Top up |
+| Rail and views | Thread, Jobs, Screen, Audit, Credits |
+| Rail groups and Jobs filters | Needs you, Running, Recent, Done, All |
+| Jobs groups | Needs you, Failed, Running, Done |
+| Day dividers and Jobs sub-dividers | Today, Earlier |
+| Pane | Output, Screen, Receipt, Steps, Artifacts |
+| Settings | Input, Appearance, Notifications, Status bar, Push to talk, Open mic, Light, Dark, System |
+| Command palette groups | Go, Jobs, Voice, Screen, Theme |
+| Chips | Approved, Denied, Done, Cancelled, Timed out |
+| Icon buttons (accessible names only) | Talk, Message, Settings, Rail, Close, Output, Screen, End |
+
+State shows through the orb, color, progress, a status glyph and a one-word chip.
+It never shows through a sentence, a badge with a phrase, or a toast.
+
+### Status glyphs
+
+A glyph is a 16 px icon with no word beside it.
+
+| State | Glyph | Color |
+|---|---|---|
+| Running | the 20 px orb, `working` | ink |
+| Queued | `Clock` | muted |
+| Paused | `Pause` | muted |
+| Needs you, approval | `Hand` | amber (`status-wait`) |
+| Needs you, handoff | `MousePointerClick` | amber (`status-wait`) |
+| Done | `CircleCheck` | green (`status-ok`) |
+| Failed | `CircleX` | red (`destructive`) |
+| Cancelled | `CircleMinus` | muted |
+
+A running job also shows a 16 px progress ring; an ended job shows its elapsed time.
+
+### Chips
+
+A chip holds one word, or two for "Timed out". An answered approval shows Approved or Denied.
+An ended handoff shows Done, Cancelled or Timed out. A count chip holds digits only, capped at "99+".
+
+### Subtitles and meta
+
+A subtitle is one muted line under a title. It holds the thing itself: the progress text, the `say` line,
+the approval `action` or the handoff `reason`. A subtitle that adds a state and a time joins them with a
+middle dot: "Needs you · 2m". Use the label word for the state; "Needs input" is a synonym and does not ship.
+Meta is a number or a short time: "now", "12m", "3h", "2d", "4 Oct", "1:24", "3 steps".
 
 ## Spoken text
 
@@ -41,6 +88,7 @@ Detail goes to the screen with `show`. The voice calls the VM "your computer".
 | credits | tokens, points, balance units |
 | the orb | the button, the mic indicator |
 | the feed | the chat, the timeline, the log |
+| Thread (the view that shows the feed) | Chat, Conversation, Home (as a view title) |
 | the pane | the panel, the canvas, the viewer |
 | your computer | the VM, the machine, the sandbox (in speech) |
 | say | speak, announce |

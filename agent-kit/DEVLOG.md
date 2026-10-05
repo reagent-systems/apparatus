@@ -41,6 +41,22 @@ Evidence: <commit / tag / gate run / screenshot>
 
 <!-- Entries below, newest first. -->
 
+## 2026-10-05 — The web app was rebuilt to a design spec drawn from 5 products
+
+The author corrected me: the sketches were direction only, so the 2026-10-04 layout had to go.
+The author named 5 references (Google Antigravity, Amazon Quick, Hermes Desktop, Codex with Paseo,
+Claude Cowork) and gave 4 screenshots, of Quick, Hermes, Paseo and Cowork. Research agents wrote one
+report per product into `docs/DESIGN-RESEARCH.md`. A judge compared 3 directions, and
+Conversation-first won with parts of Manager-first and Workspace-first. The result is
+`docs/DESIGN.md`, Ink on Paper: one thread, the orb in a composer that also types, a rail that
+counts what needs you, warm paper and one ink accent. 5 owners built it in parallel and 1
+integrator joined the parts. The shadcn CLI broke 12 primitives with `import { cn } from "cn"`, and
+3 providers were missing at wiring time, so stubs stood in until their owners landed. In both
+screenshot rounds the seeded agent line was absent from the 1440 px light shot; I did not find the
+cause. No microphone, no Gemini key and no real screen has run the new app.
+
+Evidence: `npm --prefix web test` 154 pass, 0 fail; `uv run pytest -q server/tests` 63 passed; 54 + 62 screenshots judged against DESIGN.md; `verify/verify.sh` green on 2026-10-05.
+
 ## 2026-10-04 — The refuters found three holes in the new screen control, and we closed them
 
 After the React client, the orb and the VM screen widget landed, 15 refuter agents attacked

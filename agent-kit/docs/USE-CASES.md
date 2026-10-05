@@ -8,6 +8,7 @@ Each case has the same shape.
 **Say.** "What time is it in Tokyo?"
 **Work.** The voice model answers from what it knows. No job starts. No VM wakes.
 **Hear.** One sentence, at once. The orb shows listening, then speaking.
+Where speech does not fit, the user types the same question in the composer; the same voice model answers.
 
 ## Get a file made
 
@@ -38,6 +39,7 @@ Each case has the same shape.
 **Say.** "Reply to Dana that Thursday works."
 **Work.** The task code calls agentlib.request_approval("send", ...). The job pauses. The feed shows Approve and Deny; the voice says one sentence. Nothing is sent until the user approves. The audit log records the request and the answer.
 **Hear.** "Sent." Or, after a deny: "I did not send it."
+The Jobs desk lists every blocked job first with its Approve and Deny buttons, so the user answers without finding the card.
 
 ## Repeat a task cheaply
 

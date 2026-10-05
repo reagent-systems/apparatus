@@ -17,12 +17,23 @@ Format: [Keep a Changelog](https://keepachangelog.com/) · Versioning: [SemVer](
 - The orb: a `thinking-orbs` canvas driven by the voice state (idle, connecting, listening, speaking, working); dimmed on a device that does not hold the voice session; still under reduced motion.
 - The VM screen widget: live video of the desktop over WebRTC, Control and Release, Done and Cancel during a handoff; pointer, wheel, key and touch input on the `input` data channel.
 - Stream and control protocol: `screen.open`, `screen.close`, `control.take`, `control.release`, `screen.opened`, `screen.closed`, `control`, `stream.start`, `stream.stop`; the `input` channel shape with 7 input kinds. agentd streams the X11 desktop with aiortc and `ffmpeg x11grab`; the server mints coturn `use-auth-secret` TURN credentials; `[stream]` in `config/apparatus.toml`.
+- The Ink on Paper redesign of the web app, built to `docs/DESIGN.md`: warm paper neutrals with one ink-blue accent, Inter Variable and JetBrains Mono Variable, borders instead of shadows, light and dark on the same hue with Light, Dark and System.
+- The voice composer that types: one card under the thread with the orb, a text field, Push to talk or Open mic, Talk, send and Stop. Typed text goes to the same voice model as a user turn.
+- The Jobs desk: filter chips (All, Needs you, Running, Done), jobs grouped by state with Today and Earlier, Approve and Deny or Done and Cancel on every blocked row; the rail lists Needs you, Running and Recent with status glyphs.
+- The inspector: Receipt, Steps and Artifacts for the selected job.
+- The command palette (Cmd/Ctrl+K) and keys: Space held talks, Esc stops, Cmd/Ctrl+1 to 5 pick a view, Alt+J jumps to what needs you, Cmd/Ctrl+Shift+C takes or releases control.
+- The status bar on desktop: connection, voice holder, control holder and credits; hidden from the settings popover or with a right-click.
+- Progress steps: the server sends `job.progress` after every tool step, and each job in `ready.jobs` and `GET /jobs` carries the last 50 texts as `progress_history`.
+- Demo mode for development: `APPARATUS_DEMO=1` replaces the smart model with a scripted job, an approval or a handoff.
 ### Changed
 - `signal` carries `stream_id` on every link; `handoff_id` is gone from it. One handoff opens a stream like any other screen.
 - `ready` carries `jobs`, `control` and `streams`; `vm.state` carries `streams` and `user_control`.
 - The server serves the Vite dist: `/` → `index.html`, `/assets` from `dist/assets`, top-level files by name; nothing outside `dist`.
+- Layout: a 248 px rail, one thread column at most 760 px wide with the composer docked under it, and a resizable pane that is closed by default. Tablets get a 56 px icon rail and a right sheet; phones get sheets for the rail and the pane.
+- The pane signals by itself: it opens on a job, on Screen or on a handoff, a handoff locks it until it ends, and the screen frame's ring says who holds the desktop. A picture-in-picture keeps the stream in view while the pane is closed.
 ### Deprecated
 ### Removed
+- The job sidebar, the feed controls and the old pane; the 3-column layout from the sketches.
 ### Fixed
 ### Security
 - Stream input reaches the desktop only during a handoff or from the controlling device's own stream; the server names that stream in `control`.
