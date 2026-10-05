@@ -103,15 +103,10 @@ export function App() {
         case "control":
           toggleControl();
           return;
-        case "interrupt":
-          voice.interrupt();
-          return;
         default:
           setView(shortcut.slice("view:".length) as typeof view);
       }
     },
-    onTalkDown: () => voice.pressTalk(),
-    onTalkUp: () => voice.releaseTalk(),
   });
 
   const running = runningJobs(feed);

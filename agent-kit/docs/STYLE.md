@@ -95,7 +95,7 @@ Detail goes to the screen with `show`. The voice calls the VM "your computer".
 | your computer | the VM, the machine, the sandbox (in speech) |
 | say | speak, announce |
 | show | display, render |
-| interrupt (a tap on the orb while the agent speaks, or Esc) | stop, mute |
+| interrupt (the user talks over the agent; the gate's barge-in stops playback) | stop, mute |
 | Done, Cancel | Finish, Abort, Close |
 | Approve, Deny | Allow, Reject, OK |
 | Control, Release | Take over, Give back, Remote |

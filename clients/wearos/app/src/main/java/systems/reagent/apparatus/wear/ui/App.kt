@@ -39,13 +39,13 @@ fun App(viewModel: AppViewModel, staticFrame: Boolean, onToggleCall: () -> Unit)
 
 /**
  * The whole screen is the thinking orb on black, and nothing else. The screen is one toggle:
- * a tap anywhere starts the call or hangs up. For TalkBack it is the one element, "Call", on or
- * off, and a double tap toggles it.
+ * a tap anywhere starts the call or hangs up. For TalkBack it is the one element, "Agent", on
+ * or off, as on every client, and a double tap toggles it.
  */
 @Composable
 fun Screen(ui: UiState, staticFrame: Boolean, onToggleCall: () -> Unit) {
     val render = orbRender(ui.state, ui.held, ui.live, reducedMotion = staticFrame)
-    val label = stringResource(R.string.call)
+    val label = stringResource(R.string.agent)
     val value = stringResource(if (ui.inCall) R.string.call_on else R.string.call_off)
     BoxWithConstraints(
         modifier = Modifier

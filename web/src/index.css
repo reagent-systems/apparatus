@@ -53,8 +53,6 @@
   --status-wait: oklch(0.72 0.150 70);
   --status-ok: oklch(0.62 0.150 150);
   --status-run: oklch(0.45 0.180 264);
-  --orb-disc: oklch(0.20 0.010 60);
-  --orb-ring: oklch(0.20 0.010 60 / 0%);
   --composer-shadow: 0 8px 24px -12px oklch(0.20 0.010 60 / 25%);
   /* Borders off only (`flat:shadow-float`): the floating layers' one depth.
      The zero-offset part shades every side, the top included. */
@@ -101,8 +99,6 @@
   --status-wait: oklch(0.78 0.140 75);
   --status-ok: oklch(0.72 0.140 150);
   --status-run: oklch(0.72 0.130 264);
-  --orb-disc: oklch(0.12 0.006 60);
-  --orb-ring: oklch(1 0 0 / 14%);
   --composer-shadow: 0 8px 24px -12px oklch(0 0 0 / 60%);
   --float-shadow: 0 16px 48px -8px oklch(0 0 0 / 80%), 0 0 32px oklch(0 0 0 / 60%);
 }
@@ -118,7 +114,6 @@
   --card: var(--background);
   --popover: var(--background);
   --sidebar: var(--background);
-  --orb-ring: transparent;
   --composer-shadow: 0 0 #0000;
 }
 
@@ -164,8 +159,6 @@
   --color-status-wait: var(--status-wait);
   --color-status-ok: var(--status-ok);
   --color-status-run: var(--status-run);
-  --color-orb-disc: var(--orb-disc);
-  --color-orb-ring: var(--orb-ring);
   --shadow-composer: var(--composer-shadow);
   --shadow-float: var(--float-shadow);
 

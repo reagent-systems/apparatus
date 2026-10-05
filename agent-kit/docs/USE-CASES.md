@@ -5,9 +5,9 @@ Each case has the same shape.
 
 ## Ask and hear
 
-**Say.** "What time is it in Tokyo?"
+**Say.** The user taps the orb to turn the agent on, then asks: "What time is it in Tokyo?"
 **Work.** The voice model answers from what it knows. No job starts. No VM wakes.
-**Hear.** One sentence, at once. The orb shows listening, then speaking. Beside the orb, the composer shows what the model heard.
+**Hear.** One sentence, at once. The orb shows listening, then speaking. Above the orb, the composer shows what the model heard. The agent stays on until the user taps the orb again.
 
 ## Get a file made
 
@@ -48,8 +48,8 @@ The Jobs desk lists every blocked job first with its Approve and Deny buttons, s
 
 ## Pick up on another device
 
-**Say.** The user started on the desktop and walks away with the phone. On the phone, they tap the orb.
-**Work.** The phone claims the voice session; the desktop keeps the feed and the pane. The rolling summary loads into the new Live session, so the agent knows the thread.
+**Say.** The user started on the desktop and walks away with the phone. On the phone, they tap the orb: the agent's on-switch.
+**Work.** The phone claims the voice session, and the desktop's switch reads off; the desktop keeps the feed and the pane. The rolling summary loads into the new Live session, so the agent knows the thread.
 **Hear.** The conversation continues on the phone. The desktop shows the same feed.
 
 ## Watch only

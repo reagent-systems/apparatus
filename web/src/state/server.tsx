@@ -46,7 +46,8 @@ export function ServerProvider({ bridge, auth, device, httpOrigin, children }: S
       device,
       onOpen: () => {
         setConnected(true);
-        ws.send({ type: C2S.HELLO, device, wants_voice: true });
+        // The orb claims the voice session when it is switched on, never on connect.
+        ws.send({ type: C2S.HELLO, device, wants_voice: false });
       },
       onClose: () => setConnected(false),
       onMessage: (msg) => {

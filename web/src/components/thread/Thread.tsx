@@ -1,6 +1,6 @@
 // The thread: every card in one centered column. Day dividers, turn headers,
 // the end-of-thread button and the 2 s ring on the card of a job selected
-// elsewhere. The user turn still being heard shows beside the orb in the
+// elsewhere. The user turn still being heard shows above the orb in the
 // composer, not here; its card lands once final or once the agent replies.
 // The header strip, the composer and the keyboard (Alt+J reaches the cards
 // marked `data-state="pending"` / `"active"`) belong to the shell.
@@ -207,7 +207,7 @@ export function Thread() {
       <ScrollArea className="min-h-0 flex-1" viewportClassName={flatEdgeFade}>
         {empty ? (
           <div className="flex min-h-[60vh] w-full items-center justify-center">
-            <Orb state="idle" held={voice.holdsVoice} live={voice.liveOpen} control={orb} size={128} />
+            <Orb state="idle" held={!voice.otherHoldsVoice} live={voice.liveOpen} control={orb} size={128} />
           </div>
         ) : (
           <div ref={column} className="mx-auto flex w-full max-w-[760px] min-w-0 flex-col gap-4 break-words px-6 pt-[60px] pb-4 max-md:px-4">

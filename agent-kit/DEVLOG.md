@@ -41,6 +41,22 @@ Evidence: <commit / tag / gate run / screenshot>
 
 <!-- Entries below, newest first. -->
 
+## 2026-10-05 — The orb became the agent's on-switch, centred, with no disc
+
+The author asked for one tap to turn the agent on and off on every screen, like the
+watch call. I replaced the orb's tap-and-hold rules with a pure toggle module. The
+controller now claims, opens Live and the microphone on "on", and hangs up on "off",
+including `voice.release`. A Live session that closes by itself now turns the switch off;
+before, the microphone stayed open and the next speech reopened Live. I also fixed a race:
+a switch turned off while `getUserMedia` was pending left the late stream open. The orb now
+sits centred in the composer with the heard line above it, and it has no disc: black dots
+on light, white dots on dark. The 20 px orbs used `theme="auto"`, which falls back to the
+OS theme, so Light on a dark OS drew white dots; every orb now reads the app theme. Headless Chromium with a fake
+microphone checked the switch, the corners of the hit region and a live theme switch. No
+real microphone or Gemini key ran it.
+
+Evidence: `npm --prefix web run verify` 181 tests pass; `verify/verify.sh` OK (Xcode and Android gates skipped); Wear OS `gradle test` 20 tests pass per variant.
+
 ## 2026-10-05 — A Borders switch takes every line and every panel off the screen
 
 The author asked for a toggle that removes borders and dividers and makes everything one background.

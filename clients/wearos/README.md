@@ -69,8 +69,8 @@ The mapping is `web/src/orb-state.ts`, ported as `ui/OrbRender.kt`:
 | another device holds the voice session | paused, opacity 0.35 |
 | Remove animations, or the ambient (always-on) display | the library's static frame (t = 0.6) |
 
-Accessibility: the screen is one element, a switch named "Call" whose state is On or Off.
-TalkBack's double tap toggles the call.
+Accessibility: the screen is one element, a switch named "Agent" whose state is On or Off.
+TalkBack's double tap toggles it.
 
 ## Build
 

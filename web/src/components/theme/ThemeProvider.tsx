@@ -1,5 +1,7 @@
-// Light / Dark / System. The `.dark` class on <html> is the one switch:
-// Tailwind's dark variant and the 20 px orbs (theme="auto") both read it.
+// Light / Dark / System. The `.dark` class on <html> is the one switch for
+// Tailwind's dark variant. `resolved` is the same choice as "light" or
+// "dark", for the orbs: thinking-orbs' "auto" reads `.dark` but falls back to
+// the OS when it is absent, so Light on a dark OS would draw white dots.
 // Borders on / off rides along: `data-borders="off"` on <html> switches the
 // token block in index.css that hides every line and flattens every surface.
 //
@@ -17,6 +19,8 @@ import { isDark, parseTheme, THEME_KEY, type Theme } from "./theme";
 
 export type ThemeValue = {
   theme: Theme;
+  /** The theme on screen: the choice, or the OS preference under System. */
+  resolved: "light" | "dark";
   setTheme: (theme: Theme) => void;
   borders: Borders;
   setBorders: (borders: Borders) => void;
@@ -112,6 +116,17 @@ export function ThemeProvider({ bridge, initial = "system", initialBorders = "on
     return initialBorders;
   });
 
+  const [systemDark, setSystemDark] = useState(() => systemQuery()?.matches ?? false);
+  useEffect(() => {
+    const query = systemQuery();
+    if (!query) return;
+    const update = (): void => setSystemDark(query.matches);
+    update();
+    query.addEventListener("change", update);
+    return () => query.removeEventListener("change", update);
+  }, []);
+  const resolved = isDark(theme, systemDark) ? "dark" : "light";
+
   useEffect(() => applyTheme(theme), [theme]);
   useEffect(() => applyBorders(borders), [borders]);
 
@@ -135,7 +150,10 @@ export function ThemeProvider({ bridge, initial = "system", initialBorders = "on
     [bridge],
   );
 
-  const value = useMemo<ThemeValue>(() => ({ theme, setTheme, borders, setBorders }), [theme, setTheme, borders, setBorders]);
+  const value = useMemo<ThemeValue>(
+    () => ({ theme, resolved, setTheme, borders, setBorders }),
+    [theme, resolved, setTheme, borders, setBorders],
+  );
   return <ThemeContext.Provider value={value}>{children}</ThemeContext.Provider>;
 }
 

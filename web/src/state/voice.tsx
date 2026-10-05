@@ -1,8 +1,8 @@
 // VoiceContext: the VoiceController on this device. Created at the first
 // `ready`, so the gate runs on the server's table and never on the
-// fallbacks. Presses before that do nothing. State is polled every 100 ms
+// fallbacks. Taps before that do nothing. State is polled every 100 ms
 // and on every controller change. Voice only and full duplex: there is no
-// typed input and no input mode.
+// typed input and no input mode. The orb is the agent's on-switch: `toggle`.
 
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { mergeGate, mergeLive } from "../config.ts";
@@ -23,23 +23,20 @@ export type TranscriptHandler = (role: TranscriptRole, text: string, final: bool
 
 export type VoiceSnapshot = {
   holdsVoice: boolean;
+  /** Another device holds the voice session: the orb dims. */
+  otherHoldsVoice: boolean;
+  /** The device that holds the voice session, as last heard. */
+  voiceHolder: string | null;
+  /** The switch reads on. */
+  on: boolean;
   liveOpen: boolean;
   listening: boolean;
   speaking: boolean;
-  /** A hold is on: from the orb or from Space. */
-  pressing: boolean;
 };
 
 export type VoiceValue = VoiceSnapshot & {
-  /** Open the microphone and the Live session; claims the voice session first when needed. */
-  start: () => void;
-  /** Microphone and session off. */
-  end: () => void;
-  /** A forced turn past every filter; opens the Live session when closed. */
-  pressTalk: () => void;
-  releaseTalk: () => void;
-  /** Stop playback, silence the rest of the reply and end any open turn. */
-  interrupt: () => void;
+  /** The orb's tap. Off to on: claim when needed, open the Live session and the microphone. On to off: hang up. */
+  toggle: () => void;
   subscribeTranscript: (handler: TranscriptHandler) => () => void;
   /** The current value, outside React's render cycle. */
   holdsVoiceNow: () => boolean;
@@ -56,17 +53,27 @@ function storageOrNull(): Storage | null {
 }
 
 function snapshot(v: VoiceController | null): VoiceSnapshot {
-  if (!v) return { holdsVoice: false, liveOpen: false, listening: false, speaking: false, pressing: false };
-  return { holdsVoice: v.holdsVoice, liveOpen: v.liveOpen, listening: v.listening, speaking: v.speaking, pressing: v.pressing };
+  if (!v) return { holdsVoice: false, otherHoldsVoice: false, voiceHolder: null, on: false, liveOpen: false, listening: false, speaking: false };
+  return {
+    holdsVoice: v.holdsVoice,
+    otherHoldsVoice: v.otherHoldsVoice,
+    voiceHolder: v.voiceHolder,
+    on: v.on,
+    liveOpen: v.liveOpen,
+    listening: v.listening,
+    speaking: v.speaking,
+  };
 }
 
 function same(a: VoiceSnapshot, b: VoiceSnapshot): boolean {
   return (
     a.holdsVoice === b.holdsVoice &&
+    a.otherHoldsVoice === b.otherHoldsVoice &&
+    a.voiceHolder === b.voiceHolder &&
+    a.on === b.on &&
     a.liveOpen === b.liveOpen &&
     a.listening === b.listening &&
-    a.speaking === b.speaking &&
-    a.pressing === b.pressing
+    a.speaking === b.speaking
   );
 }
 
@@ -108,14 +115,14 @@ export function VoiceProvider({ children }: { children: ReactNode }) {
             window.apparatusGateLog = () => v.gate.log();
             window.apparatusEnrollSpeaker = (samples, consent) => v.enroll(samples, consent);
           }
-          controller.current.setHoldsVoice(msg.voice_holder !== null && msg.voice_holder === msg.device_id);
+          controller.current.syncHolder(msg.voice_holder, msg.device_id);
           break;
         }
         case "voice.granted":
-          controller.current?.setHoldsVoice(true);
+          controller.current?.granted();
           break;
         case "voice.revoked":
-          controller.current?.setHoldsVoice(false);
+          controller.current?.revoked(msg.by);
           break;
         default:
           break;
@@ -127,11 +134,7 @@ export function VoiceProvider({ children }: { children: ReactNode }) {
 
   const actions = useMemo<Omit<VoiceValue, keyof VoiceSnapshot>>(
     () => ({
-      start: () => controller.current?.start(),
-      end: () => controller.current?.end(),
-      pressTalk: () => controller.current?.pressTalk(),
-      releaseTalk: () => controller.current?.releaseTalk(),
-      interrupt: () => controller.current?.interrupt(),
+      toggle: () => controller.current?.toggle(),
       subscribeTranscript: (handler) => {
         transcriptHandlers.current.add(handler);
         return () => {

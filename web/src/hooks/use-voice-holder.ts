@@ -1,18 +1,12 @@
-// Which device holds the voice session: `ready.voice_holder`, then
-// `voice.granted` (this device) and `voice.revoked` (the device in `by`).
+// Which device holds the voice session, as the voice controller last heard
+// it: `ready.voice_holder`, `voice.granted` (this device), `voice.revoked`
+// (the device in `by`), and null once this device turns its switch off and
+// gives the voice session back.
 
-import { useState } from "react";
-import { useServer, useServerMessages } from "@/state/server";
+import { useVoice } from "@/state/voice";
 
 export function useVoiceHolder(): string | null {
-  const { ready, deviceId } = useServer();
-  const [holder, setHolder] = useState<string | null>(ready?.voice_holder ?? null);
-  useServerMessages((msg) => {
-    if (msg.type === "ready") setHolder(msg.voice_holder);
-    else if (msg.type === "voice.granted") setHolder(deviceId);
-    else if (msg.type === "voice.revoked") setHolder(msg.by);
-  });
-  return holder;
+  return useVoice().voiceHolder;
 }
 
 /**

@@ -107,8 +107,8 @@ animation follows `orbRender` in `web/src/orb-state.ts`:
 `orbFrozenTime`: wall-clock seconds × the preset speed × the speed above,
 the same product the web library uses. Paused holds the frame on screen.
 
-Accessibility: the orb is the one element, a toggle named "Call" with the
-value On or Off. VoiceOver's double tap toggles the call.
+Accessibility: the orb is the one element, a toggle named "Agent" with the
+value On or Off. VoiceOver's double tap toggles it.
 
 ## Behavior
 

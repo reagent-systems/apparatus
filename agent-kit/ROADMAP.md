@@ -16,7 +16,7 @@ it with credits, with every secret kept away from the model.
 ## Feature Queue — ordered; top unblocked item ships next
 
 ### 1. Voice shell on the paid tier
-- **Promise:** A 10-minute Live session on the paid tier runs from the web client with push to talk, an answer and an interruption, and the billed tokens for each minute are recorded in STATUS.md.
+- **Promise:** A 10-minute Live session on the paid tier runs from the web client with the orb switched on, an answer and a spoken barge-in interruption, and the billed tokens for each minute are recorded in STATUS.md.
 - **Evidence:** The session audit log (`token.mint`, `live.closed`) and a table of billed tokens per minute in STATUS.md.
 - **Use case:** Ask and hear.
 - **Scope guard:** No gate tuning, no VM work. Fix only what stops the session from running.

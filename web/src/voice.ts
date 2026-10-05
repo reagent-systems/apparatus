@@ -2,6 +2,7 @@
 // plus the relays to the session server. One instance per page.
 
 import { Gate, InputMode, type GateEvent } from "./gate/gate.ts";
+import { onStep, releasesVoice, toggleAction } from "./composer/orb-toggle.ts";
 import { LiveSession } from "./live/session.ts";
 import { ReplyLatch } from "./live/reply-latch.ts";
 import type { LiveEvent } from "./live/messages.ts";
@@ -46,7 +47,8 @@ export type VoiceOptions = {
   auth: string;
   gateConfig: GateConfig;
   liveConfig: LiveConfig;
-  send: (msg: C2SMessage) => void;
+  /** False when the server socket is down and the message was dropped. */
+  send: (msg: C2SMessage) => boolean;
   onTranscript: (role: TranscriptRole, text: string, final: boolean) => void;
   onChange?: () => void;
   /** On-device storage for the speaker profile. Null disables enrollment. */
@@ -83,12 +85,15 @@ export class VoiceController {
   private handle: string | null = null;
   private idleTimer: ReturnType<typeof setTimeout> | null = null;
   private swapTimer: ReturnType<typeof setTimeout> | null = null;
-  private holds = false;
-  private pendingStart = false;
-  /** A hold that began before this device held the voice session. */
-  private pendingPress = false;
-  /** Between `pressTalk` and its release, an interrupt or a close. */
-  private pressed = false;
+  /** The device id from `ready`, and the device that holds the voice session as last heard. */
+  private self: string | null = null;
+  private holder: string | null = null;
+  /** The switch: on from the tap that turned it on until hang-up or a self-close. */
+  private onValue = false;
+  /** `voice.claim`s sent on this connection whose `voice.granted` has not come yet. The server grants every claim, in order. */
+  private claimsInFlight = 0;
+  /** How many of those were released before their grant: their grants are stale. */
+  private staleGrants = 0;
   private readonly reply = new ReplyLatch();
   private userText = "";
   private agentText = "";
@@ -118,7 +123,22 @@ export class VoiceController {
   // ---- state ---------------------------------------------------------------
 
   get holdsVoice(): boolean {
-    return this.holds;
+    return this.self !== null && this.holder === this.self;
+  }
+
+  /** Another device holds the voice session: the orb dims. */
+  get otherHoldsVoice(): boolean {
+    return this.holder !== null && this.holder !== this.self;
+  }
+
+  /** The device that holds the voice session, as last heard; null when none does. */
+  get voiceHolder(): string | null {
+    return this.holder;
+  }
+
+  /** The switch reads on. */
+  get on(): boolean {
+    return this.onValue;
   }
 
   get liveOpen(): boolean {
@@ -133,87 +153,114 @@ export class VoiceController {
     return this.playback.isSpeaking();
   }
 
-  /** A hold is on: from the orb or from Space. */
-  get pressing(): boolean {
-    return this.pressed;
+  // ---- the voice session ---------------------------------------------------
+
+  /** `ready`: the holder the server knows, on a new connection with no claim in flight. */
+  syncHolder(holder: string | null, self: string): void {
+    const held = this.holdsVoice;
+    this.self = self;
+    this.holder = holder;
+    this.claimsInFlight = 0;
+    this.staleGrants = 0;
+    // A switch that held the voice session lost it while the socket was down.
+    if (this.onValue && held && this.otherHoldsVoice) this.hangUp("revoked", false);
+    else this.advance();
+    this.opts.onChange?.();
   }
 
-  setHoldsVoice(holds: boolean): void {
-    if (holds === this.holds) return;
-    this.holds = holds;
-    if (!holds) {
-      this.pendingStart = false;
-      this.pendingPress = false;
-      this.pressed = false;
-      this.closeLive("revoked");
-    } else {
-      if (this.pendingStart) {
-        this.pendingStart = false;
-        this.start();
-      }
-      if (this.pendingPress) {
-        this.pendingPress = false;
-        this.gate.pressTalk();
-      }
+  /** `voice.granted`. */
+  granted(): void {
+    this.claimsInFlight = Math.max(0, this.claimsInFlight - 1);
+    if (this.staleGrants > 0) {
+      // The release that followed the claim already freed it on the server:
+      // as last heard on this socket, nobody holds the voice session.
+      this.staleGrants--;
+      this.holder = null;
+      this.opts.onChange?.();
+      return;
     }
+    if (!this.onValue) {
+      // A grant while the switch is off (a claim the switch no longer wants,
+      // or a server grant nobody asked for): give it straight back.
+      this.opts.send({ type: C2S.VOICE_RELEASE });
+      this.holder = null;
+      this.opts.onChange?.();
+      return;
+    }
+    this.holder = this.self;
+    this.advance();
+    this.opts.onChange?.();
+  }
+
+  /** `voice.revoked`: another device took the voice session. */
+  revoked(by: string): void {
+    this.holder = by;
+    this.hangUp("revoked", false);
     this.opts.onChange?.();
   }
 
   // ---- user actions --------------------------------------------------------
 
-  /** Open the microphone and the Live session; claims the voice session first when needed. */
+  /** The orb's tap: the agent's on-switch (`composer/orb-toggle.ts`). */
+  toggle(): void {
+    if (toggleAction({ holdsVoice: this.holdsVoice, on: this.onValue }) === "on") this.start();
+    else this.end();
+  }
+
+  /** On: claim the voice session when needed, then open the Live session and the microphone. */
   start(): void {
-    if (!this.holds) {
-      this.pendingStart = true;
-      this.opts.send({ type: C2S.VOICE_CLAIM });
-      return;
-    }
-    this.ensureLive();
+    if (this.onValue) return;
+    this.onValue = true;
     void this.playback.unlock();
-    if (!this.capture.running) {
-      this.capture.start((frame) => this.gate.pushFrame(frame)).catch((err: unknown) => {
-        console.error("capture", err);
-      });
-    }
+    this.advance();
+    // A claim that never gets its grant still ends at the idle limit.
     this.touchIdle();
     this.opts.onChange?.();
   }
 
-  /** Microphone and session off. */
+  /** Off: hang up and give the voice session back. */
   end(): void {
-    this.closeLive("user");
+    this.hangUp("user", true);
+  }
+
+  /** The next step of an on switch that waits on the server: the claim, then Live and the microphone. */
+  private advance(): void {
+    if (!this.onValue) return;
+    if (onStep({ holdsVoice: this.holdsVoice }) === "claim") {
+      // One live claim at a time; claims released before their grant do not count.
+      if (this.self !== null && this.claimsInFlight === this.staleGrants && this.opts.send({ type: C2S.VOICE_CLAIM })) {
+        this.claimsInFlight++;
+      }
+      return;
+    }
+    this.ensureLive();
+    if (!this.capture.running) {
+      this.capture.start((frame) => this.gate.pushFrame(frame)).catch((err: unknown) => {
+        console.error("capture", err);
+        if (this.onValue) this.hangUp("microphone_unavailable", true);
+      });
+    }
+    this.touchIdle();
   }
 
   /**
-   * The orb held: a forced turn past every filter, opening the Live session
-   * first when it is closed. Without the voice session the press waits for
-   * `voice.granted` and starts then, unless it was released first.
+   * Hang-up, by the user or because the session cannot go on. Every resource
+   * the switch took is released here. `release` gives the voice session back,
+   * also a claim still in flight: the server handles this socket in order, so
+   * the release lands after the claim.
    */
-  pressTalk(): void {
-    this.pressed = true;
-    this.start();
-    if (this.holds) this.gate.pressTalk();
-    else this.pendingPress = true;
-    this.opts.onChange?.();
-  }
-
-  releaseTalk(): void {
-    this.pressed = false;
-    this.pendingPress = false;
-    this.gate.releaseTalk();
-    this.opts.onChange?.();
-  }
-
-  /**
-   * The manual stop, always available: playback stops at once, the rest of
-   * the reply stays silent, and any open turn ends.
-   */
-  interrupt(): void {
-    this.pressed = false;
-    this.pendingPress = false;
-    this.playback.stop();
-    this.reply.interrupt();
+  private hangUp(reason: string, release: boolean): void {
+    const wasOn = this.onValue;
+    this.onValue = false;
+    // An open turn ends here, so its activityEnd goes out before the close.
     this.gate.stopAll();
+    this.closeLive(reason);
+    if (release && wasOn && releasesVoice({ holdsVoice: this.holdsVoice, claimPending: this.claimsInFlight > 0 })) {
+      this.opts.send({ type: C2S.VOICE_RELEASE });
+      // The release lands after every claim still in flight, so all their grants are stale.
+      this.staleGrants = this.claimsInFlight;
+      if (this.holdsVoice) this.holder = null;
+    }
     this.opts.onChange?.();
   }
 
@@ -240,7 +287,7 @@ export class VoiceController {
       default:
         break;
     }
-    if (hasVoice(msg) && this.holds && this.live) {
+    if (hasVoice(msg) && this.holdsVoice && this.live) {
       this.live.sendEventTurn(msg.voice);
       this.touchIdle();
     }
@@ -267,6 +314,9 @@ export class VoiceController {
         this.opts.onChange?.();
         break;
       case "bargeIn":
+        // Voice over the agent: playback stops inside bargein_stop_ms, and the
+        // rest of the reply, in flight until `interrupted`, stays silent.
+        this.reply.interrupt();
         this.playback.stop();
         break;
       case "drop":
@@ -277,7 +327,7 @@ export class VoiceController {
   // ---- live session --------------------------------------------------------
 
   private ensureLive(): void {
-    if (this.live || !this.holds) return;
+    if (this.live || !this.onValue || !this.holdsVoice) return;
     const session = this.createSession();
     this.live = session;
     void this.openSession(session);
@@ -302,6 +352,7 @@ export class VoiceController {
       if (session === this.live) {
         this.live = null;
         this.opts.send({ type: C2S.LIVE_CLOSED, reason: "token_failed" });
+        this.hangUp("token_failed", true);
       } else if (session === this.next) {
         this.next = null;
       }
@@ -395,6 +446,9 @@ export class VoiceController {
       if (this.next) {
         this.live = this.next;
         this.next = null;
+      } else {
+        // Closed by itself (idle, error, server drop): the switch reads off.
+        this.hangUp(reason, true);
       }
       this.opts.onChange?.();
     } else if (session === this.next) {
@@ -433,7 +487,8 @@ export class VoiceController {
     this.opts.onChange?.();
   }
 
-  closeLive(reason: string): void {
+  /** Close the Live session and stop the microphone and playback. `hangUp` also turns the switch off. */
+  private closeLive(reason: string): void {
     if (this.idleTimer) clearTimeout(this.idleTimer);
     this.idleTimer = null;
     if (this.swapTimer) clearTimeout(this.swapTimer);
@@ -446,8 +501,6 @@ export class VoiceController {
       session.close(reason);
       this.opts.send({ type: C2S.LIVE_CLOSED, reason });
     }
-    this.pressed = false;
-    this.pendingPress = false;
     this.gate.stopAll();
     this.capture.stop();
     this.playback.stop();
@@ -467,6 +520,6 @@ export class VoiceController {
       this.touchIdle();
       return;
     }
-    this.closeLive("idle");
+    this.hangUp("idle", true);
   }
 }

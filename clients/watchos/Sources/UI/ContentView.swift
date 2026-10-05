@@ -2,7 +2,7 @@ import SwiftUI
 
 /// The whole screen: the thinking orb on black, nothing else. A tap anywhere
 /// starts or ends the call. The orb is the one accessible element, a toggle
-/// named "Call"; VoiceOver's double tap toggles the call.
+/// named "Agent", as on every client; VoiceOver's double tap toggles the call.
 struct ContentView: View {
     @EnvironmentObject private var model: AppModel
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
@@ -24,7 +24,7 @@ struct ContentView: View {
                 Color.black
                 OrbView(render: render, diameter: min(geometry.size.width, geometry.size.height) * orbShare)
                     .accessibilityElement(children: .ignore)
-                    .accessibilityLabel("Call")
+                    .accessibilityLabel("Agent")
                     .accessibilityValue(model.inCall ? "On" : "Off")
                     .accessibilityAddTraits(.isToggle)
                     .accessibilityAction { model.toggleCall() }

@@ -15,10 +15,16 @@ Conversation-first won the judging; it took the Jobs view, the Receipt / Steps /
 | Needs input | Inline approval and handoff cards with buttons, counted in the rail, Alt+J jumps there | What needs you is in the thread you read | Cowork, Antigravity |
 | Verification | Job card = activity slab + say + show + artifact chips; inspector tabs Receipt / Steps / Artifacts | "Verify with artifacts, not logs" as calm rows | Antigravity, Quick |
 | Voice presence | The orb in the composer (48 / 56 px), the empty state at 128 px, the 20 px preset as the only spinner | The orb is the state | Hermes, the sketches |
-| Composer | One elevated card: the orb at the left and, beside it, what the model heard of the current user turn; nothing else | The box shows what the model thinks the user said, like Claude's voice mode; no model or endpoint picker | Claude Desktop, Quick |
+| Composer | One elevated card: the orb centred in it and, centred above the orb, what the model heard of the current user turn; nothing else | The box shows what the model thinks the user said, like Claude's voice mode; no model or endpoint picker | Claude Desktop, Quick |
+| Centred orb | The orb sits centred horizontally in the composer box on web, desktop, phone and tablet | The author: "move the orb center on the other platforms than watch. it's on the left side of the box. Center it to that 'box'" | The author |
+| Text above the orb | The heard line sits centred above the orb in the same box, at most 2 lines (3 on a phone); the box grows upward, so the orb never moves; with nobody speaking the box holds the orb alone | The author centred the orb in the box; the line then needs a place that does not move it, and the composer is docked to the bottom | The author |
 | Input | Voice only. No text field, no send button, no typed path anywhere | The author: "there is no typing needed"; a field invites a second, worse way in | The author |
 | Duplex | Full duplex is the only mode: the microphone is open while the Live session is open. No input modes, no mode picker, no Input setting | The agent is full duplex voice, so the two input modes were one mode with a switch nobody needs; the author asked why the open-microphone mode existed | The author |
-| Voice control | The orb is the only voice control. Tap: claim, interrupt, close or open. Hold (>= 350 ms): a forced turn until release. No Talk button, no Stop button | "The thinking orb should be the method of interaction." The hold and the tap-to-interrupt keep the spec's manual path: a talk and a stop that always work, because a gate filter can block real speech | The author, `docs/DESIGN-SPEC.md` (Manual path) |
+| Voice control | The orb is the only voice control. No Talk button, no Stop button | "The thinking orb should be the method of interaction." | The author |
+| On-switch | The orb is the agent's on-switch on every client. A tap turns the agent on (claim the voice session when needed, open the Live session, the microphone open for the whole session) or off (hang up). The switch reads off when the Live session closes by itself | The author: "And everything is tap to toggle it on, it's the on-switch for the agent." This replaces the manual push-to-talk path of `docs/DESIGN-SPEC.md` (Manual path) on the screen clients, as the watches already did | The author |
+| No hold | No press-and-hold, no forced turn, no Space hold | The author, of the watch: "its tap to start the conversation, no need to hold. its like a phone call"; the screen clients now work the same way. The microphone is open while the switch is on, so a hold has nothing to add | The author |
+| No tap-to-interrupt | A tap never interrupts and Esc does not either. To talk over the agent, the user speaks: the gate's barge-in rule stops playback inside `gate.bargein_stop_ms` | The author: "it's the on-switch for the agent." A tap that sometimes interrupts and sometimes hangs up is two switches in one | The author |
+| Orb look | No disc, no ring, no shadow: the thinking-orbs dots inside a circular hit region, black dots in light mode and white dots in dark mode, in Borders on and off alike | The author: "The orb should also be modified so it doesn't have a border, it's a circular region and the particles need to be the opposite of the background. In light mode the particles are black, in dark mode they're white." | The author |
 | Screen | The VM in the pane with a 2 px ring that says who holds the desktop; a PiP when the pane is closed | Inverts Antigravity's border on an external window | Antigravity, Paseo |
 | Status bar | 24 px desktop strip: connection, voice holder, control holder, credits | Telemetry at a glance, hideable | Hermes |
 | Palette | Warm paper neutrals (hue 60–85), one ink-blue accent (hue 264), amber / green / red for state only | Calm; Antigravity's identity is an editor preset | Claude Desktop, Quick, Paseo |
@@ -27,11 +33,11 @@ Conversation-first won the judging; it took the Jobs view, the Receipt / Steps /
 | Borders toggle | One preference, `borders: on \| off`, per device like the theme: a Borders switch under Appearance and a Borders row in the palette. Off hides every border, divider, rule and outline ring and puts every surface on the page background | The author: "add a toggle to remove borders and dividers"; "the toggle would make everything the same background" | The author |
 | Borders by token | Off is one block, `:root[data-borders="off"]`: `--border` and `--sidebar-border` go transparent, `--card`, `--popover` and `--sidebar` become `var(--background)`, the composer loses its shadow. A `flat:` utility covers each hard-coded colour | Lines keep their width, so nothing shifts; one block switches every primitive at once; the few hard-coded colours are named where they are drawn | — |
 | Borders default | On: the look above, unchanged | The spec's hairlines and stepped surfaces are the designed look; off is a preference, not a fix | The author |
-| What keeps its fill | Controls and states: filled buttons (Approve, Done, Top up), the Switch, the orb, a selected, hovered or pressed row, chip or tab, status chips and badges, keycaps, progress bars, skeletons, the scrollbar thumb, the screen video and its letterbox. Floating layers keep their shadow | A fill on a control or a state is information, not a surface. The shadow is the only depth left, so a popover still separates from the page it covers | — |
+| What keeps its fill | Controls and states: filled buttons (Approve, Done, Top up), the Switch, a selected, hovered or pressed row, chip or tab, status chips and badges, keycaps, progress bars, skeletons, the scrollbar thumb, the screen video and its letterbox. Floating layers keep their shadow | A fill on a control or a state is information, not a surface. The shadow is the only depth left, so a popover still separates from the page it covers | — |
 | Theme | Light default; dark on the same hue; System follows the OS | Antigravity's light mode was an afterthought | Quick, Paseo |
 | Copy | Every visible string is content or a one-word label from the `docs/STYLE.md` list. No placeholders, hints, captions, helper lines, empty-state text or toasts; icon buttons carry icons only; status is a glyph, a ring, a bar or a one-word chip | The author: "remove explanatory microcopy; no little reassurances; it's obvious what the buttons do" | The author, Cowork |
 | Filters | The Jobs chips are Needs you, Running, Done; the Audit chips are the kinds the server returned. No chip selected shows everything, so no chip says All | "All" is a label the list does not need | The author |
-| Keyboard | Space held is the orb's hold, Esc interrupts, Cmd/Ctrl+K palette, Cmd/Ctrl+1–5 views, Alt+J | Keyboard-first like every reference | Antigravity, Codex, Hermes |
+| Keyboard | Enter or Space on the focused orb toggles it; voice has no global key. Cmd/Ctrl+K palette, Cmd/Ctrl+1–5 views, Alt+J | Keyboard-first like every reference; the orb is a switch, so the key that toggles it is the one that presses any focused control | Antigravity, Codex, Hermes |
 | Watch screen | The thinking orb on black and nothing else: no text, no feed, no buttons, no icons, no status line | The author: "make the watch orb only, no text … JUST THE THINKING ORB. NO BUTTONS." A watch face has no room for a thread; the voice carries the content and the orb carries the state | The author |
 | Watch gesture | A tap anywhere toggles a call, like a phone call: tap to start, tap to hang up. No hold, no long-press, no second gesture | The author: "its tap to start the conversation, no need to hold. its like a phone call through the watch." It replaces the spec's push-to-talk default on watches (`docs/DESIGN-SPEC.md`, Voice gate on the client). During a call the microphone stays open, so a hold has nothing to add | The author |
 | Watch gate | The voice gate runs on the watch, in open-mic mode, with the server's thresholds; parity with the web gate is proven by shared vectors | The spec puts the gate on the device, before audio leaves it ("Voice gate on the client", "Clients are thin"). An open microphone with no gate sends coughs, clicks and the agent's own echo to the model and bills them | `docs/DESIGN-SPEC.md` |
@@ -43,7 +49,7 @@ The app is one thread. Everything said, every job, approval, handoff, output and
 Three moves that beat Google Antigravity:
 
 1. **What needs you is where you are.** An approval is a card with Approve and Deny on it; a handoff is a card with Done and Cancel on it. Both sit in the thread, count in the rail under "Needs you" with an amber hand glyph, and are one keystroke away (Alt+J). The Jobs view lists them first with the same buttons. Antigravity folded its inbox into a sidebar filter and OS toasts; apparatus has no toasts and needs none.
-2. **The voice presence is the product.** Antigravity's voice is dictation into a text box. Here there is no text box: the orb is the composer's only control, is the empty state, is the running glyph on every job row, and beside it the composer shows what the model heard.
+2. **The voice presence is the product.** Antigravity's voice is dictation into a text box. Here there is no text box: the orb is the agent's on-switch and the composer's only control, is the empty state, is the running glyph on every job row, and above it the composer shows what the model heard.
 3. **Calm surfaces at a readable size.** 14 px UI, 15 px prose, warm paper neutrals, one ink accent, hairline borders, one shadow, and a dark mode on the same hue. Antigravity ships editor presets at IDE density; apparatus ships a product palette at reading density.
 
 ## 2. App shell
@@ -84,9 +90,8 @@ The thread is the screen. A 48 px top bar holds `PanelLeft` (the rail as `Sheet 
 
 | Key | Action |
 |---|---|
-| Space held for 350 ms or more (anywhere but the VM video and an open overlay) | The orb's hold: a forced turn until release; a shorter Space does nothing |
-| Enter or Space on the focused orb | The orb's tap; Space held on it is the hold |
-| Esc | Interrupt: stop playback and end any open turn |
+| Enter or Space on the focused orb | Toggle the agent on or off |
+| Esc | Close the open overlay; nothing else |
 | Cmd/Ctrl+K | Command palette |
 | Cmd/Ctrl+1 … 5 | Thread, Jobs, Screen, Audit, Credits |
 | Cmd/Ctrl+B | Rail |
@@ -97,43 +102,46 @@ The thread is the screen. A 48 px top bar holds `PanelLeft` (the rail as `Sheet 
 
 ### Command palette
 
-shadcn `Command` inside a `Dialog`, Cmd/Ctrl+K. Four groups with no headings, split by a `CommandSeparator`: the five surfaces (Thread, Jobs, Screen, Audit, Credits), every job by request text with its glyph, Control or Release, and Light, Dark, System, Borders. One label and a trailing `Kbd` or check per row; Borders carries a check while borders show, and a selection toggles it; no headings, no descriptions. Voice has no row: the orb, Space and Esc carry it.
+shadcn `Command` inside a `Dialog`, Cmd/Ctrl+K. Four groups with no headings, split by a `CommandSeparator`: the five surfaces (Thread, Jobs, Screen, Audit, Credits), every job by request text with its glyph, Control or Release, and Light, Dark, System, Borders. One label and a trailing `Kbd` or check per row; Borders carries a check while borders show, and a selection toggles it; no headings, no descriptions. Voice has no row and no global key: the orb carries it.
 
 ## 3. The orb and the voice composer
 
-The orb is `thinking-orbs` and nothing else. It renders as a filled disc `rounded-full bg-orb-disc` (in dark mode plus `ring-1 ring-orb-ring`) with the library pinned to `theme="dark"`, so the dots are always light on a dark disc.
+The orb is `thinking-orbs` and nothing else: no disc, no ring, no shadow, no background of its own, in Borders on and off alike. Its dots take the ink opposite the page, black in light mode and white in dark mode: `Orb` passes `theme="light"` or `theme="dark"` from `useTheme().resolved`, which follows a live theme switch. `theme="auto"` is not used, because the library falls back to the OS preference when `.dark` is absent, so Light on a dark OS would draw white dots on paper.
 
-| Place | Box | Transform | Preset |
-|---|---|---|---|
-| Composer, desktop and tablet | 48 px | `scale-75` | 64 |
-| Composer, phone | 56 px | `scale-[.875]` | 64 |
-| Empty thread | 128 px, centered | `scale-200` | 64 |
-| Job rows, job card headers, turn headers, product mark | 20 px | none, `theme="auto"` | 20 |
+| Place | Box | Transform | Preset | `dotSize` |
+|---|---|---|---|---|
+| Composer, desktop and tablet | 48 px | `scale-75` | 64 | 4/3 |
+| Composer, phone | 56 px | `scale-[.875]` | 64 | 1 |
+| Empty thread | 128 px, centered | `scale-200` | 64 | 1 |
+| Job rows, job card headers, turn headers, product mark | 20 px | none, `theme` from `useTheme().resolved` | 20 | 1 |
+
+The 48 px orb passes `dotSize={4/3}`: `scale-75` shrinks the 64 px canvas, and on a DPR 1 screen that resampling greys the sub-pixel dots; dots 4/3 larger draw the preset's dots at their tuned size. The 128 px orb stays soft: the library sizes its backing store from `size` × DPR (capped at 2), not from the element, so `scale-200` enlarges a 64 px bitmap and no style on the canvas sharpens it. The ink is the library's depth ramp, not one flat colour: the nearest dots are black or white, farther dots fade toward the page. At idle (`breathing`) the nearest dot is a dark or light grey (about 80 on a light page, 170 on a dark one); `listening` reaches true black and white.
 
 State mapping stays in `orb-state.ts`: idle `breathing` (speed 0.5 while the Live session is closed), connecting `connecting`, listening `listening`, speaking `composing`, working `working`. Another device holding voice: paused at `opacity-40`.
 
-The orb is a `<button aria-label="Talk">` with `aria-pressed` = the Live session is open, and the only voice control in the app. No visible text. One gesture, pure in `composer/orb-gesture.ts` (tested in `test/orb-gesture.test.ts`) and bound in `orb/use-orb-control.ts`:
+**The on-switch.** The orb is the agent's on-switch and the only voice control in the app: a `<button role="switch" aria-checked aria-label="Agent">`, `aria-checked` = the switch reads on. No visible text. The rule is pure in `composer/orb-toggle.ts` (tested in `test/orb-toggle.test.ts`), run by `VoiceController.toggle` and bound in `orb/use-orb-control.ts`:
 
 | Input | Action |
 |---|---|
-| Tap: a press shorter than `HOLD_MS` = 350 ms | First match wins: this device does not hold the voice session → claim it and open the Live session once granted; the agent speaks → interrupt (playback stops within `bargein_stop_ms`, the rest of the reply stays silent, any open turn ends); the Live session is open → close it; else → open it |
-| Hold: a press of 350 ms or more | A forced turn for as long as the press lasts: `pressTalk` forces the gate open past every filter and opens the Live session first when it is closed; release ends the turn. A hold never also fires the tap |
-| Pointer cancel, lost pointer capture, blur | Release without a tap |
-| Enter on the focused orb | Tap |
-| Space on the focused orb | Tap when shorter than 350 ms, hold when longer |
+| Tap, click, or Enter or Space on the focused orb, while off | On: claim the voice session when another device holds it (the Live session opens on `voice.granted`), open the Live session, open the microphone and keep it open (full duplex, the gate in open-mic mode), play the agent's audio |
+| The same, while on | Off, at once: end any open turn (`activityEnd`), stop playback, close the Live session, stop and release the microphone, send `voice.release` (also for a claim still in flight) |
 
-While held: `ring-2 ring-primary ring-offset-2 ring-offset-background` on the disc and `scale-[.97]`. Pointer capture keeps the hold through a drag; `touch-none select-none` keep a long press from scrolling or opening a menu. The 128 px empty-thread orb uses the same gesture. There is no Talk button and no Stop button anywhere: the hold is the manual talk, the tap on a speaking agent and Esc are the manual stop (`docs/DESIGN-SPEC.md`, Manual path).
+There is no hold, no forced turn, no tap-to-interrupt and no tap that only claims. Talking over the agent interrupts it by voice: the gate's barge-in rule stops playback inside `gate.bargein_stop_ms`, and the reply latch keeps the rest of that reply silent. The switch reads off by itself when the Live session closes on its own (the idle limit, an error, a server drop, a token failure), when the microphone is refused, and when another device takes the voice session. The 128 px empty-thread orb and the composer orb are the same switch.
 
-Full duplex is the only mode. The microphone is open while the Live session is open, and the `VoiceController` runs the gate in `InputMode.OPEN_MIC` always. The gate module stays as it is, with its tests; no screen client changes its mode.
+Only the switch claims the voice session: the screen clients send `hello` with `wants_voice: false`, as the watches do. The server answers every `voice.claim` with one `voice.granted`, in order, so `VoiceController` counts claims in flight and how many of them a release made stale; quick taps around one round trip end with the session released. A grant that is not stale but lands while the switch reads off is given back with `voice.release`.
+
+**The circular region.** The box stays `rounded-full` at its size, and `[clip-path:circle(50%)]` cuts the square's corners out of the hit region: a click there does nothing. Pressed feedback is `active:scale-[.97]` only. The keyboard focus ring stays, drawn inset so the clip keeps it: `focus-visible:ring-2 focus-visible:ring-ring/50 focus-visible:ring-inset`, shown only on keyboard focus. `touch-manipulation select-none` keep a touch from zooming or selecting.
+
+Full duplex is the only mode. The microphone is open while the switch is on, and the `VoiceController` runs the gate in `InputMode.OPEN_MIC` always. The gate module stays as it is, with its tests; no screen client changes its mode.
 
 ### The composer
 
-`components/composer/VoiceComposer.tsx`, the one elevated object: `flex items-center gap-3 rounded-2xl border bg-card shadow-composer p-3 max-w-[760px]`. One row:
+`components/composer/VoiceComposer.tsx`, the one elevated object: `flex flex-col items-center gap-2 rounded-2xl border bg-card shadow-composer p-3 max-w-[760px]`. With Borders off the box has no line and no fill, as before.
 
-- the orb at the left: 48 px on desktop and tablet, 56 px on a phone;
-- beside it, what the model heard of the current user turn (the Live input transcription, what the model thinks the user said) as it arrives: `text-[15px] leading-6`, interim text at `opacity-70`, solid once final, at most 2 lines with the newest line in view. It clears when the agent starts its reply, or 600 ms after the final line lands in the thread as the user card.
+- the orb, centred horizontally: 48 px on desktop and tablet, 56 px on a phone;
+- above it, centred in the same box, what the model heard of the current user turn (the Live input transcription, what the model thinks the user said) as it arrives: `text-[15px] leading-6 text-center text-balance`, interim text at `opacity-70`, solid once final, at most 2 lines on desktop and tablet and 3 on a phone, with the newest line in view. It clears when the agent starts its reply, or 600 ms after the final line lands in the thread as the user card.
 
-Nothing at all shows while nobody speaks: no placeholder, no hint, no caption, no button. No text field, no send button, no picker. The latest spoken line is the last agent card in the thread.
+The composer is docked to the bottom of the column, so the box grows upward when the line arrives and shrinks when it goes; the orb never moves. Nothing at all shows while nobody speaks: the box holds the centred orb alone. No placeholder, no hint, no caption, no button. No text field, no send button, no picker. The latest spoken line is the last agent card in the thread.
 
 ## 4. The thread
 
@@ -151,7 +159,7 @@ Cards share the 760 px column at `gap-4`, prose at `text-[15px] leading-[1.55]`.
 
 Consecutive agent cards within 60 seconds share one turn header. Timestamps hide until hover on desktop (`group-hover:opacity-100`) and stay visible at 12 px on phone for job, approval and handoff cards. `MAX_CARDS` stays 100. The thread scrolls to the end on a new card unless the user scrolled up more than 240 px; then a `ChevronDown` round button with the unseen count floats above the composer.
 
-Empty thread: the 128 px orb at `breathing`, with the composer's gesture, and the composer below it. No greeting, no hint.
+Empty thread: the 128 px orb at `breathing`, the same switch as the composer's orb, and the composer below it. No greeting, no hint.
 
 ## 5. Jobs
 
@@ -237,8 +245,6 @@ Paper and ink: warm paper neutrals (hue 60–85, chroma 0.004–0.010), one ink-
   --status-wait: oklch(0.72 0.150 70);
   --status-ok: oklch(0.62 0.150 150);
   --status-run: oklch(0.45 0.180 264);
-  --orb-disc: oklch(0.20 0.010 60);
-  --orb-ring: oklch(0.20 0.010 60 / 0%);
   --composer-shadow: 0 8px 24px -12px oklch(0.20 0.010 60 / 25%);
   --float-shadow: 0 16px 40px -12px oklch(0.20 0.010 60 / 35%), 0 0 24px oklch(0.20 0.010 60 / 12%); /* borders off only */
 }
@@ -283,8 +289,6 @@ Paper and ink: warm paper neutrals (hue 60–85, chroma 0.004–0.010), one ink-
   --status-wait: oklch(0.78 0.140 75);
   --status-ok: oklch(0.72 0.140 150);
   --status-run: oklch(0.72 0.130 264);
-  --orb-disc: oklch(0.12 0.006 60);
-  --orb-ring: oklch(1 0 0 / 14%);
   --composer-shadow: 0 8px 24px -12px oklch(0 0 0 / 60%);
   --float-shadow: 0 16px 48px -8px oklch(0 0 0 / 80%), 0 0 32px oklch(0 0 0 / 60%);
 }
@@ -296,7 +300,6 @@ Paper and ink: warm paper neutrals (hue 60–85, chroma 0.004–0.010), one ink-
   --card: var(--background);
   --popover: var(--background);
   --sidebar: var(--background);
-  --orb-ring: transparent;
   --composer-shadow: 0 0 #0000; /* not `none`: it sits inside the box-shadow list */
 }
 
@@ -307,8 +310,6 @@ Paper and ink: warm paper neutrals (hue 60–85, chroma 0.004–0.010), one ink-
   --color-status-wait: var(--status-wait);
   --color-status-ok: var(--status-ok);
   --color-status-run: var(--status-run);
-  --color-orb-disc: var(--orb-disc);
-  --color-orb-ring: var(--orb-ring);
   --shadow-composer: var(--composer-shadow);
   --shadow-float: var(--float-shadow);
 }
@@ -358,7 +359,7 @@ Weights 400 and 500 only; 600 nowhere. `tabular-nums` on every number.
 |---|---|
 | `border-l-2 border-l-status-wait` (pending approval, active handoff) | `flat:border-l-transparent`; the amber `Hand` or `Monitor` glyph and the buttons carry the state |
 | `border-destructive/40` (failed job) | `flat:border-transparent`; the red `CircleX` glyph carries it |
-| The screen ring `ring-primary` / `ring-status-wait` (frame and PiP), the orb's held ring | `flat:not-focus-visible:ring-transparent`; the stream dot, the holder chip and the bar's buttons say who holds the desktop; the orb's press shows by `scale-[.97]` and its animation |
+| The screen ring `ring-primary` / `ring-status-wait` (frame and PiP) | `flat:not-focus-visible:ring-transparent`; the stream dot, the holder chip and the bar's buttons say who holds the desktop |
 | Outline buttons and toggles (`border-input`, `shadow-xs`, `bg-input/30` in dark) | `flat:border-transparent flat:shadow-none flat:bg-transparent`; no fill in either theme, only the hover fill (`flat:hover:bg-accent`, `flat:dark:hover:bg-input/50`) |
 | Inspector `TabsList` `bg-muted`; the active tab | the list goes transparent; the active tab takes the state fill `bg-accent` |
 | Activity slab, user speech, Jobs glyph circle, `show` and Audit `pre` (`bg-muted`), artifact chips (`bg-muted`), the palette `Kbd` (`bg-muted`, `bg-foreground/10` in dark), the phone screen bar (`bg-background/90`) | flattened onto the background; artifact chips keep their hover fill |
@@ -392,8 +393,8 @@ Custom components, all under `web/src/components`:
 - `layout/AppShell.tsx` (rewrite: rail, thread, pane in a `ResizablePanelGroup`; Sheet variants for tablet and phone), `layout/Titlebar.tsx`, `layout/StatusBar.tsx`, `layout/CommandPalette.tsx`.
 - `rail/Rail.tsx`, `rail/RailNav.tsx`, `rail/RailJobRow.tsx`, `rail/RailFooter.tsx` (avatar, device name, settings popover).
 - `thread/Thread.tsx`, `thread/DayDivider.tsx`, `thread/TurnHeader.tsx`, `thread/SpeechCard.tsx`, `thread/JobCard.tsx`, `thread/ActivitySlab.tsx`, `thread/ApprovalCard.tsx`, `thread/HandoffCard.tsx`, `thread/CreditsLine.tsx`, `thread/ScrollToEnd.tsx`.
-- `composer/VoiceComposer.tsx` (the orb and the heard line). `TalkButton.tsx` and `ModePicker.tsx` are gone.
-- `orb/Orb.tsx` (`size: 48 | 56 | 128`, the disc tokens, the held ring), `orb/use-orb-control.ts` (the gesture: pointer capture, the `HOLD_MS` timer, Enter and Space), `orb/OrbMini.tsx` (split out of `Orb.tsx`, unchanged behavior).
+- `composer/VoiceComposer.tsx` (the centred orb and the heard line above it). `TalkButton.tsx` and `ModePicker.tsx` are gone.
+- `orb/Orb.tsx` (`size: 48 | 56 | 128`, the switch, no disc, the circular hit region, the ink from the resolved theme), `orb/use-orb-control.ts` (the tap: one click handler for a click, a touch, Enter and Space), `orb/OrbMini.tsx` (split out of `Orb.tsx`, the ink from the resolved theme).
 - `status/StatusGlyph.tsx`, `status/ProgressRing.tsx`, `status/CountChip.tsx`.
 - `pane/Inspector.tsx` (evolves `Pane`), `pane/JobInspector.tsx` (Receipt / Steps / Artifacts tabs), `pane/ShowOutput.tsx` (keep).
 - `vm/ScreenFrame.tsx` (evolves `VmScreen`), `vm/ScreenPip.tsx`.
@@ -404,8 +405,8 @@ State and logic changes:
 
 - `feed/reducer.ts`: per job add `progressHistory: string[]` (capped at 50), `startedAt`, `endedAt`, `artifacts: string[]` (from `job.done.artifacts`), and index approvals and handoffs by `job_id`; export `needsYou(state)` (open approvals and handoffs, oldest first). Tests in `test/reducer.test.ts`.
 - `lib/status.ts`: `bucketOf(job, state)` and `glyphOf(job, state)`, pure, tested in `test/status.test.ts`.
-- `composer/orb-gesture.ts`: `HOLD_MS`, `tapAction`, `startPress` / `isHold` / `endPress`, pure, tested in `test/orb-gesture.test.ts`.
-- `voice.ts` / `state/voice.tsx`: voice only and full duplex. No `sendText`, no `inputMode` / `setInputMode`, no `apparatus.input` key. `pressTalk` opens the Live session when closed and waits for `voice.granted` when the device does not hold the voice session; `interrupt()` stops playback, ends any open turn and silences the rest of the reply (`live/reply-latch.ts`, tested in `test/reply-latch.test.ts`).
+- `composer/orb-toggle.ts`: `toggleAction`, `onStep`, `releasesVoice`, pure, tested in `test/orb-toggle.test.ts`.
+- `voice.ts` / `state/voice.tsx`: voice only and full duplex. No `sendText`, no `inputMode` / `setInputMode`, no `apparatus.input` key, no `pressTalk`, `releaseTalk` or `interrupt`. `toggle` turns the switch on (claim when needed, open on `voice.granted`) or off (hang up and `voice.release`); a self-close, a refused microphone or `voice.revoked` turn it off. Barge-in silences the rest of the reply (`live/reply-latch.ts`, tested in `test/reply-latch.test.ts`). The switch is tested with fakes in `test/voice-switch.test.ts`.
 - `live/messages.ts`: no typed-turn builder; `buildEventTurn` is the only `clientContent` turn.
 - `state/screen.tsx`: one shared screen store around `useScreen`.
 - `state/selection.tsx`: view, selected job, pane open and mode, rail collapsed; persisted under `apparatus.view`, `apparatus.rail`.
@@ -413,14 +414,14 @@ State and logic changes:
 
 ## 10. Risks and unverified items
 
-1. `thinking-orbs` presets are tuned designs, not scale factors; the 64 preset at `scale-75` and `scale-200` is untested at DPR 2. If the 48 px slot blurs, use the 20 preset at `scale-[2.4]`.
-2. The orb gesture is tested as pure rules only. No microphone, finger or keyboard has run the hold, the tap-to-interrupt or the Space hold on a device.
+1. `thinking-orbs` presets are tuned designs, not scale factors. The 48 px orb's `dotSize` 4/3 was measured in headless Chromium at DPR 1 and 2 only. The 128 px orb at `scale-200` is soft by construction (section 3).
+2. The on-switch is tested as pure rules, on the controller with fakes, and in headless Chromium with a fake microphone. No real microphone, finger or screen reader has run it on a device.
 3. `progressHistory` is lost on reload because `ready.jobs` carries only the latest `progress`; the Steps tab is complete only for jobs seen live.
-4. The Space hold is gated on the VM video and open overlays only. A focused button no longer activates on Space; Enter still does.
-5. On iOS Safari a scroll gesture that starts on the orb can cancel the hold (`pointercancel` releases it); untested on a device.
+4. `voice.release` reaches no other device: the server sends nothing on it, so another device's orb stays dimmed until its next `ready`. The watches release the same way.
+5. The circular hit region relies on `clip-path` hit testing; checked in headless Chromium only, not on iOS Safari or Android WebView.
 6. The Tauri overlay titlebar and the 76 px inset come from the Tauri 2 docs, not from this repo's `tauri.conf.json`; verify on macOS.
 7. Contrast is computed, not measured: `muted-foreground` on `background` is about 4.6:1; amber on paper is about 2.8:1, so amber colors glyphs and bars only; verify the credits-low number.
-8. The orb disc pins `theme="dark"` while `OrbMini` uses `theme="auto"`; `ThemeProvider` must set `.dark` before first paint or the 20 px orbs flash the wrong ink.
+8. Every orb takes its ink from `useTheme().resolved`. The library starts its resolved theme at dark and sets it in an effect; whether a light page shows one frame of white dots on mount was not checked frame by frame.
 9. The shared screen store makes `useScreen` app-scoped; the PiP and the pane must not both call `open()` and `close()`.
 10. `react-resizable-panels` adds weight to a bundle the repo keeps small; the Sheet paths do not need it.
 11. The references' dark tokens are undocumented; the dark palette here is designed, not copied, and must be judged on screen.
@@ -458,7 +459,7 @@ The haptics are `WKInterfaceDevice.play(.start)` and `.stop` on watchOS, `EFFECT
 
 **Wrist down.** watchOS: the app declares the `audio` background mode and keeps an active playAndRecord session through the call. Wear OS: a foreground service of type `microphone` holds the process and the microphone until hang-up. Neither has run on a watch; each app's README lists what is unverified.
 
-**Accessibility.** The orb is the one accessible element: a toggle named "Call" whose value is On or Off. VoiceOver's and TalkBack's double tap toggles the call.
+**Accessibility.** The orb is the one accessible element: a toggle named "Agent", as on every client, whose value is On or Off. VoiceOver's and TalkBack's double tap toggles the call.
 
 **Notifications.** Handoffs and approvals stay system notifications, with Approve and Deny on approvals. They are system UI, not the app's screen.
 

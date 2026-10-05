@@ -47,7 +47,7 @@ origin, or on `bridge.serverOrigin` inside a shell.
 3. Open the server origin in a browser. The auth value comes from
    `bridge.secureStore.get("apparatus.auth")` (localStorage on the web) and
    falls back to `dev`.
-4. Tap the orb to open the voice session and talk. Hold the orb (or Space) for a forced turn. Tap it while the agent speaks to interrupt.
+4. Tap the orb to turn the agent on and talk. Tap it again to turn the agent off. To interrupt the agent, talk over it.
 
 ### Demo mode
 
@@ -70,7 +70,7 @@ rather than taking long prop lists.
 |---|---|
 | `src/App.tsx` | Computes the orb state, picks the column view, mounts `AppShell` and `CommandPalette`; push registration, hidden-page notifications, the handoff lock on the pane, the keyboard. |
 | `src/state/server.tsx` | `ServerContext` on `ServerSocket`: `{ send, subscribe, deviceId, ready, connected, device, httpOrigin, auth, bridge }`. `useServerMessages(handler)` subscribes for a component's life. Sends `hello` on every open. |
-| `src/state/voice.tsx` | `VoiceContext` on `VoiceController`: `{ holdsVoice, liveOpen, listening, speaking, start, end, pressTalk, releaseTalk, interrupt, ... }`. Voice only and full duplex: no typed input, no input mode. Polled every 100 ms and on change. |
+| `src/state/voice.tsx` | `VoiceContext` on `VoiceController`: `{ on, toggle, holdsVoice, otherHoldsVoice, voiceHolder, liveOpen, listening, speaking, ... }`. Voice only and full duplex: no typed input, no input mode. Polled every 100 ms and on change. |
 | `src/state/feed.tsx` | `FeedProvider` / `useFeed()`: `[state, dispatch]`, the reducer wired to the socket and the Live transcripts. The voice holder skips the server's transcript relay. |
 | `src/feed/reducer.ts` | Pure. Cards (cap 100), jobs by id with `progressHistory` (cap 50), approvals and handoffs by id and by job, `show`, `spoken`, credits; `runningJobs`, `recentJobs`, `needsYou`, `jobOf`, `seedFromReady`. Tested in `test/reducer.test.ts`. |
 | `src/state/selection.tsx` | `useSelection()`: view, selected job, pane open / mode / width / lock, rail, status bar, notifications; persisted through `bridge.secureStore` (`selection-codec.ts`). |
@@ -80,14 +80,14 @@ rather than taking long prop lists.
 | `src/components/layout/` | `AppShell` (rail, column, pane in a `ResizablePanelGroup`; sheets on tablet and phone), `Titlebar`, `StatusBar`, `CommandPalette`. |
 | `src/components/rail/` | `Rail`, `RailNav` (Thread, Jobs, Screen, Audit, Credits), `RailJobRow` and the Needs you / Running / Recent groups, `RailFooter` (settings popover: Appearance with Borders, Notifications, Status bar). |
 | `src/components/thread/` | `Thread` and its cards: speech, job (activity slab, say, show, artifacts), approval, handoff, credits line, day divider, turn header, scroll-to-end. |
-| `src/components/composer/` | `VoiceComposer`: the orb and, beside it, what the model heard of the current user turn (interim at opacity-70, solid once final, cleared when the agent replies). Nothing shows while nobody speaks. |
-| `src/composer/orb-gesture.ts` | Pure: `HOLD_MS` (350), `tapAction`, `startPress` / `isHold` / `endPress`. Tested in `test/orb-gesture.test.ts`. |
-| `src/components/orb/` | `Orb` (48 / 56 / 128 px on the disc; the only voice control), `use-orb-control` (tap and hold on the voice context) and `OrbMini` (20 px), all `thinking-orbs`; state names in `src/orb-state.ts`. |
+| `src/components/composer/` | `VoiceComposer`: the orb centred in the box and, centred above it, what the model heard of the current user turn (interim at opacity-70, solid once final, cleared when the agent replies; at most 2 lines, 3 on a phone). The box grows upward, so the orb never moves. Nothing shows while nobody speaks. |
+| `src/composer/orb-toggle.ts` | Pure: `toggleAction`, `onStep`, `releasesVoice`, the rules of the on-switch. Tested in `test/orb-toggle.test.ts`; the controller's switch in `test/voice-switch.test.ts`. |
+| `src/components/orb/` | `Orb` (48 / 56 / 128 px; `role="switch"` named "Agent", no disc, a circular hit region, dots in the ink opposite the page), `use-orb-control` (the tap on the voice context) and `OrbMini` (20 px), all `thinking-orbs`; state names in `src/orb-state.ts`. |
 | `src/components/status/` | `StatusGlyph`, `ProgressRing`, `CountChip`. |
 | `src/components/pane/` | `Inspector` (Output / Screen), `JobInspector` (Receipt / Steps / Artifacts), `ShowOutput`. |
 | `src/components/vm/` | `ScreenFrame` (watch or handoff, the control ring, input), `ScreenPip`, `useScreen`. |
 | `src/components/views/` | `JobsView` and `JobRow`, `AuditView` (`GET /audit`), `CreditsView` (`GET /credits`, Top up disabled). |
-| `src/components/theme/` | `ThemeProvider` / `useTheme()`: Light, Dark or System; `.dark` on `<html>` before first paint (an inline script in `index.html`), persisted under `apparatus.theme`. Borders on or off the same way: `data-borders="off"` on `<html>`, persisted under `apparatus.borders`; the pure rules are in `borders.ts` (`test/borders.test.ts`). |
+| `src/components/theme/` | `ThemeProvider` / `useTheme()`: Light, Dark or System, and `resolved` (light or dark) for the orbs' ink; `.dark` on `<html>` before first paint (an inline script in `index.html`), persisted under `apparatus.theme`. Borders on or off the same way: `data-borders="off"` on `<html>`, persisted under `apparatus.borders`; the pure rules are in `borders.ts` (`test/borders.test.ts`). |
 | `src/components/ui/*` | shadcn/ui primitives. No tooltip, sonner or toast: the UI holds no helper text. |
 | `src/hooks/` | `use-breakpoint` (phone < 768, tablet 768..1023, desktop >= 1024; `isTabletWidth()` for `hello.device`), `shortcuts` (pure key matcher) and `use-shortcuts` (the window binding). |
 | `src/vm/input.ts` | Pure: the `input` data-channel shape, pointer math over a letterboxed video, perfect-negotiation decisions. Tested in `test/vm-input.test.ts`. |
@@ -100,9 +100,8 @@ Cancel.
 
 ### Keyboard
 
-Space held for 350 ms or more (anywhere but the VM video and an open overlay)
-is the orb's hold, and a shorter Space does nothing; Enter or Space on the
-focused orb is its tap; Esc interrupts; Cmd/Ctrl+K opens the palette; Cmd/Ctrl+1..5 pick Thread, Jobs,
+Enter or Space on the focused orb toggles the agent; voice has no global
+key, and Esc only closes overlays. Cmd/Ctrl+K opens the palette; Cmd/Ctrl+1..5 pick Thread, Jobs,
 Screen, Audit, Credits; Cmd/Ctrl+B toggles the rail; Cmd/Ctrl+J the pane;
 Alt+J focuses the oldest card that needs you; Enter / Backspace answer a
 focused approval or handoff card; Cmd/Ctrl+Shift+C takes or releases control.
@@ -136,8 +135,10 @@ Per 20 ms frame, in `src/gate/gate.ts`:
    between two dips is one word) or from the interim transcript, whichever
    is larger. A candidate that never clears the bar is dropped as
    `bargein_rejected`. On a valid barge-in the gate emits `bargeIn`, the
-   controller calls `playback.stop()`, and the turn continues as normal. The
-   Live server also sends `interrupted`, which stops playback too.
+   controller calls `playback.stop()`, the reply latch keeps the rest of
+   that reply silent (`src/live/reply-latch.ts`), and the turn continues as
+   normal. The Live server also sends `interrupted`, which stops playback
+   too.
 5. Speaker check (`speaker.ts`): off unless `speaker_check` is true.
 6. Turn detector (`turn.ts`): silence from the last raw voiced frame.
    The turn ends at `silence_complete_ms` when the completeness model says
@@ -150,18 +151,19 @@ Automatic activity detection is off in the server-built `setup`.
 The screen clients run the gate in `InputMode.OPEN_MIC` always: full duplex
 is the only mode, and the microphone is open while the Live session is open.
 
-Manual path, all on the orb (`src/components/orb/use-orb-control.ts`):
+The orb is the agent's on-switch (`src/composer/orb-toggle.ts`, run by
+`VoiceController.toggle`, bound in `src/components/orb/use-orb-control.ts`).
+A tap, a click, or Enter or Space on the focused orb toggles it:
 
-| Gesture | Action |
+| Switch | A tap |
 |---|---|
-| Tap (< 350 ms) | No voice session on this device: claim it, open the Live session once granted. Agent speaking: `interrupt()`. Live session open: close it. Else: open it. |
-| Hold (>= 350 ms) | `pressTalk()`: opens the Live session when closed and forces the turn open past every filter; release, pointer cancel or lost capture call `releaseTalk()`. A hold never also taps. |
-| Esc | `interrupt()` |
+| Off | On: `voice.claim` when this device does not hold the voice session (the rest waits for `voice.granted`), then the Live session and the microphone open and stay open. |
+| On | Off: the gate ends any open turn (`activityEnd`), playback stops, the Live session closes (`live.closed`), the microphone stops and its tracks are released, and `voice.release` goes out, also for a claim still in flight; its late `voice.granted` is dropped. |
 
-`interrupt()` stops playback at once, ends any open turn, and keeps the rest
-of the interrupted reply silent until the Live session ends that turn
-(`src/live/reply-latch.ts`). A hold that starts before `voice.granted` waits
-for it and is dropped when released first.
+There is no hold, no forced turn and no tap-to-interrupt; to interrupt the
+agent, the user talks over it. The switch reads off by itself when the Live
+session closes on its own (idle limit, error, server drop, token failure),
+when the microphone is refused, and on `voice.revoked`.
 
 ### Thresholds
 
@@ -183,8 +185,8 @@ controller is created at the first `ready`.
 
 `ready` may also carry `live.idle_close_seconds` (default 120). With no
 speech and no job event for that long the Live socket closes and the
-microphone stops; the next orb tap or hold reopens both with a fresh token and
-the stored resumption handle.
+microphone stops, and the switch reads off; the next orb tap reopens both
+with a fresh token and the stored resumption handle.
 
 ### Decision log
 

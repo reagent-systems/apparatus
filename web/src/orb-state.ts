@@ -8,7 +8,7 @@ export type OrbAnimation = "breathing" | "connecting" | "listening" | "composing
 
 export type OrbInput = {
   state: OrbState;
-  /** This device holds the voice session. */
+  /** No other device holds the voice session: this device holds it, or nobody does. */
   held: boolean;
   /** A Live session is open. */
   live: boolean;
@@ -38,8 +38,8 @@ export const NORMAL_SPEED = 1;
 export const SLOW_SPEED = 0.5;
 
 /**
- * Precedence: `connecting` (the server socket is down) shows as is; a device
- * that does not hold the voice session is paused and dimmed; a running job
+ * Precedence: `connecting` (the server socket is down) shows as is; while
+ * another device holds the voice session the orb is paused and dimmed; a running job
  * shows `working` even while the Live session is closed; otherwise a closed
  * Live session breathes slowly.
  */

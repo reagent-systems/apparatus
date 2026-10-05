@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { keyLabel, shortcutFor, talkTarget, type KeyLike } from "../src/hooks/shortcuts.ts";
+import { keyLabel, shortcutFor, type KeyLike } from "../src/hooks/shortcuts.ts";
 
 function key(partial: Partial<KeyLike> & { key: string }): KeyLike {
   return { metaKey: false, ctrlKey: false, altKey: false, shiftKey: false, ...partial };
@@ -21,12 +21,11 @@ test("Cmd/Ctrl+1..5 name the views in rail order", () => {
   assert.equal(shortcutFor(key({ key: "6", code: "Digit6", ctrlKey: true }), false), null);
 });
 
-test("rail, pane, control, interrupt and the needs-you jump", () => {
+test("rail, pane, control and the needs-you jump", () => {
   assert.equal(shortcutFor(key({ key: "b", code: "KeyB", metaKey: true }), true), "rail");
   assert.equal(shortcutFor(key({ key: "j", code: "KeyJ", metaKey: true }), true), "pane");
   assert.equal(shortcutFor(key({ key: "C", code: "KeyC", metaKey: true, shiftKey: true }), true), "control");
   assert.equal(shortcutFor(key({ key: "K", code: "KeyK", metaKey: true, shiftKey: true }), true), null);
-  assert.equal(shortcutFor(key({ key: "Escape" }), true), "interrupt");
   assert.equal(shortcutFor(key({ key: "∆", code: "KeyJ", altKey: true }), true), "needsYou");
   assert.equal(shortcutFor(key({ key: "j", code: "KeyJ", altKey: true, metaKey: true }), true), null);
 });
@@ -37,12 +36,12 @@ test("a plain letter is nothing; `key` stands in when `code` is absent", () => {
   assert.equal(shortcutFor(key({ key: "3", ctrlKey: true }), false), "view:screen");
 });
 
-test("the Space hold talks anywhere but the VM video", () => {
-  assert.equal(talkTarget(null), "free");
-  assert.equal(talkTarget("DIV"), "free");
-  assert.equal(talkTarget("BUTTON"), "free");
-  assert.equal(talkTarget("VIDEO"), "video");
-  assert.equal(talkTarget("video"), "video");
+test("voice has no global key: Esc and Space name no shortcut", () => {
+  for (const mac of [true, false]) {
+    assert.equal(shortcutFor(key({ key: "Escape", code: "Escape" }), mac), null);
+    assert.equal(shortcutFor(key({ key: " ", code: "Space" }), mac), null);
+    assert.equal(shortcutFor(key({ key: "Enter", code: "Enter" }), mac), null);
+  }
 });
 
 test("key labels follow the platform", () => {

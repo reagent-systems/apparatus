@@ -12,21 +12,37 @@ export class Capture {
   private stream: MediaStream | null = null;
   private node: AudioWorkletNode | null = null;
   private handler: FrameHandler | null = null;
+  /** The start in progress, so a second start joins it. */
+  private starting: Promise<void> | null = null;
+  /** Bumped by `stop`: a start that awaited across a stop gives back what it took. */
+  private epoch = 0;
 
   get running(): boolean {
-    return this.node !== null;
+    return this.node !== null || this.starting !== null;
   }
 
-  async start(onFrame: FrameHandler): Promise<void> {
-    if (this.node) {
-      this.handler = onFrame;
-      return;
-    }
+  start(onFrame: FrameHandler): Promise<void> {
     this.handler = onFrame;
-    this.stream = await navigator.mediaDevices.getUserMedia({
+    if (this.node) return Promise.resolve();
+    if (!this.starting) {
+      const epoch = this.epoch;
+      this.starting = this.open(epoch).finally(() => {
+        if (this.epoch === epoch) this.starting = null;
+      });
+    }
+    return this.starting;
+  }
+
+  private async open(epoch: number): Promise<void> {
+    const stream = await navigator.mediaDevices.getUserMedia({
       audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true, channelCount: 1 },
       video: false,
     });
+    if (epoch !== this.epoch) {
+      for (const track of stream.getTracks()) track.stop();
+      return;
+    }
+    this.stream = stream;
     // Some browsers refuse 16 kHz; the worklet resamples from the real rate.
     let ctx: AudioContext;
     try {
@@ -36,7 +52,8 @@ export class Capture {
     }
     this.context = ctx;
     await ctx.audioWorklet.addModule("./worklet.js");
-    const source = ctx.createMediaStreamSource(this.stream);
+    if (epoch !== this.epoch) return;
+    const source = ctx.createMediaStreamSource(stream);
     const node = new AudioWorkletNode(ctx, "pcm-capture", { numberOfInputs: 1, numberOfOutputs: 0 });
     node.port.onmessage = (ev: MessageEvent) => {
       const data = ev.data;
@@ -47,7 +64,10 @@ export class Capture {
     if (ctx.state === "suspended") await ctx.resume();
   }
 
+  /** Stop and release the microphone, also during a start: that start then gives the tracks back. */
   stop(): void {
+    this.epoch += 1;
+    this.starting = null;
     this.node?.disconnect();
     this.node = null;
     for (const track of this.stream?.getTracks() ?? []) track.stop();
