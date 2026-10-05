@@ -1,14 +1,15 @@
 // The command palette (DESIGN.md 2): shadcn Command in a Dialog on
-// Cmd/Ctrl+K. Groups: Go, Jobs, Voice, Screen, Theme. One label and a
-// trailing Kbd per row; no descriptions, no placeholder.
+// Cmd/Ctrl+K. Four unlabeled groups split by a hairline: the five surfaces,
+// the jobs, Control or Release, the themes. One label and a trailing Kbd
+// per row; no headings, no descriptions, no placeholder. Voice has no row:
+// the orb, Space and Esc carry it.
 
 import { Check } from "lucide-react";
 import { StatusGlyph } from "@/components/status/StatusGlyph";
 import { useTheme, type Theme } from "@/components/theme/ThemeProvider";
-import { Command, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
+import { Command, CommandGroup, CommandInput, CommandItem, CommandList, CommandSeparator } from "@/components/ui/command";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import { Kbd } from "@/components/ui/kbd";
-import { InputMode } from "@/gate/gate";
 import { keyLabel } from "@/hooks/shortcuts";
 import { isMac } from "@/hooks/use-platform";
 import { glyphOf } from "@/lib/status";
@@ -16,8 +17,6 @@ import { recentJobs, runningJobs } from "@/feed/reducer";
 import { useFeed } from "@/state/feed";
 import { useScreenStore } from "@/state/screen";
 import { useSelection, type View } from "@/state/selection";
-import { useVoice } from "@/state/voice";
-import { MODE_WORDS } from "@/components/rail/RailFooter";
 
 export type CommandPaletteProps = {
   open: boolean;
@@ -44,8 +43,6 @@ export function CommandPalette({ open, onOpenChange }: CommandPaletteProps) {
   const mac = isMac();
   const [feed] = useFeed();
   const { setView, selectJob } = useSelection();
-  const voice = useVoice();
-  const { inputMode, setInputMode } = voice;
   const screen = useScreenStore();
   const { theme, setTheme } = useTheme();
   const jobs = [...runningJobs(feed), ...recentJobs(feed)];
@@ -59,10 +56,10 @@ export function CommandPalette({ open, onOpenChange }: CommandPaletteProps) {
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="top-[20%] translate-y-0 overflow-hidden p-0 shadow-md sm:max-w-md" showCloseButton={false} aria-describedby={undefined}>
         <DialogTitle className="sr-only">Commands</DialogTitle>
-        <Command className="[&_[cmdk-group-heading]]:text-xs [&_[cmdk-group-heading]]:font-medium [&_[cmdk-group-heading]]:tracking-[0.08em] [&_[cmdk-group-heading]]:uppercase">
+        <Command>
           <CommandInput aria-label="Commands" className="focus-visible:ring-0" />
           <CommandList className="max-h-[min(420px,60vh)]">
-            <CommandGroup heading="Go">
+            <CommandGroup>
               {GO.map(({ view, label }, i) => (
                 <CommandItem key={view} value={`go ${label}`} onSelect={run(() => setView(view))}>
                   <span className="flex-1">{label}</span>
@@ -70,8 +67,9 @@ export function CommandPalette({ open, onOpenChange }: CommandPaletteProps) {
                 </CommandItem>
               ))}
             </CommandGroup>
+            {jobs.length > 0 ? <CommandSeparator /> : null}
             {jobs.length > 0 ? (
-              <CommandGroup heading="Jobs">
+              <CommandGroup>
                 {jobs.map((job) => (
                   <CommandItem
                     key={job.jobId}
@@ -87,19 +85,8 @@ export function CommandPalette({ open, onOpenChange }: CommandPaletteProps) {
                 ))}
               </CommandGroup>
             ) : null}
-            <CommandGroup heading="Voice">
-              {([InputMode.PUSH_TO_TALK, InputMode.OPEN_MIC] as const).map((mode) => (
-                <CommandItem key={mode} value={`voice ${MODE_WORDS[mode]}`} onSelect={run(() => setInputMode(mode))}>
-                  <span className="flex-1">{MODE_WORDS[mode]}</span>
-                  {inputMode === mode ? <Check {...CHECK} className="text-foreground" /> : null}
-                </CommandItem>
-              ))}
-              <CommandItem value="voice Stop" onSelect={run(() => voice.stop())}>
-                <span className="flex-1">Stop</span>
-                <Kbd>Esc</Kbd>
-              </CommandItem>
-            </CommandGroup>
-            <CommandGroup heading="Screen">
+            <CommandSeparator />
+            <CommandGroup>
               {screen.controlledByMe ? (
                 <CommandItem value="screen Release" onSelect={run(() => screen.releaseControl())}>
                   <span className="flex-1">Release</span>
@@ -112,7 +99,8 @@ export function CommandPalette({ open, onOpenChange }: CommandPaletteProps) {
                 </CommandItem>
               )}
             </CommandGroup>
-            <CommandGroup heading="Theme">
+            <CommandSeparator />
+            <CommandGroup>
               {THEMES.map(({ theme: t, label }) => (
                 <CommandItem key={t} value={`theme ${label}`} onSelect={run(() => setTheme(t))}>
                   <span className="flex-1">{label}</span>

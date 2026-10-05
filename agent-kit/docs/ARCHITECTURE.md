@@ -28,13 +28,13 @@ One voice turn that needs work:
 7. The model ends with the result contract. The server stops the task, settles the hold, writes the audit entry, and broadcasts `job.done` with a `voice` line.
 8. The client that holds the voice session injects the `voice` line as an `<event>` turn. The voice model speaks the `say` text; the `show` text appears in the pane.
 
-One typed message:
+What the model heard, on the screen:
 
-1. The user types in the composer's text field and presses Enter (`web/src/components/composer/VoiceComposer.tsx`).
-2. `VoiceController.sendText` (`web/src/voice.ts`) claims the voice session when this device does not hold it and keeps the text until `voice.granted`.
-3. With the voice session held, it opens the Live session when it is closed and sends a `clientContent` user turn with `turnComplete: true` (`buildUserTextTurn` in `web/src/live/messages.ts`). The text has no `<event>` wrapper.
-4. It sends `C2S.transcript {role: "user", final: true}` to the server, which relays it, so every device of the user shows the same card.
-5. The voice model answers as it answers speech: by voice, or with a tool call that starts a job (steps 2 to 8 above).
+1. The screen clients are voice only and full duplex: the microphone is open while the Live session is open. There is no typed input. The orb is the only voice control (`web/src/components/orb/use-orb-control.ts`): a tap claims, interrupts, closes or opens; a hold is a forced turn.
+2. Gemini Live sends `inputTranscription` for the user turn. `VoiceController` (`web/src/voice.ts`) passes each piece to the feed as an interim user transcript and to the server as `C2S.transcript`.
+3. The composer (`web/src/components/composer/VoiceComposer.tsx`) shows the open interim transcript beside the orb at `opacity-70`. The thread hides that one card while it is open.
+4. When the transcript is final, or the agent's reply closes it, the card lands in the thread. The composer shows a final line solid for 600 ms, then clears; it clears at once when the agent starts to speak.
+5. Other devices of the user show the server's relay as cards in their threads; their composers stay empty.
 
 One screen the user watches or takes:
 
@@ -88,18 +88,19 @@ One screen the user watches or takes:
 | File | Task |
 |---|---|
 | `src/main.tsx`, `src/App.tsx` | Boot through the bridge; the stored theme; device detection; the providers; the orb state; the column view; push registration; hidden-page notifications; the handoff lock on the pane; the keyboard. |
-| `src/state/server.tsx`, `voice.tsx`, `feed.tsx` | `ServerContext` (the server socket), `VoiceContext` (the `VoiceController`, with `sendText` and `setInputMode`), `FeedProvider` / `useFeed` (the feed reducer on the socket). |
+| `src/state/server.tsx`, `voice.tsx`, `feed.tsx` | `ServerContext` (the server socket), `VoiceContext` (the `VoiceController`: `start`, `end`, `pressTalk`, `releaseTalk`, `interrupt`; no typed input, no input mode), `FeedProvider` / `useFeed` (the feed reducer on the socket). |
 | `src/state/selection.tsx`, `selection-codec.ts` | The view, the selected job, the pane (open, mode, width, lock), the rail, the status bar, notifications; persisted through `bridge.secureStore`. |
 | `src/state/screen.tsx` | One app-scoped screen store around `useScreen`: reference-counted `wantOpen` and `wantClose`, so the pane and the PiP share one `MediaStream`. |
-| `src/voice.ts` | Capture → gate → Live → playback; typed text as a user turn; the relays; idle close; goAway swap. |
-| `src/live/session.ts`, `src/live/messages.ts` | The Live socket and its wire builders (`buildUserTextTurn` among them) and parser. |
+| `src/voice.ts` | Capture → gate (always `InputMode.OPEN_MIC`) → Live → playback; the forced turn of a hold; the interrupt; the relays; idle close; goAway swap. |
+| `src/live/session.ts`, `src/live/messages.ts`, `src/live/reply-latch.ts` | The Live socket, its wire builders and parser, and the latch that keeps an interrupted reply silent. |
 | `src/gate/*.ts` | VAD, turn detector, barge-in rule, word estimator, speaker check, the gate state machine with its decision log. |
 | `src/audio/*.ts` | Worklet capture at 16 kHz; 24 kHz playback with an immediate stop. |
 | `src/components/layout/` | `AppShell` (rail, column and pane in a `ResizablePanelGroup`; sheets on tablet and phone), `Titlebar`, `StatusBar`, `CommandPalette`. |
 | `src/components/rail/` | `Rail`, `RailNav` (Thread, Jobs, Screen, Audit, Credits), `RailJobRow` in the Needs you / Running / Recent groups, `RailFooter` (avatar, device, the settings popover). |
 | `src/components/thread/` | `Thread` and its cards: `DayDivider`, `TurnHeader`, `SpeechCard`, `JobCard` with `ActivitySlab`, `ApprovalCard`, `HandoffCard`, `CreditsLine`, `ScrollToEnd`. |
-| `src/components/composer/` | `VoiceComposer` (the orb, the text field, the mode picker, Talk, send, Stop), `TalkButton`, `ModePicker`. |
-| `src/components/orb/` | `Orb` (48, 56 or 128 px on the disc) and `OrbMini` (20 px), both `thinking-orbs`. |
+| `src/components/composer/` | `VoiceComposer`: the orb and the line the model heard. |
+| `src/composer/orb-gesture.ts` | Pure: `HOLD_MS`, the tap action, the press tracker. |
+| `src/components/orb/` | `Orb` (48, 56 or 128 px on the disc; the only voice control), `use-orb-control` (tap and hold on the voice context) and `OrbMini` (20 px), all `thinking-orbs`. |
 | `src/components/status/` | `StatusGlyph`, `ProgressRing`, `CountChip`. |
 | `src/components/pane/` | `Inspector` (Output / Screen), `JobInspector` (Receipt / Steps / Artifacts), `ShowOutput`. |
 | `src/components/vm/` | `ScreenFrame` (the control ring and the input logic), `ScreenPip`, `useScreen`. |

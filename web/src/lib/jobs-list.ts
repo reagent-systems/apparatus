@@ -1,8 +1,8 @@
 // Pure: the Jobs view's filter chips, counts, bucket groups and row
 // subtitles (DESIGN.md 5). No DOM; tested in `test/jobs-list.test.ts`.
 //
-// The four chips cover the four buckets: `failed` counts under Done, so
-// All = Needs you + Running + Done. Groups keep the bucket order of
+// Three chips cover the four buckets: `failed` counts under Done. No chip
+// selected is the `all` filter; it has no chip and no word. Groups keep the bucket order of
 // `lib/status.ts`; inside a group a "Today" / "Earlier" sub-divider splits
 // the rows. What waits for the user lists oldest first, everything else
 // newest first.
@@ -14,8 +14,12 @@ export type JobFilter = "all" | "needs_you" | "running" | "done";
 
 export const JOB_FILTERS: readonly JobFilter[] = ["all", "needs_you", "running", "done"];
 
-export const FILTER_LABEL: Record<JobFilter, string> = {
-  all: "All",
+export type JobChip = Exclude<JobFilter, "all">;
+
+/** The chips, in order. Deselecting the selected chip is `all`. */
+export const JOB_CHIPS: readonly JobChip[] = ["needs_you", "running", "done"];
+
+export const FILTER_LABEL: Record<JobChip, string> = {
   needs_you: "Needs you",
   running: "Running",
   done: "Done",

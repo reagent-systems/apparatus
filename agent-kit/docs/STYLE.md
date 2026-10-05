@@ -22,24 +22,26 @@ The rules keep the text short, clear and easy to translate.
 
 `docs/DESIGN.md` is the visual law for the web app: tokens, type, layout, components, states and keys.
 This file governs the words on screen; DESIGN.md governs everything else.
+Every visible string is content or one of the labels below. Nothing else ships.
+Content is what was said, a job request, a `say` line, `show` output, details, a reason, a number, a time or a name.
 The user interface holds no explanatory text.
 State the thing; never reassure about it.
-Do not add a tooltip, a hint, a placeholder, a tagline or a help line unless a human asks for one.
-Do not add a toast. Nothing on screen pops up to announce a state.
+Do not add a sentence, a hint, a caption, a helper line, a placeholder, a tagline or empty-state text.
+Do not make a label longer than it needs to be. An icon button shows its icon only.
+Do not add a tooltip or a toast. Nothing on screen pops up to announce a state.
+The app is voice only. No text field, no typed input.
 The only labels are these words:
 
-| Place | Labels |
+| Kind | Labels |
 |---|---|
-| Buttons | Talk, Stop, Done, Cancel, Approve, Deny, Control, Release, Top up |
-| Rail and views | Thread, Jobs, Screen, Audit, Credits |
-| Rail groups and Jobs filters | Needs you, Running, Recent, Done, All |
-| Jobs groups | Needs you, Failed, Running, Done |
-| Day dividers and Jobs sub-dividers | Today, Earlier |
-| Pane | Output, Screen, Receipt, Steps, Artifacts |
-| Settings | Input, Appearance, Notifications, Status bar, Push to talk, Open mic, Light, Dark, System |
-| Command palette groups | Go, Jobs, Voice, Screen, Theme |
-| Chips | Approved, Denied, Done, Cancelled, Timed out |
-| Icon buttons (accessible names only) | Talk, Message, Settings, Rail, Close, Output, Screen, End |
+| Nav nouns | Thread, Jobs, Screen, Audit, Credits |
+| Action verbs | Approve, Deny, Done, Cancel, Control, Release, Top up |
+| Group labels | Needs you, Running, Recent, Done, Failed, Today, Earlier |
+| Result chips | Approved, Denied, Cancelled, Timed out |
+| Pane tabs | Output, Screen, Receipt, Steps, Artifacts |
+| Settings | Appearance, Light, Dark, System, Notifications, Status bar |
+
+Accessible names are not visible and are not labels. They stay short: Talk (the orb), Settings, Rail, Pane, Close, Output, Screen, End, Kind, Commands.
 
 State shows through the orb, color, progress, a status glyph and a one-word chip.
 It never shows through a sentence, a badge with a phrase, or a toast.
@@ -93,7 +95,7 @@ Detail goes to the screen with `show`. The voice calls the VM "your computer".
 | your computer | the VM, the machine, the sandbox (in speech) |
 | say | speak, announce |
 | show | display, render |
-| Talk, Stop | Record, Mute, Pause |
+| interrupt (a tap on the orb while the agent speaks, or Esc) | stop, mute |
 | Done, Cancel | Finish, Abort, Close |
 | Approve, Deny | Allow, Reject, OK |
 | Control, Release | Take over, Give back, Remote |

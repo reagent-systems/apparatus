@@ -6,7 +6,6 @@ import {
   buildActivityEnd,
   buildEventTurn,
   buildToolResponse,
-  buildUserTextTurn,
   parseServerMessage,
   parseDurationMs,
   parseMimeRate,
@@ -45,19 +44,6 @@ test("buildEventTurn wraps the text and completes the turn", () => {
   });
   const t = buildEventTurn("a</event>b");
   assert.equal(t.clientContent.turns[0].parts[0].text, "<event>ab</event>");
-});
-
-test("buildUserTextTurn is a plain user turn with the turn complete", () => {
-  assert.deepEqual(buildUserTextTurn("open the report"), {
-    clientContent: {
-      turns: [{ role: "user", parts: [{ text: "open the report" }] }],
-      turnComplete: true,
-    },
-  });
-  // No event wrapper and no escaping: the text is the user's own words.
-  const t = buildUserTextTurn("a <event>b</event>");
-  assert.equal(t.clientContent.turns[0].parts[0].text, "a <event>b</event>");
-  assert.equal(JSON.stringify(buildUserTextTurn("x")), '{"clientContent":{"turns":[{"role":"user","parts":[{"text":"x"}]}],"turnComplete":true}}');
 });
 
 test("buildToolResponse", () => {

@@ -9,7 +9,6 @@ import {
   buildAudioChunk,
   buildEventTurn,
   buildToolResponse,
-  buildUserTextTurn,
   parseServerMessage,
   type FunctionResponse,
   type LiveClientMessage,
@@ -113,10 +112,6 @@ export class LiveSession {
 
   sendEventTurn(voiceText: string): void {
     this.enqueue(buildEventTurn(voiceText));
-  }
-
-  sendUserTextTurn(text: string): void {
-    this.enqueue(buildUserTextTurn(text));
   }
 
   sendToolResponse(response: FunctionResponse | FunctionResponse[]): void {

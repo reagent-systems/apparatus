@@ -1,23 +1,21 @@
 // GET /audit as a table (DESIGN.md 7): day group rows, then one row per
 // entry with the time, the kind as a Badge and the other fields on one mono
-// line. A click expands the entry's JSON. The Select filters by the kinds
-// the server returned; the client knows no kind list of its own. On a phone
-// the table scrolls sideways.
+// line; no header row. A click expands the entry's JSON. One chip per kind
+// the server returned filters the rows; no chip selected shows them all, so
+// the filter needs no word of its own. On a phone the table scrolls sideways.
 
 import { Fragment, useEffect, useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Collapsible, CollapsibleContent } from "@/components/ui/collapsible";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Table, TableBody, TableCell, TableRow } from "@/components/ui/table";
+import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { useBreakpoint } from "@/hooks/use-breakpoint";
 import { useNow } from "@/hooks/use-now";
 import { apiGet, auditDays, auditKinds, auditLine, parseAudit, type AuditEntry } from "@/lib/api";
 import { cn } from "@/lib/utils";
 import { useServer } from "@/state/server";
-
-const ALL = "*";
 
 function clock(t: number): string {
   return new Date(t * 1000).toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit", second: "2-digit" });
@@ -92,19 +90,27 @@ export function AuditView() {
   return (
     <ScrollArea className="min-h-0 flex-1">
       <div data-slot="audit" className={cn("mx-auto flex w-full max-w-[760px] flex-col gap-4 pt-6 pb-6", phone ? "px-4" : "px-6")}>
-        <Select value={shown ?? ALL} onValueChange={(v) => setKind(v === ALL ? null : v)}>
-          <SelectTrigger size="sm" aria-label="Kind" className="w-fit min-w-32 text-[13px]">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent position="popper" align="start">
-            <SelectItem value={ALL}>All</SelectItem>
+        {kinds.length > 0 ? (
+          <ToggleGroup
+            type="single"
+            spacing={2}
+            aria-label="Kind"
+            value={shown ?? ""}
+            onValueChange={(v) => setKind(v === "" ? null : v)}
+            className="flex-wrap"
+          >
             {kinds.map((k) => (
-              <SelectItem key={k} value={k} className="font-mono text-[13px]">
+              <ToggleGroupItem
+                key={k}
+                value={k}
+                data-audit-kind={k}
+                className="h-7 rounded-full border px-2.5 font-mono text-xs font-normal hover:bg-muted hover:text-foreground data-[state=on]:border-transparent data-[state=on]:bg-accent data-[state=on]:text-accent-foreground"
+              >
                 {k}
-              </SelectItem>
+              </ToggleGroupItem>
             ))}
-          </SelectContent>
-        </Select>
+          </ToggleGroup>
+        ) : null}
 
         <Table className="min-w-[560px] table-fixed">
           <colgroup>
@@ -112,13 +118,6 @@ export function AuditView() {
             <col className="w-40" />
             <col />
           </colgroup>
-          <TableHeader>
-            <TableRow className="hover:bg-transparent">
-              <TableHead className="font-mono text-xs font-normal text-muted-foreground">t</TableHead>
-              <TableHead className="font-mono text-xs font-normal text-muted-foreground">kind</TableHead>
-              <TableHead />
-            </TableRow>
-          </TableHeader>
           {entries === null ? (
             <TableBody>
               {[0, 1, 2].map((i) => (

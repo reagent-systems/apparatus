@@ -41,6 +41,19 @@ Evidence: <commit / tag / gate run / screenshot>
 
 <!-- Entries below, newest first. -->
 
+## 2026-10-05 — The screen clients became voice only, with the orb as the one control
+
+The author asked for less on screen: no typing, no input modes, no long labels, no reassurance.
+I removed the text field, the send button, Talk, Stop, the mode picker and the Input setting.
+The composer now holds the orb and the line the model heard, and nothing else.
+A tap on the orb claims, interrupts, closes or opens the voice session; a hold of 350 ms is a forced turn.
+That keeps the spec's manual path: a talk and a stop that always work when the gate blocks real speech.
+I found one gap: after Stop, the rest of the model's reply arrived and played again. A reply latch now keeps it silent.
+The All filters, the Audit header row and the palette headings went with the copy sweep.
+No microphone, finger or keyboard has run the new gesture; only its pure rules are tested.
+
+Evidence: `npm --prefix web run verify` green, 164 tests, 0 fail; `verify/verify.sh` OK on 2026-10-05 with the Xcode and Android gates skipped; a headless Chromium check held Space 600 ms and the orb ring showed.
+
 ## 2026-10-05 — The web app was rebuilt to a design spec drawn from 5 products
 
 The author corrected me: the sketches were direction only, so the 2026-10-04 layout had to go.

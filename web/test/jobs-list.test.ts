@@ -4,6 +4,7 @@ import { initialFeed, reduceFeed, type FeedState } from "../src/feed/reducer.ts"
 import {
   DAY_LABEL,
   FILTER_LABEL,
+  JOB_CHIPS,
   JOB_FILTERS,
   blockerOf,
   dayOf,
@@ -61,9 +62,10 @@ function nine(): FeedState {
   return s;
 }
 
-test("filters are four chips; failed counts under Done", () => {
+test("three chips and the chipless all filter; failed counts under Done", () => {
   assert.deepEqual(JOB_FILTERS, ["all", "needs_you", "running", "done"]);
-  assert.deepEqual(Object.values(FILTER_LABEL), ["All", "Needs you", "Running", "Done"]);
+  assert.deepEqual(JOB_CHIPS, ["needs_you", "running", "done"]);
+  assert.deepEqual(Object.values(FILTER_LABEL), ["Needs you", "Running", "Done"]);
   assert.equal(filterOfBucket("failed"), "done");
   assert.equal(filterOfBucket("needs_you"), "needs_you");
   assert.ok(matchesFilter("failed", "done"));

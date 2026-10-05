@@ -1,12 +1,14 @@
 // The thread: every card in one centered column. Day dividers, turn headers,
 // the end-of-thread button and the 2 s ring on the card of a job selected
-// elsewhere. The header strip, the composer and the keyboard (Alt+J reaches
-// the cards marked `data-state="pending"` / `"active"`) belong to the shell.
+// elsewhere. The user turn still being heard shows beside the orb in the
+// composer, not here; its card lands once final or once the agent replies.
+// The header strip, the composer and the keyboard (Alt+J reaches the cards
+// marked `data-state="pending"` / `"active"`) belong to the shell.
 
 import { useCallback, useEffect, useLayoutEffect, useRef, useState, type ReactNode } from "react";
 import { Orb } from "@/components/orb/Orb";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { useOrbClick } from "@/components/composer/use-orb-click";
+import { useOrbControl } from "@/components/orb/use-orb-control";
 import { runningJobs, type FeedCard, type FeedState } from "@/feed/reducer";
 import { foldsIntoRequest, sameDay } from "@/lib/status";
 import { useFeed } from "@/state/feed";
@@ -30,6 +32,20 @@ const ENTER = "animate-in fade-in slide-in-from-bottom-1 duration-200 motion-red
 
 function isUserSpeech(card: FeedCard): boolean {
   return card.kind === "transcript" && card.role === "user";
+}
+
+/** The user turn still being heard: the composer shows it. */
+function isHearing(card: FeedCard, feed: FeedState): boolean {
+  return isUserSpeech(card) && card.id === feed.openTranscript && card.kind === "transcript" && !card.final;
+}
+
+function shown(feed: FeedState): FeedCard[] {
+  return feed.cards.filter((card) => {
+    if (isHearing(card, feed)) return false;
+    if (card.kind !== "job") return true;
+    const job = feed.jobs[card.jobId];
+    return !(job && foldsIntoRequest(job, feed));
+  });
 }
 
 function renderCard(card: FeedCard, highlightedJob: string | null): ReactNode {
@@ -66,11 +82,7 @@ function items(feed: FeedState, now: number, working: boolean, highlightedJob: s
   const headerAt: number[] = [];
   let dayAt: number | null = null;
   let lastAgentAt: number | null = null;
-  for (const card of feed.cards) {
-    if (card.kind === "job") {
-      const job = feed.jobs[card.jobId];
-      if (job && foldsIntoRequest(job, feed)) continue;
-    }
+  for (const card of shown(feed)) {
     if (dayAt === null || !sameDay(dayAt, card.at)) {
       out.push(<DayDivider key={`day-${card.id}`} at={card.at} now={now} />);
       dayAt = card.at;
@@ -109,7 +121,7 @@ export function Thread() {
   const [feed] = useFeed();
   const voice = useVoice();
   const { selectedJobId } = useSelection();
-  const onOrb = useOrbClick();
+  const orb = useOrbControl();
   const now = useNow();
 
   const root = useRef<HTMLDivElement | null>(null);
@@ -121,7 +133,7 @@ export function Thread() {
   const [highlightedJob, setHighlightedJob] = useState<string | null>(null);
 
   const working = runningJobs(feed).length > 0;
-  const empty = feed.cards.length === 0;
+  const empty = shown(feed).length === 0;
 
   const scrollToEnd = useCallback((smooth = false) => {
     const vp = viewportOf(root.current);
@@ -195,7 +207,7 @@ export function Thread() {
       <ScrollArea className="min-h-0 flex-1">
         {empty ? (
           <div className="flex min-h-[60vh] w-full items-center justify-center">
-            <Orb state="idle" held={voice.holdsVoice} live={voice.liveOpen} onClick={onOrb} size={128} />
+            <Orb state="idle" held={voice.holdsVoice} live={voice.liveOpen} control={orb} size={128} />
           </div>
         ) : (
           <div ref={column} className="mx-auto flex w-full max-w-[760px] min-w-0 flex-col gap-4 break-words px-6 pt-[60px] pb-4 max-md:px-4">

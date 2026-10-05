@@ -1,121 +1,76 @@
-// The one elevated object: the orb, the text field, the mode picker, Talk,
-// Send and Stop. Typed text goes to the same voice model (`voice.sendText`).
+// The one elevated object: the orb and, beside it, what the model heard of
+// the current user turn. Voice only: no text field, no buttons. The line
+// arrives at opacity-70, goes solid once final, and clears when the agent
+// starts its reply or FINAL_MS after the final line lands in the thread as
+// the user card. Nothing shows while nobody speaks.
 
-import { useCallback, useRef, useState } from "react";
-import { ArrowUp, Square } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
 import { Orb, type OrbState } from "@/components/orb/Orb";
-import { Button } from "@/components/ui/button";
-import { Textarea } from "@/components/ui/textarea";
-import { InputMode } from "@/gate/gate";
+import { useOrbControl } from "@/components/orb/use-orb-control";
+import type { FeedState } from "@/feed/reducer";
 import { useBreakpoint } from "@/hooks/use-breakpoint";
 import { cn } from "@/lib/utils";
+import { useFeed } from "@/state/feed";
 import { useVoice } from "@/state/voice";
-import { ModePicker } from "./ModePicker";
-import { TalkButton } from "./TalkButton";
-import { useOrbClick } from "./use-orb-click";
 
 export type VoiceComposerProps = {
   orbState: OrbState;
   className?: string;
 };
 
-/** 6 lines of 24 px, the `max-h-36` of the field. */
-const MAX_FIELD_PX = 144;
+/** How long a final line stays beside the orb once its card is in the thread. */
+const FINAL_MS = 600;
+
+type Heard = { id: string; text: string; final: boolean };
+
+/** The open user transcript, or the final one that just closed it. */
+function heardLine(feed: FeedState, lastOpen: string | null): Heard | null {
+  const open = feed.openTranscript ? feed.cards.find((c) => c.id === feed.openTranscript) : undefined;
+  if (open?.kind === "transcript" && open.role === "user" && !open.final) return { id: open.id, text: open.text, final: false };
+  const last = feed.cards[feed.cards.length - 1];
+  if (last?.kind === "transcript" && last.role === "user" && last.final && last.id === lastOpen) {
+    return { id: last.id, text: last.text, final: true };
+  }
+  return null;
+}
 
 export function VoiceComposer({ orbState, className }: VoiceComposerProps) {
   const voice = useVoice();
-  const onOrb = useOrbClick();
+  const [feed] = useFeed();
+  const orb = useOrbControl();
   const phone = useBreakpoint() === "phone";
-  const [text, setText] = useState("");
-  const field = useRef<HTMLTextAreaElement | null>(null);
-  const hasText = text.trim().length > 0;
+  const lastOpen = useRef<string | null>(null);
+  const [dismissed, setDismissed] = useState<string | null>(null);
 
-  // `field-sizing: content` grows the field where the browser has it; this
-  // does the same elsewhere.
-  const fit = useCallback((el: HTMLTextAreaElement) => {
-    el.style.height = "auto";
-    el.style.height = `${Math.min(el.scrollHeight, MAX_FIELD_PX)}px`;
-  }, []);
+  let line = voice.holdsVoice && !voice.speaking ? heardLine(feed, lastOpen.current) : null;
+  if (line && line.final && line.id === dismissed) line = null;
+  if (line && !line.final) lastOpen.current = line.id;
 
-  const send = useCallback(() => {
-    const t = text.trim();
-    if (t.length === 0) return;
-    voice.sendText(t);
-    setText("");
-    const el = field.current;
-    if (el) {
-      el.value = "";
-      fit(el);
-      el.focus();
-    }
-  }, [text, voice, fit]);
+  const finalId = line?.final ? line.id : null;
+  useEffect(() => {
+    if (finalId === null) return;
+    const timer = setTimeout(() => setDismissed(finalId), FINAL_MS);
+    return () => clearTimeout(timer);
+  }, [finalId]);
 
   return (
     <div
       data-kind="composer"
       data-state={orbState}
-      className={cn("mx-auto w-full max-w-[760px] rounded-2xl border bg-card p-3 shadow-composer", className)}
+      className={cn("mx-auto flex w-full max-w-[760px] items-center gap-3 rounded-2xl border bg-card p-3 shadow-composer", className)}
     >
-      <div className="flex items-start gap-3">
-        <Orb state={orbState} held={voice.holdsVoice} live={voice.liveOpen} onClick={onOrb} size={phone ? 56 : 48} />
-        {/* The padding sits on the wrapper so the field's max-h-36 holds six full lines. */}
-        <div
-          className={cn("min-w-0 flex-1 cursor-text", phone ? "py-4" : "py-3")}
-          onMouseDown={(e) => {
-            if (e.target === e.currentTarget) {
-              e.preventDefault();
-              field.current?.focus();
-            }
-          }}
-        >
-          <Textarea
-            ref={field}
-            value={text}
-            rows={1}
-            aria-label="Message"
-            autoComplete="off"
-            spellCheck
-            onChange={(e) => {
-              setText(e.target.value);
-              fit(e.currentTarget);
-            }}
-            onKeyDown={(e) => {
-              // Esc reaches the shell's keyboard hook, which stops.
-              if (e.key === "Enter" && !e.shiftKey && !e.nativeEvent.isComposing) {
-                e.preventDefault();
-                send();
-              }
-            }}
-            className={cn(
-              "min-h-6 max-h-36 resize-none overflow-y-auto rounded-none border-0 bg-transparent p-0 shadow-none",
-              "text-[15px] leading-6 md:text-[15px] dark:bg-transparent",
-              "focus-visible:border-0 focus-visible:ring-0",
-            )}
-          />
-        </div>
-      </div>
-      <div className="flex h-9 items-center justify-between gap-2">
-        <ModePicker />
-        <div className="flex items-center gap-2">
-          {voice.inputMode === InputMode.PUSH_TO_TALK ? <TalkButton /> : null}
-          {hasText ? (
-            <Button size="icon" aria-label="Send" onClick={send} className="size-9 rounded-full">
-              <ArrowUp strokeWidth={1.5} />
-            </Button>
-          ) : null}
-          <Button
-            variant="outline"
-            data-state={voice.speaking ? "speaking" : "idle"}
-            className={cn(
-              "h-9 px-4 transition-colors duration-150",
-              voice.speaking && "bg-foreground text-background hover:bg-foreground/90 hover:text-background dark:bg-foreground dark:hover:bg-foreground/90",
-            )}
-            onClick={() => voice.stop()}
+      <Orb state={orbState} held={voice.holdsVoice} live={voice.liveOpen} control={orb} size={phone ? 56 : 48} />
+      <div className={cn("flex min-w-0 flex-1 flex-col justify-end overflow-hidden", phone ? "max-h-14" : "max-h-12")}>
+        {line && line.text.trim().length > 0 ? (
+          <p
+            data-slot="heard"
+            data-state={line.final ? "final" : "interim"}
+            aria-live="polite"
+            className={cn("text-[15px] leading-6 break-words transition-opacity duration-150", !line.final && "opacity-70")}
           >
-            <Square strokeWidth={1.5} />
-            Stop
-          </Button>
-        </div>
+            {line.text}
+          </p>
+        ) : null}
       </div>
     </div>
   );

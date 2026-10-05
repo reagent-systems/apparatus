@@ -21,12 +21,12 @@ test("Cmd/Ctrl+1..5 name the views in rail order", () => {
   assert.equal(shortcutFor(key({ key: "6", code: "Digit6", ctrlKey: true }), false), null);
 });
 
-test("rail, pane, control, stop and the needs-you jump", () => {
+test("rail, pane, control, interrupt and the needs-you jump", () => {
   assert.equal(shortcutFor(key({ key: "b", code: "KeyB", metaKey: true }), true), "rail");
   assert.equal(shortcutFor(key({ key: "j", code: "KeyJ", metaKey: true }), true), "pane");
   assert.equal(shortcutFor(key({ key: "C", code: "KeyC", metaKey: true, shiftKey: true }), true), "control");
   assert.equal(shortcutFor(key({ key: "K", code: "KeyK", metaKey: true, shiftKey: true }), true), null);
-  assert.equal(shortcutFor(key({ key: "Escape" }), true), "stop");
+  assert.equal(shortcutFor(key({ key: "Escape" }), true), "interrupt");
   assert.equal(shortcutFor(key({ key: "∆", code: "KeyJ", altKey: true }), true), "needsYou");
   assert.equal(shortcutFor(key({ key: "j", code: "KeyJ", altKey: true, metaKey: true }), true), null);
 });
@@ -37,13 +37,12 @@ test("a plain letter is nothing; `key` stands in when `code` is absent", () => {
   assert.equal(shortcutFor(key({ key: "3", ctrlKey: true }), false), "view:screen");
 });
 
-test("the Space hold talks only on a free target", () => {
-  assert.equal(talkTarget(null, false, false), "free");
-  assert.equal(talkTarget("DIV", false, false), "free");
-  assert.equal(talkTarget("textarea", false, false), "text");
-  assert.equal(talkTarget("DIV", true, false), "text");
-  assert.equal(talkTarget("VIDEO", false, false), "video");
-  assert.equal(talkTarget("BUTTON", false, true), "control");
+test("the Space hold talks anywhere but the VM video", () => {
+  assert.equal(talkTarget(null), "free");
+  assert.equal(talkTarget("DIV"), "free");
+  assert.equal(talkTarget("BUTTON"), "free");
+  assert.equal(talkTarget("VIDEO"), "video");
+  assert.equal(talkTarget("video"), "video");
 });
 
 test("key labels follow the platform", () => {

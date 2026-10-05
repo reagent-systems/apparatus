@@ -47,7 +47,7 @@ origin, or on `bridge.serverOrigin` inside a shell.
 3. Open the server origin in a browser. The auth value comes from
    `bridge.secureStore.get("apparatus.auth")` (localStorage on the web) and
    falls back to `dev`.
-4. Press the orb to open the microphone, hold Talk, or type in the composer and press Enter.
+4. Tap the orb to open the voice session and talk. Hold the orb (or Space) for a forced turn. Tap it while the agent speaks to interrupt.
 
 ### Demo mode
 
@@ -70,7 +70,7 @@ rather than taking long prop lists.
 |---|---|
 | `src/App.tsx` | Computes the orb state, picks the column view, mounts `AppShell` and `CommandPalette`; push registration, hidden-page notifications, the handoff lock on the pane, the keyboard. |
 | `src/state/server.tsx` | `ServerContext` on `ServerSocket`: `{ send, subscribe, deviceId, ready, connected, device, httpOrigin, auth, bridge }`. `useServerMessages(handler)` subscribes for a component's life. Sends `hello` on every open. |
-| `src/state/voice.tsx` | `VoiceContext` on `VoiceController`: `{ holdsVoice, liveOpen, listening, speaking, start, end, pressTalk, releaseTalk, stop, claim, sendText, inputMode, setInputMode, ... }`. Polled every 100 ms and on change. |
+| `src/state/voice.tsx` | `VoiceContext` on `VoiceController`: `{ holdsVoice, liveOpen, listening, speaking, start, end, pressTalk, releaseTalk, interrupt, ... }`. Voice only and full duplex: no typed input, no input mode. Polled every 100 ms and on change. |
 | `src/state/feed.tsx` | `FeedProvider` / `useFeed()`: `[state, dispatch]`, the reducer wired to the socket and the Live transcripts. The voice holder skips the server's transcript relay. |
 | `src/feed/reducer.ts` | Pure. Cards (cap 100), jobs by id with `progressHistory` (cap 50), approvals and handoffs by id and by job, `show`, `spoken`, credits; `runningJobs`, `recentJobs`, `needsYou`, `jobOf`, `seedFromReady`. Tested in `test/reducer.test.ts`. |
 | `src/state/selection.tsx` | `useSelection()`: view, selected job, pane open / mode / width / lock, rail, status bar, notifications; persisted through `bridge.secureStore` (`selection-codec.ts`). |
@@ -78,10 +78,11 @@ rather than taking long prop lists.
 | `src/lib/status.ts` | Pure: `bucketOf`, `glyphOf`, `relativeTime`, `elapsedTime`. Tested in `test/status.test.ts`. |
 | `src/lib/jobs-list.ts`, `src/lib/api.ts` | The Jobs desk's filter chips, counts, groups and row subtitles (`test/jobs-list.test.ts`); `apiGet` and the `/audit` and `/credits` parsers (`test/api.test.ts`). |
 | `src/components/layout/` | `AppShell` (rail, column, pane in a `ResizablePanelGroup`; sheets on tablet and phone), `Titlebar`, `StatusBar`, `CommandPalette`. |
-| `src/components/rail/` | `Rail`, `RailNav` (Thread, Jobs, Screen, Audit, Credits), `RailJobRow` and the Needs you / Running / Recent groups, `RailFooter` (settings popover: Input, Appearance, Notifications). |
+| `src/components/rail/` | `Rail`, `RailNav` (Thread, Jobs, Screen, Audit, Credits), `RailJobRow` and the Needs you / Running / Recent groups, `RailFooter` (settings popover: Appearance, Notifications, Status bar). |
 | `src/components/thread/` | `Thread` and its cards: speech, job (activity slab, say, show, artifacts), approval, handoff, credits line, day divider, turn header, scroll-to-end. |
-| `src/components/composer/` | `VoiceComposer` (orb, text field, mode picker, Talk, send, Stop), `TalkButton`, `ModePicker`. |
-| `src/components/orb/` | `Orb` (48 / 56 / 128 px on the disc) and `OrbMini` (20 px), both `thinking-orbs`; state names in `src/orb-state.ts`. |
+| `src/components/composer/` | `VoiceComposer`: the orb and, beside it, what the model heard of the current user turn (interim at opacity-70, solid once final, cleared when the agent replies). Nothing shows while nobody speaks. |
+| `src/composer/orb-gesture.ts` | Pure: `HOLD_MS` (350), `tapAction`, `startPress` / `isHold` / `endPress`. Tested in `test/orb-gesture.test.ts`. |
+| `src/components/orb/` | `Orb` (48 / 56 / 128 px on the disc; the only voice control), `use-orb-control` (tap and hold on the voice context) and `OrbMini` (20 px), all `thinking-orbs`; state names in `src/orb-state.ts`. |
 | `src/components/status/` | `StatusGlyph`, `ProgressRing`, `CountChip`. |
 | `src/components/pane/` | `Inspector` (Output / Screen), `JobInspector` (Receipt / Steps / Artifacts), `ShowOutput`. |
 | `src/components/vm/` | `ScreenFrame` (watch or handoff, the control ring, input), `ScreenPip`, `useScreen`. |
@@ -99,8 +100,9 @@ Cancel.
 
 ### Keyboard
 
-Space (held, focus outside a text field, a control and the VM video) talks;
-Esc stops; Cmd/Ctrl+K opens the palette; Cmd/Ctrl+1..5 pick Thread, Jobs,
+Space held for 350 ms or more (anywhere but the VM video and an open overlay)
+is the orb's hold, and a shorter Space does nothing; Enter or Space on the
+focused orb is its tap; Esc interrupts; Cmd/Ctrl+K opens the palette; Cmd/Ctrl+1..5 pick Thread, Jobs,
 Screen, Audit, Credits; Cmd/Ctrl+B toggles the rail; Cmd/Ctrl+J the pane;
 Alt+J focuses the oldest card that needs you; Enter / Backspace answer a
 focused approval or handoff card; Cmd/Ctrl+Shift+C takes or releases control.
@@ -145,10 +147,21 @@ Events: `speechStart` -> `realtimeInput.activityStart`; `audio` ->
 `realtimeInput.audio`; `speechEnd` -> `realtimeInput.activityEnd`.
 Automatic activity detection is off in the server-built `setup`.
 
-Manual path: holding Talk forces the turn open past every filter;
-releasing ends it. Stop flushes playback and ends any open turn.
-Clicking the orb claims the voice session (`voice.claim`) or toggles the
-microphone when this device holds it.
+The screen clients run the gate in `InputMode.OPEN_MIC` always: full duplex
+is the only mode, and the microphone is open while the Live session is open.
+
+Manual path, all on the orb (`src/components/orb/use-orb-control.ts`):
+
+| Gesture | Action |
+|---|---|
+| Tap (< 350 ms) | No voice session on this device: claim it, open the Live session once granted. Agent speaking: `interrupt()`. Live session open: close it. Else: open it. |
+| Hold (>= 350 ms) | `pressTalk()`: opens the Live session when closed and forces the turn open past every filter; release, pointer cancel or lost capture call `releaseTalk()`. A hold never also taps. |
+| Esc | `interrupt()` |
+
+`interrupt()` stops playback at once, ends any open turn, and keeps the rest
+of the interrupted reply silent until the Live session ends that turn
+(`src/live/reply-latch.ts`). A hold that starts before `voice.granted` waits
+for it and is dropped when released first.
 
 ### Thresholds
 
@@ -170,7 +183,7 @@ controller is created at the first `ready`.
 
 `ready` may also carry `live.idle_close_seconds` (default 120). With no
 speech and no job event for that long the Live socket closes and the
-microphone stops; the next talk press reopens both with a fresh token and
+microphone stops; the next orb tap or hold reopens both with a fresh token and
 the stored resumption handle.
 
 ### Decision log
@@ -190,13 +203,12 @@ message becomes a list of events.
 | Live event | Action |
 |---|---|
 | `toolCall.functionCalls[]` | `C2S.tool.call` per call; `S2C.tool.result` -> `toolResponse` with its `scheduling` |
-| `serverContent.interrupted` | `playback.stop()` |
-| `inputTranscription` / `outputTranscription` | `C2S.transcript` (interim and final), feed card, gate transcript |
+| `serverContent.interrupted` | `playback.stop()`; the reply latch resets |
+| `inputTranscription` / `outputTranscription` | `C2S.transcript` (interim and final), feed card, gate transcript; the open user transcript shows in the composer |
 | `usageMetadata` | `C2S.live.usage`; audio ms from AUDIO modality tokens when present, else from PCM bytes |
 | `sessionResumptionUpdate.newHandle` | `C2S.live.resumption`, kept for reconnects |
 | `goAway` | open a second session now; switch when it is ready and no turn is open, or 1 s before `timeLeft` ends |
 | any `S2C` with `voice` | `clientContent` turn `<event>text</event>`, `turnComplete: true`, only when this device holds voice and a session is open |
-| typed text (`voice.sendText`) | claim voice if needed; open the session; `clientContent` user turn with the plain text, `turnComplete: true` (`buildUserTextTurn`); `C2S.transcript {role: "user", final: true}` |
 
 `voice.revoked` closes the Live session and stops capture; the page keeps
 showing the feed.
@@ -250,7 +262,7 @@ while the user holds control or a handoff is active.
 
 | Part | State |
 |---|---|
-| Wake word | `WakeWordDetector` interface in `gate.ts`; no detector. Open mic starts without one. |
+| Wake word | `WakeWordDetector` interface in `gate.ts`; no detector. The gate listens without one. |
 | Silero VAD | `Vad` interface; `EnergyVad` ships. A model wraps its probability in the same `raw`/`active` contract. |
 | Smart Turn / LiveKit turn detector | `CompletenessModel` interface; `HeuristicCompleteness` ships (terminal punctuation -> complete; trailing preposition, conjunction, article, filler or auxiliary -> incomplete; empty transcript -> complete). |
 | Speaker embedder | `Embedder` interface; `StubEmbedder` is time-domain statistics and separates nothing. `EmbeddingSpeakerCheck` and the consent-gated `EnrollmentStore` are complete. `window.apparatusEnrollSpeaker(samples, consent)` enrolls; there is no enrollment UI. |

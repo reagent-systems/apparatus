@@ -60,16 +60,6 @@ export function buildEventTurn(voiceText: string): ClientContent {
   };
 }
 
-/** Typed text as a plain user turn, no `<event>` wrapper, turn complete. */
-export function buildUserTextTurn(text: string): ClientContent {
-  return {
-    clientContent: {
-      turns: [{ role: "user", parts: [{ text }] }],
-      turnComplete: true,
-    },
-  };
-}
-
 export function buildToolResponse(responses: FunctionResponse | FunctionResponse[]): ToolResponse {
   const list = Array.isArray(responses) ? responses : [responses];
   return {

@@ -3,6 +3,7 @@
 
 import { Gate, InputMode, type GateEvent } from "./gate/gate.ts";
 import { LiveSession } from "./live/session.ts";
+import { ReplyLatch } from "./live/reply-latch.ts";
 import type { LiveEvent } from "./live/messages.ts";
 import { Capture } from "./audio/capture.ts";
 import { Playback } from "./audio/playback.ts";
@@ -84,8 +85,11 @@ export class VoiceController {
   private swapTimer: ReturnType<typeof setTimeout> | null = null;
   private holds = false;
   private pendingStart = false;
-  /** Text typed before this device held the voice session; sent once granted. */
-  private pendingText: string[] = [];
+  /** A hold that began before this device held the voice session. */
+  private pendingPress = false;
+  /** Between `pressTalk` and its release, an interrupt or a close. */
+  private pressed = false;
+  private readonly reply = new ReplyLatch();
   private userText = "";
   private agentText = "";
   private speaker: SpeakerCheck;
@@ -101,6 +105,7 @@ export class VoiceController {
           threshold: opts.gateConfig.speaker_match_threshold,
         })
       : new NoSpeakerCheck();
+    // Full duplex is the only mode: the gate listens while the Live session is open.
     this.gate = new Gate({
       config: opts.gateConfig,
       mode: InputMode.OPEN_MIC,
@@ -128,31 +133,35 @@ export class VoiceController {
     return this.playback.isSpeaking();
   }
 
-  get inputMode(): InputMode {
-    return this.gate.mode;
+  /** A hold is on: from the orb or from Space. */
+  get pressing(): boolean {
+    return this.pressed;
   }
 
   setHoldsVoice(holds: boolean): void {
     if (holds === this.holds) return;
     this.holds = holds;
     if (!holds) {
+      this.pendingStart = false;
+      this.pendingPress = false;
+      this.pressed = false;
       this.closeLive("revoked");
-      this.pendingText = [];
     } else {
       if (this.pendingStart) {
         this.pendingStart = false;
         this.start();
       }
-      const texts = this.pendingText;
-      this.pendingText = [];
-      for (const t of texts) this.sendText(t);
+      if (this.pendingPress) {
+        this.pendingPress = false;
+        this.gate.pressTalk();
+      }
     }
     this.opts.onChange?.();
   }
 
   // ---- user actions --------------------------------------------------------
 
-  /** Orb or talk press: open the microphone and the Live session. */
+  /** Open the microphone and the Live session; claims the voice session first when needed. */
   start(): void {
     if (!this.holds) {
       this.pendingStart = true;
@@ -170,51 +179,41 @@ export class VoiceController {
     this.opts.onChange?.();
   }
 
-  /** Orb click while live: microphone and session off. */
+  /** Microphone and session off. */
   end(): void {
     this.closeLive("user");
   }
 
+  /**
+   * The orb held: a forced turn past every filter, opening the Live session
+   * first when it is closed. Without the voice session the press waits for
+   * `voice.granted` and starts then, unless it was released first.
+   */
   pressTalk(): void {
+    this.pressed = true;
     this.start();
     if (this.holds) this.gate.pressTalk();
+    else this.pendingPress = true;
+    this.opts.onChange?.();
   }
 
   releaseTalk(): void {
+    this.pressed = false;
+    this.pendingPress = false;
     this.gate.releaseTalk();
-  }
-
-  /** The stop button: always works. */
-  stop(): void {
-    this.playback.stop();
-    this.gate.stopAll();
-  }
-
-  /** Push to talk or open mic; `gate.setMode` does the work. */
-  setInputMode(mode: InputMode): void {
-    this.gate.setMode(mode);
     this.opts.onChange?.();
   }
 
   /**
-   * Typed text goes to the same voice model: the Live session opens when it
-   * is closed, the text is one plain user turn (no `<event>` wrapper), and
-   * the server gets the transcript so other devices show the card. Without
-   * the voice session the text waits for `voice.granted`.
+   * The manual stop, always available: playback stops at once, the rest of
+   * the reply stays silent, and any open turn ends.
    */
-  sendText(text: string): void {
-    const t = text.trim();
-    if (t.length === 0) return;
-    if (!this.holds) {
-      this.pendingText.push(t);
-      this.opts.send({ type: C2S.VOICE_CLAIM });
-      return;
-    }
-    this.ensureLive();
-    void this.playback.unlock();
-    this.live?.sendUserTextTurn(t);
-    this.relayTranscript("user", t, true);
-    this.touchIdle();
+  interrupt(): void {
+    this.pressed = false;
+    this.pendingPress = false;
+    this.playback.stop();
+    this.reply.interrupt();
+    this.gate.stopAll();
     this.opts.onChange?.();
   }
 
@@ -318,12 +317,17 @@ export class VoiceController {
         this.opts.onChange?.();
         break;
       case "audio":
-        if (session === this.live) this.playback.enqueue(ev.data, ev.sampleRate);
+        if (session === this.live && this.reply.audio()) this.playback.enqueue(ev.data, ev.sampleRate);
         break;
       case "interrupted":
         this.playback.stop();
+        this.reply.end();
+        break;
+      case "generationComplete":
+        if (session === this.live) this.reply.end();
         break;
       case "turnComplete":
+        if (session === this.live) this.reply.end();
         if (this.agentText.length > 0) {
           this.relayTranscript("agent", this.agentText, true);
           this.agentText = "";
@@ -379,7 +383,6 @@ export class VoiceController {
         if (session === this.live) this.prepareNext(ev.timeLeftMs);
         break;
       case "text":
-      case "generationComplete":
       case "unknown":
         break;
     }
@@ -443,9 +446,12 @@ export class VoiceController {
       session.close(reason);
       this.opts.send({ type: C2S.LIVE_CLOSED, reason });
     }
+    this.pressed = false;
+    this.pendingPress = false;
     this.gate.stopAll();
     this.capture.stop();
     this.playback.stop();
+    this.reply.end();
     this.opts.onChange?.();
   }
 

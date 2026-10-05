@@ -7,8 +7,7 @@ Each case has the same shape.
 
 **Say.** "What time is it in Tokyo?"
 **Work.** The voice model answers from what it knows. No job starts. No VM wakes.
-**Hear.** One sentence, at once. The orb shows listening, then speaking.
-Where speech does not fit, the user types the same question in the composer; the same voice model answers.
+**Hear.** One sentence, at once. The orb shows listening, then speaking. Beside the orb, the composer shows what the model heard.
 
 ## Get a file made
 

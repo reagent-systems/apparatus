@@ -1,14 +1,15 @@
-// The Jobs view (DESIGN.md 5): filter chips with counts, then the jobs in
-// bucket order (Needs you, Failed, Running, Done), each group split by a
-// Today / Earlier sub-divider. The chips show at zero; an empty group does
-// not render.
+// The Jobs view (DESIGN.md 5): three filter chips with counts (Needs you,
+// Running, Done; none selected shows every job), then the jobs in bucket
+// order (Needs you, Failed, Running, Done), each group split by a Today /
+// Earlier sub-divider. The chips show at zero; an empty group does not
+// render.
 
 import { useState } from "react";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { useBreakpoint } from "@/hooks/use-breakpoint";
 import { useNow } from "@/hooks/use-now";
-import { BUCKET_LABEL, DAY_LABEL, FILTER_LABEL, JOB_FILTERS, groupJobs, isJobFilter, jobCounts, type JobFilter } from "@/lib/jobs-list";
+import { BUCKET_LABEL, DAY_LABEL, FILTER_LABEL, JOB_CHIPS, groupJobs, isJobFilter, jobCounts, type JobFilter } from "@/lib/jobs-list";
 import { cn } from "@/lib/utils";
 import { useFeed } from "@/state/feed";
 import { JobRow } from "./JobRow";
@@ -29,13 +30,11 @@ export function JobsView() {
         <ToggleGroup
           type="single"
           spacing={2}
-          value={filter}
-          onValueChange={(v) => {
-            if (isJobFilter(v)) setFilter(v);
-          }}
+          value={filter === "all" ? "" : filter}
+          onValueChange={(v) => setFilter(isJobFilter(v) ? v : "all")}
           className="flex-wrap"
         >
-          {JOB_FILTERS.map((f) => (
+          {JOB_CHIPS.map((f) => (
             <ToggleGroupItem
               key={f}
               value={f}

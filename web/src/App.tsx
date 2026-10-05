@@ -103,8 +103,8 @@ export function App() {
         case "control":
           toggleControl();
           return;
-        case "stop":
-          voice.stop();
+        case "interrupt":
+          voice.interrupt();
           return;
         default:
           setView(shortcut.slice("view:".length) as typeof view);

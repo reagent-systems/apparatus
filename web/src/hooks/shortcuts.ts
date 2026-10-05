@@ -1,10 +1,10 @@
-// Pure: the keyboard table of DESIGN.md 2 as a matcher, and the focus rule
+// Pure: the keyboard table of DESIGN.md 2 as a matcher, and the target rule
 // for the Space hold. No DOM; `use-shortcuts.ts` binds them to the window.
 // Tested in `test/shortcuts.test.ts`.
 
 import type { View } from "../state/selection-codec.ts";
 
-export type Shortcut = "palette" | "rail" | "pane" | "needsYou" | "control" | "stop" | `view:${View}`;
+export type Shortcut = "palette" | "rail" | "pane" | "needsYou" | "control" | "interrupt" | `view:${View}`;
 
 export type KeyLike = {
   key: string;
@@ -33,7 +33,7 @@ function modifier(e: KeyLike, mac: boolean): boolean {
 export function shortcutFor(e: KeyLike, mac: boolean): Shortcut | null {
   const mod = modifier(e, mac);
   const code = e.code ?? codeFromKey(e.key);
-  if (e.key === "Escape" && !mod && !e.altKey) return "stop";
+  if (e.key === "Escape" && !mod && !e.altKey) return "interrupt";
   if (e.altKey && !mod && !e.shiftKey && code === "KeyJ") return "needsYou";
   if (!mod || e.altKey) return null;
   if (e.shiftKey) return code === "KeyC" ? "control" : null;
@@ -57,22 +57,14 @@ function codeFromKey(key: string): string {
   return key;
 }
 
-export type TalkTarget = "free" | "text" | "video" | "control";
-
-const TEXT_TAGS: ReadonlySet<string> = new Set(["INPUT", "TEXTAREA", "SELECT"]);
+export type TalkTarget = "free" | "video";
 
 /**
- * Where the Space hold may talk: only on a `free` target. A text field keeps
- * the space, the VM video keeps the key for the desktop, and a control
- * (button, link, menu item) keeps its own activation.
+ * Where the Space hold may talk: anywhere but the VM video, which keeps the
+ * key for the desktop. There is no text field to protect.
  */
-export function talkTarget(tag: string | null, editable: boolean, interactive: boolean): TalkTarget {
-  if (!tag) return "free";
-  const upper = tag.toUpperCase();
-  if (editable || TEXT_TAGS.has(upper)) return "text";
-  if (upper === "VIDEO") return "video";
-  if (interactive) return "control";
-  return "free";
+export function talkTarget(tag: string | null): TalkTarget {
+  return tag !== null && tag.toUpperCase() === "VIDEO" ? "video" : "free";
 }
 
 /**
