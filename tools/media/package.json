@@ -1,0 +1,14 @@
+{
+  "name": "apparatus-media",
+  "private": true,
+  "version": "0.0.0",
+  "description": "Captures the README stills and GIFs from the real web client in demo mode.",
+  "type": "module",
+  "scripts": {
+    "capture": "node capture.mjs"
+  },
+  "dependencies": {
+    "playwright-core": "1.63.0",
+    "ws": "8.22.0"
+  }
+}

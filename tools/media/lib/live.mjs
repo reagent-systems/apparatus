@@ -1,0 +1,249 @@
+// The scripted Gemini Live stand-in, for captures only.
+//
+// The web client opens its Live socket to LIVE_URL (web/src/live/session.ts).
+// Playwright's routeWebSocket answers that socket here, inside the harness, so
+// the client's own code runs unchanged: it sends the `setup` message from
+// POST /token, waits for `setupComplete`, streams the gate's turns, relays
+// tool calls to the session server and injects job events as `<event>` turns.
+// The stand-in sends only server messages Live sends: setupComplete,
+// serverContent (inputTranscription, outputTranscription, modelTurn audio,
+// generationComplete, turnComplete, interrupted), toolCall and usageMetadata.
+// Shapes follow parseServerMessage in web/src/live/messages.ts.
+
+import fs from "node:fs";
+import path from "node:path";
+import { speechPcm } from "./audio.mjs";
+import { REPO, sleep } from "./util.mjs";
+
+/** LIVE_URL as the client has it, read from the source so the two never drift. */
+export function liveUrl() {
+  const src = fs.readFileSync(path.join(REPO, "web/src/live/session.ts"), "utf8");
+  const m = /export const LIVE_URL\s*=\s*"([^"]+)"/.exec(src);
+  if (!m) throw new Error("LIVE_URL not found in web/src/live/session.ts");
+  return m[1];
+}
+
+const WORDS_PER_SECOND = 3;
+
+/** Milliseconds a line takes to say at a calm pace. */
+export function speakMs(text) {
+  const words = text.trim().split(/\s+/).length;
+  return Math.round((words / WORDS_PER_SECOND) * 1000) + 250;
+}
+
+/** Split a line into transcription deltas the way Live streams them: a few words at a time. */
+function deltas(text, size = 2) {
+  const words = text.split(/(\s+)/).filter((w) => w.length > 0);
+  const out = [];
+  let cur = "";
+  let n = 0;
+  for (const w of words) {
+    cur += w;
+    if (!/^\s+$/.test(w)) n += 1;
+    if (n >= size && /^\s+$/.test(w)) {
+      out.push(cur);
+      cur = "";
+      n = 0;
+    }
+  }
+  if (cur) out.push(cur);
+  return out;
+}
+
+export class LiveStandIn {
+  constructor({ log = () => {} } = {}) {
+    this.log = log;
+    this.conns = [];
+    this.inbox = [];
+    this.waiters = [];
+    this.calls = 0;
+    this.seed = 7;
+  }
+
+  /** Answer the client's Live socket on this page (or context). */
+  async install(target) {
+    const url = liveUrl();
+    await target.routeWebSocket((u) => u.href.startsWith(url), (ws) => this.attach(ws));
+  }
+
+  attach(ws) {
+    const conn = { ws, setup: null, open: true };
+    this.conns.push(conn);
+    ws.onMessage((raw) => {
+      let m;
+      try {
+        m = JSON.parse(typeof raw === "string" ? raw : Buffer.from(raw).toString("utf8"));
+      } catch {
+        return;
+      }
+      if (m.setup && !conn.setup) {
+        conn.setup = m.setup;
+        this.log("live: setup", m.setup.model);
+        this.sendOn(conn, { setupComplete: {} });
+      }
+      const entry = { at: Date.now(), conn, m };
+      this.inbox.push(entry);
+      for (const w of [...this.waiters]) {
+        if (w.pred(entry)) {
+          this.waiters.splice(this.waiters.indexOf(w), 1);
+          w.resolve(entry);
+        }
+      }
+    });
+    ws.onClose(() => {
+      conn.open = false;
+      this.log("live: closed by client");
+    });
+  }
+
+  get conn() {
+    for (let i = this.conns.length - 1; i >= 0; i--) if (this.conns[i].open && this.conns[i].setup) return this.conns[i];
+    return null;
+  }
+
+  sendOn(conn, obj) {
+    // Live delivers JSON in binary frames; the client decodes Blob and text alike.
+    conn.ws.send(Buffer.from(JSON.stringify(obj), "utf8"));
+  }
+
+  send(obj) {
+    const c = this.conn;
+    if (!c) throw new Error("no open Live session");
+    this.sendOn(c, obj);
+  }
+
+  /** Resolve with the first client message, from `since` on, that matches. */
+  waitMessage(pred, { timeout = 20_000, since = 0, what = "a Live client message" } = {}) {
+    const hit = this.inbox.find((e) => e.at >= since && pred(e));
+    if (hit) return Promise.resolve(hit);
+    return new Promise((resolve, reject) => {
+      const w = { pred: (e) => e.at >= since && pred(e), resolve };
+      this.waiters.push(w);
+      setTimeout(() => {
+        const i = this.waiters.indexOf(w);
+        if (i >= 0) {
+          this.waiters.splice(i, 1);
+          reject(new Error(`timed out waiting for ${what}`));
+        }
+      }, timeout);
+    });
+  }
+
+  async connected(timeout = 20_000) {
+    const until = Date.now() + timeout;
+    while (Date.now() < until) {
+      if (this.conn) return this.conn;
+      await sleep(50);
+    }
+    throw new Error("the client opened no Live session");
+  }
+
+  activity(kind, since, timeout) {
+    return this.waitMessage((e) => e.m.realtimeInput && kind in e.m.realtimeInput, { since, timeout, what: `realtimeInput.${kind}` });
+  }
+
+  /**
+   * The user says `text`. What the model heard arrives as inputTranscription
+   * deltas while the turn is open, then a finished marker.
+   *   via "mic":  the fake microphone speaks; wait for the gate's activityStart.
+   *   via "hold": hold `orb` (a Playwright locator) for the line, as a user would.
+   *   via "none": no turn; transcription only (history behind a still).
+   */
+  async user(text, { via = "mic", ms = speakMs(text), orb = null, page = null, timeout = 20_000 } = {}) {
+    // Each turn consumes the first activityStart after the previous turn's end.
+    const since = this.turnCursor ?? 0;
+    let release = null;
+    if (via === "hold") {
+      if (!orb || !page) throw new Error("user(via: hold) needs orb and page");
+      const box = await orb.boundingBox();
+      await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
+      await page.mouse.down();
+      release = async () => page.mouse.up();
+    }
+    let startAt = since;
+    if (via !== "none") startAt = (await this.activity("activityStart", since, timeout)).at;
+    await this.connected();
+    const parts = deltas(text, 2);
+    const step = Math.max(60, ms / parts.length);
+    for (const p of parts) {
+      await sleep(step);
+      this.send({ serverContent: { inputTranscription: { text: p } } });
+    }
+    if (release) await release();
+    if (via !== "none") this.turnCursor = (await this.activity("activityEnd", startAt, timeout + ms)).at + 1;
+    this.send({ serverContent: { inputTranscription: { text: "", finished: true } } });
+    this.userMs = ms;
+  }
+
+  /**
+   * The agent says `text`: 24 kHz PCM in modelTurn parts, paced a little ahead
+   * of real time like Live, with outputTranscription deltas in step, then
+   * generationComplete, usage and turnComplete. Resolves when the audio has
+   * played out on the client.
+   */
+  async agent(text, { ms = speakMs(text), chunkMs = 120 } = {}) {
+    await this.connected();
+    const pcm = speechPcm(ms, { seed: this.seed++ });
+    const bytesPerMs = 48; // 24 kHz, 16-bit mono
+    const chunks = Math.ceil(ms / chunkMs);
+    const parts = deltas(text, 3);
+    const started = Date.now();
+    let sentParts = 0;
+    for (let i = 0; i < chunks; i++) {
+      const slice = pcm.subarray(i * chunkMs * bytesPerMs, Math.min(pcm.length, (i + 1) * chunkMs * bytesPerMs));
+      this.send({ serverContent: { modelTurn: { parts: [{ inlineData: { mimeType: "audio/pcm;rate=24000", data: slice.toString("base64") } }] } } });
+      const due = Math.min(parts.length, Math.ceil(((i + 1) / chunks) * parts.length));
+      while (sentParts < due) this.send({ serverContent: { outputTranscription: { text: parts[sentParts++] } } });
+      // Stay about 300 ms ahead of the playhead.
+      const ahead = (i + 1) * chunkMs - (Date.now() - started);
+      if (ahead > 300) await sleep(ahead - 300);
+    }
+    this.send({ serverContent: { generationComplete: true } });
+    this.send({
+      usageMetadata: {
+        promptTokenCount: 900 + Math.round((this.userMs ?? 2000) / 31),
+        responseTokenCount: Math.round(ms / 31),
+        totalTokenCount: 900 + Math.round((this.userMs ?? 2000) / 31) + Math.round(ms / 31),
+        promptTokensDetails: [{ modality: "AUDIO", tokenCount: Math.round(((this.userMs ?? 2000) / 1000) * 32) }],
+        responseTokensDetails: [{ modality: "AUDIO", tokenCount: Math.round((ms / 1000) * 32) }],
+      },
+    });
+    this.send({ serverContent: { turnComplete: true } });
+    this.userMs = 0;
+    const left = ms - (Date.now() - started);
+    if (left > 0) await sleep(left + 150);
+  }
+
+  /** A toolCall; resolves with the client's toolResponse (the session server's answer). */
+  async tool(name, args, { timeout = 20_000 } = {}) {
+    await this.connected();
+    const id = `call-${++this.calls}`;
+    const since = Date.now();
+    this.send({ toolCall: { functionCalls: [{ id, name, args }] } });
+    const e = await this.waitMessage(
+      (x) => x.m.toolResponse?.functionResponses?.some((r) => r.id === id),
+      { since, timeout, what: `toolResponse for ${name}` },
+    );
+    return e.m.toolResponse.functionResponses.find((r) => r.id === id).response;
+  }
+
+  /** The next `<event>` turn the client injects that matches `re`. Returns its text. */
+  async event(re, { timeout = 60_000, since = 0 } = {}) {
+    const e = await this.waitMessage(
+      (x) => (x.m.clientContent?.turns ?? []).some((t) => (t.parts ?? []).some((p) => re.test(p.text ?? ""))),
+      { since, timeout, what: `an event turn matching ${re}` },
+    );
+    const text = e.m.clientContent.turns.flatMap((t) => t.parts.map((p) => p.text)).join("");
+    return text.replace(/^<event>|<\/event>$/g, "");
+  }
+
+  /** The `say` line of a job.done event, which the voice model speaks almost unchanged. */
+  static sayOf(eventText) {
+    const m = /^job\.done \S+: ([\s\S]*)$/.exec(eventText);
+    return m ? m[1].trim() : eventText;
+  }
+
+  interrupted() {
+    this.send({ serverContent: { interrupted: true } });
+  }
+}
