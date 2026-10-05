@@ -165,6 +165,8 @@ def test_full_job_through_both_sockets(world):
             stop = vm.receive_json()
             assert stop["type"] == S2A.TASK_STOP and stop["result"]["say"] == "Said hi."
             vm.send_json(msg(A2S.TASK_STOPPED, task_id=stop["task_id"]))
+            step = ws.receive_json()
+            assert step["type"] == "job.progress" and step["text"] == "python: print('hi')"
             done = ws.receive_json()
             assert done["type"] == "job.done" and done["say"] == "Said hi."
             assert done["voice"] == f"job.done {job_id}: Said hi."

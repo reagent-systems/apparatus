@@ -157,9 +157,15 @@ def parse_response(response: Any) -> ModelReply:
     return reply
 
 
-def make_smart_model(api_key: str, fake: SmartModel | None = None) -> SmartModel:
+def make_smart_model(
+    api_key: str, fake: SmartModel | None = None, *, demo: bool = False
+) -> SmartModel:
     if fake is not None:
         return fake
+    if demo:
+        from .demo import demo_model
+
+        return demo_model()
     if api_key:
         return GeminiSmartModel(api_key)
     return FakeSmartModel(

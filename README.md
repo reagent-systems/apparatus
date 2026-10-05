@@ -24,6 +24,7 @@ VM. One API key, on the server only. Users pay a subscription that includes cred
 cp .env.example .env            # add GEMINI_API_KEY for real voice; empty runs the fakes
 uv sync && (cd web && npm install && npm run build)
 uv run apparatus-server          # http://localhost:8080, dev auth: the user id is "dev"
+APPARATUS_DEMO=1 uv run apparatus-server   # instead: scripted jobs without a model key
 AGENTD_HOME=/tmp/agent-home uv run agentd   # in a second shell: a local VM stand-in
 ```
 

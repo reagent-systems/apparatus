@@ -136,6 +136,7 @@ TURN credentials follow coturn `use-auth-secret`: username is `<unix expiry>:app
 | `APPARATUS_WEB_DIST` | `web/dist` | Folder with the built web app, served at `/`. |
 | `APPARATUS_TURN_URL` | empty | TURN relay for the screen stream, for example `turn:1.2.3.4:3478?transport=udp`. Empty: STUN only. |
 | `APPARATUS_TURN_SECRET` | empty | The coturn `static-auth-secret`. Needed with `APPARATUS_TURN_URL`. |
+| `APPARATUS_DEMO` | empty | `1` replaces the smart model with a scripted demo job: a python step that writes `report.csv`, progress, a show and a result. `approve` in the request adds an approval; `login` adds a handoff. Wins over `GEMINI_API_KEY` for jobs; the voice is unchanged. |
 
 ### agentd (on the VM)
 

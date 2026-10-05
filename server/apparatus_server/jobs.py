@@ -48,6 +48,8 @@ PUSH_TYPE_BY_KIND = {
     "job.done": S2C.JOB_DONE,
     "credits": S2C.CREDITS,
 }
+PROGRESS_HISTORY_MAX = 50
+STEP_LINE_MAX = 80
 
 
 @dataclass
@@ -70,6 +72,7 @@ class Job:
     hold: int = 0
     progress: str = ""
     percent: float | None = None
+    progress_history: list[str] = field(default_factory=list)
     say: str = ""
     show: str | None = None
     artifacts: list[str] = field(default_factory=list)
@@ -85,6 +88,10 @@ class Job:
     @property
     def active(self) -> bool:
         return self.status in (JobStatus.QUEUED, JobStatus.RUNNING, JobStatus.PAUSED)
+
+    def note_progress(self, text: str) -> None:
+        self.progress_history.append(text)
+        del self.progress_history[:-PROGRESS_HISTORY_MAX]
 
 
 @dataclass
@@ -422,6 +429,11 @@ class JobManager:
         parts.insert(
             0, {"function_response": {"id": call.id, "name": call.name, "response": response}}
         )
+        step = step_summary(call)
+        job.note_progress(step)
+        await self.clients.broadcast(
+            job.user_id, msg(S2C.JOB_PROGRESS, job_id=job.job_id, text=step)
+        )
         return parts
 
     async def _compact(self, job: Job, history: list[dict[str, Any]]) -> list[dict[str, Any]]:
@@ -544,6 +556,7 @@ class JobManager:
         elif kind == EventKind.PROGRESS:
             job.progress = str(payload.get("text", ""))
             job.percent = payload.get("percent")
+            job.note_progress(job.progress)
             await self.clients.broadcast(
                 user_id,
                 msg(S2C.JOB_PROGRESS, job_id=job.job_id, text=job.progress, percent=job.percent),
@@ -789,6 +802,23 @@ class JobManager:
         for task in list(self._runners.values()):
             task.cancel()
         await asyncio.gather(*self._runners.values(), return_exceptions=True)
+
+
+def step_summary(call: FunctionCall) -> str:
+    """One short line for the feed after a tool step. Never spoken."""
+    args = call.args or {}
+    if call.name == "python":
+        code = str(args.get("code", ""))
+        line = next((ln.strip() for ln in code.splitlines() if ln.strip()), "")
+        return f"python: {line[:STEP_LINE_MAX]}"
+    if call.name == "computer":
+        text = f"computer: {args.get('action', '')}"
+        if args.get("x") is not None and args.get("y") is not None:
+            text += f" [{args['x']},{args['y']}]"
+        return text
+    if call.name == "handoff":
+        return f"handoff: {args.get('reason', '')}"
+    return call.name
 
 
 def _details_summary(details: Any, limit: int = 160) -> str:

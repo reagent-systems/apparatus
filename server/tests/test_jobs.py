@@ -13,12 +13,16 @@ from agentd.libserver import LibServer
 from apparatus_protocol import S2C, JobStatus
 from apparatus_server.audit import Audit
 from apparatus_server.clients import ClientConn, ClientHub
+from apparatus_server.config import load_settings
+from apparatus_server.demo import demo_model
 from apparatus_server.jobs import JobManager
 from apparatus_server.ledger import InsufficientCredits, Ledger
+from apparatus_server.main import build_deps
 from apparatus_server.model import FakeSmartModel, FunctionCall, ModelReply, Usage
 from apparatus_server.push import LogPush
 from apparatus_server.sessions import NaiveSummarizer, Sessions
 from apparatus_server.store import MemoryStore
+from apparatus_server.tokens import FakeTokenMinter
 from apparatus_server.vm import LocalVmController, VmLink, VmRegistry
 
 USER = "u1"
@@ -340,3 +344,93 @@ async def test_computer_is_refused_on_the_server_while_a_handoff_is_open(world_f
     await w.jobs.end_handoff(req["handoff_id"], "done", USER)
     await w.wait_done(first)
     assert first.status == JobStatus.DONE
+
+
+async def test_tool_steps_reach_the_feed_and_the_job_history(world_factory):
+    replies = [
+        py("\n\n  import math  \nprint(math.pi)"),
+        ModelReply(calls=[FunctionCall("s", "show", {"content": "# hi"})]),
+        ModelReply(calls=[FunctionCall("k", "computer", {"action": "click", "x": 10, "y": 20})]),
+        py("import agentlib\nagentlib.progress('page 2', percent=50)\n" + "x = 1  # " + "a" * 100),
+        final(),
+    ]
+    w = await world_factory(FakeSmartModel(replies))
+    job = await w.jobs.start(USER, "x")
+    await w.wait_done(job)
+    texts = [m["text"] for m in w.messages(S2C.JOB_PROGRESS) if m["job_id"] == job.job_id]
+    assert texts[:3] == ["python: import math", "show", "computer: click [10,20]"]
+    assert "page 2" in texts and texts[-1] == "python: import agentlib"
+    assert all(m.get("voice") is None for m in w.messages(S2C.JOB_PROGRESS))
+    public = job.public()
+    assert public["progress_history"] == texts
+    assert (await w.store.get("jobs", job.job_id))["progress_history"] == texts
+
+
+async def test_long_python_lines_are_cut_and_history_is_capped(world_factory, settings):
+    many = replace(settings, jobs=replace(settings.jobs, max_steps=80))
+    w = await world_factory(FakeSmartModel(lambda h: py("y = '" + "b" * 200 + "'")), many)
+    job = await w.jobs.start(USER, "x")
+    async with asyncio.timeout(10):
+        while job.steps < 55:
+            await asyncio.sleep(0.02)
+    await w.jobs.cancel(USER, job.job_id)
+    await w.wait_done(job)
+    assert len(job.progress_history) == 50
+    assert job.progress_history[0] == "python: " + ("y = '" + "b" * 200)[:80]
+
+
+async def test_demo_model_runs_a_full_job(world_factory):
+    w = await world_factory(demo_model())
+    job = await w.jobs.start(USER, "make me the weekly report")
+    await w.wait_done(job)
+    assert job.status == JobStatus.DONE
+    assert job.artifacts == [f"/home/agent/tasks/{job.task_id}/report.csv"]
+    assert (
+        (w.core.cfg.home / "tasks" / job.task_id / "report.csv")
+        .read_text()
+        .startswith("Region,Orders,Revenue")
+    )
+    assert job.show and "| North | 42 |" in job.show
+    assert w.messages(S2C.SHOW)[0]["content"] == job.show
+    assert any(p.get("percent") == 40 for p in w.messages(S2C.JOB_PROGRESS))
+    assert job.progress_history == [
+        "Reading the source",
+        "python: # Read the source and write report.csv",
+        "show",
+    ]
+    assert job.say.count(".") == 2
+
+
+@pytest.mark.parametrize("approved", [True, False])
+async def test_demo_model_asks_for_approval(world_factory, approved):
+    w = await world_factory(demo_model())
+    job = await w.jobs.start(USER, "approve the note to Dana")
+    req = await w.wait_message(S2C.APPROVAL_REQUESTED)
+    assert req["action"] == "send" and req["details"]["to"] == "dana@example.com"
+    w.jobs.answer_approval(USER, req["approval_id"], approved)
+    await w.wait_done(job)
+    assert job.status == JobStatus.DONE
+    assert ("sent" if approved else "held") in job.say
+
+
+async def test_demo_model_hands_off_for_a_login(world_factory):
+    w = await world_factory(demo_model())
+    job = await w.jobs.start(USER, "login and get the report")
+    req = await w.wait_message(S2C.HANDOFF_REQUESTED)
+    assert job.progress_history == []
+    await w.jobs.end_handoff(req["handoff_id"], "done", USER)
+    await w.wait_done(job)
+    assert job.status == JobStatus.DONE
+    assert job.progress_history[0] == "handoff: Sign in to the reports site"
+
+
+def test_apparatus_demo_selects_the_demo_model(settings):
+    on = load_settings({"APPARATUS_CONFIG": settings.config_path, "APPARATUS_DEMO": "1"})
+    off = load_settings({"APPARATUS_CONFIG": settings.config_path, "GEMINI_API_KEY": "k"})
+    assert on.demo is True and off.demo is False
+    deps = build_deps(replace(on, gemini_api_key="k"), tokens=FakeTokenMinter())
+    assert isinstance(deps.model, FakeSmartModel)
+    reply = deps.model._script(
+        [{"role": "user", "parts": [{"text": "Job: x\n\nTask id: t1. Working folder: /x"}]}]
+    )
+    assert reply.calls[0].name == "python"

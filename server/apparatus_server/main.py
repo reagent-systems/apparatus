@@ -86,14 +86,14 @@ def build_deps(
     auth: Authenticator | None = None,
 ) -> Deps:
     store = store or make_store(settings.store, settings.data_dir)
-    model = make_smart_model(settings.gemini_api_key, model)
+    model = make_smart_model(settings.gemini_api_key, model, demo=settings.demo)
     ledger = Ledger(store, settings.credits, settings.prices)
     audit = Audit(store)
     vms = VmRegistry()
     clients = ClientHub(store)
     summarizer = (
         ModelSummarizer(model, settings.models.smart)
-        if settings.gemini_api_key
+        if settings.gemini_api_key and not settings.demo
         else NaiveSummarizer()
     )
     sessions = Sessions(store, summarizer, max_chars=settings.live.summary_max_chars)

@@ -134,6 +134,7 @@ class Settings:
     web_dist: str = "web/dist"
     turn_url: str = ""  # empty: no TURN relay, STUN only
     turn_secret: str = ""  # coturn use-auth-secret
+    demo: bool = False  # scripted smart model, no key needed
     config_path: str = "config/apparatus.toml"
 
     def gate_dict(self) -> dict[str, Any]:
@@ -208,5 +209,6 @@ def load_settings(env: dict[str, str] | None = None) -> Settings:
         web_dist=e.get("APPARATUS_WEB_DIST", "web/dist"),
         turn_url=e.get("APPARATUS_TURN_URL", ""),
         turn_secret=e.get("APPARATUS_TURN_SECRET", ""),
+        demo=e.get("APPARATUS_DEMO", "") == "1",
         config_path=config_path,
     )
