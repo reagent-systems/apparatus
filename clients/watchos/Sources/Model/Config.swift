@@ -37,7 +37,7 @@ enum Config {
     static let liveOutputRate: Double = 24000
     static let chunkMilliseconds = 20
 
-    // Fallbacks for fields `ready` may carry (config/apparatus.toml).
+    // Fallback for `ready.live.idle_close_seconds` (config/apparatus.toml).
+    // The gate thresholds come from `ready.gate`; see Gate/GateConfig.swift.
     static let idleCloseSeconds: TimeInterval = 120
-    static let bargeinStopMilliseconds = 200
 }

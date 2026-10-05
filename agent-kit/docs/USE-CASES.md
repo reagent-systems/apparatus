@@ -54,9 +54,9 @@ The Jobs desk lists every blocked job first with its Approve and Deny buttons, s
 
 ## Watch only
 
-**Say.** The user presses and holds Talk on the watch: "Did the CSV job finish?"
-**Work.** The watch streams audio while the button is held and ends the turn on release. The voice model calls check_job.
-**Hear.** "Yes, it finished two minutes ago." A handoff on a watch arrives as a notification that says to continue on another device.
+**Say.** The user taps the orb on the watch, like a phone call, and asks: "Did the CSV job finish?"
+**Work.** The watch opens the microphone for the call. Its voice gate starts the turn when the user speaks and ends it when the user stops. The voice model calls check_job. The orb shows listening while the user speaks and composing while the agent speaks.
+**Hear.** "Yes, it finished two minutes ago." The user taps again to hang up. A handoff on a watch arrives as a notification that says to continue on another device.
 
 ## Run while away
 

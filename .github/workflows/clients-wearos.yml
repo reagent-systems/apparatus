@@ -6,6 +6,8 @@ on:
   pull_request:
     paths:
       - "clients/wearos/**"
+      # The voice gate vectors the unit tests replay.
+      - "clients/shared/**"
       - ".github/workflows/clients-wearos.yml"
 
 permissions:
@@ -51,12 +53,26 @@ jobs:
         if: env.WEAROS_GOOGLE_SERVICES_JSON != ''
         run: printf '%s' "$WEAROS_GOOGLE_SERVICES_JSON" > app/google-services.json
 
+      # JVM unit tests: the thinking-orbs golden frames, the shared voice gate vectors
+      # (clients/shared/gate-vectors.json), the turn heuristic, the reply latch, the orb state
+      # mapping and the Live setup.
+      - name: Unit tests
+        run: gradle test -PAPPARATUS_SERVER_ORIGIN="$APPARATUS_SERVER_ORIGIN"
+
       - name: Build debug APK
         run: gradle assembleDebug -PAPPARATUS_SERVER_ORIGIN="$APPARATUS_SERVER_ORIGIN"
 
       - name: Build signed release APK
         if: env.ANDROID_KEYSTORE_BASE64 != '' && env.ANDROID_KEYSTORE_PASSWORD != '' && env.ANDROID_KEY_ALIAS != '' && env.ANDROID_KEY_PASSWORD != ''
         run: gradle assembleRelease -PAPPARATUS_SERVER_ORIGIN="$APPARATUS_SERVER_ORIGIN"
+
+      - name: Upload test reports
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: wearos-test-reports
+          path: clients/wearos/app/build/reports/tests/
+          if-no-files-found: ignore
 
       - uses: actions/upload-artifact@v4
         with:

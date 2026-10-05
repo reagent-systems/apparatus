@@ -15,19 +15,18 @@ struct ApparatusWatchApp: App {
     }
 }
 
-/// Notification authorization, APNs registration and notification actions.
-/// The watch shows handoffs and approvals as notifications only (design
-/// spec, Clients and UI).
+/// APNs registration and notification actions. The watch shows handoffs
+/// and approvals as notifications only (design spec, Clients and UI). The
+/// alert permission is asked on the first call, not here: nothing covers
+/// the orb on launch.
 final class AppDelegate: NSObject, WKApplicationDelegate, UNUserNotificationCenterDelegate {
     func applicationDidFinishLaunching() {
         let center = UNUserNotificationCenter.current()
         center.delegate = self
         center.setNotificationCategories(Notifier.categories)
-        center.requestAuthorization(options: [.alert, .sound]) { _, _ in
-            // The device token needs no alert permission; silent pushes
-            // still wake the socket.
-            onMain { WKApplication.shared().registerForRemoteNotifications() }
-        }
+        // The device token needs no alert permission; silent pushes wake
+        // the socket before it is granted.
+        WKApplication.shared().registerForRemoteNotifications()
     }
 
     // MARK: - APNs
@@ -106,6 +105,17 @@ enum Notifier {
         content.userInfo = ["approval_id": id]
         content.sound = .default
         post(id: "approval-\(id)", content)
+    }
+
+    @MainActor private static var authorizationAsked = false
+
+    /// The system's alert prompt, once per launch; the system shows it only
+    /// while the choice is undetermined. Called from the first call tap.
+    @MainActor
+    static func requestAuthorizationOnce() async {
+        guard !authorizationAsked else { return }
+        authorizationAsked = true
+        _ = try? await UNUserNotificationCenter.current().requestAuthorization(options: [.alert, .sound])
     }
 
     static func remove(id: String) {

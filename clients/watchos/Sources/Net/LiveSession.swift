@@ -19,6 +19,7 @@ enum LiveEvent {
     /// pcm16le mono at `sampleRate`.
     case audio(Data, sampleRate: Double)
     case interrupted
+    case generationComplete
     case turnComplete
     case inputTranscription(String, finished: Bool)
     case outputTranscription(String, finished: Bool)
@@ -213,6 +214,7 @@ final class LiveSession: NSObject, URLSessionWebSocketDelegate {
             if let t = content["outputTranscription"] as? [String: Any], let text = t["text"] as? String {
                 events.append(.outputTranscription(text, finished: t["finished"] as? Bool == true))
             }
+            if content["generationComplete"] as? Bool == true { events.append(.generationComplete) }
             if content["turnComplete"] as? Bool == true { events.append(.turnComplete) }
         }
 

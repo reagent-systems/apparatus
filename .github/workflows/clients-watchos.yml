@@ -6,6 +6,7 @@ on:
   pull_request:
     paths:
       - "clients/watchos/**"
+      - "clients/shared/gate-vectors.json"
       - ".github/workflows/clients-watchos.yml"
 
 permissions:
@@ -50,6 +51,51 @@ jobs:
             -derivedDataPath build/DerivedData \
             CODE_SIGNING_ALLOWED=NO \
             build | tee "$LOG_DIR/build-simulator.log"
+
+      - name: Pick a watchOS Simulator
+        run: |
+          set -euo pipefail
+          # The newest watchOS runtime on the runner, its first available device.
+          WATCH_SIM="$(xcrun simctl list devices available -j | python3 -c '
+          import json, re, sys
+          devices = json.load(sys.stdin)["devices"]
+          def version(runtime):
+              return [int(n) for n in re.findall(r"\d+", runtime.rsplit("watchOS", 1)[1])]
+          runtimes = sorted((r for r in devices if "watchOS" in r and devices[r]), key=version)
+          if not runtimes:
+              sys.exit("no watchOS simulator on this runner")
+          print(devices[runtimes[-1]][0]["udid"])
+          ')"
+          xcrun simctl list devices | grep "$WATCH_SIM"
+          echo "WATCH_SIM=$WATCH_SIM" >> "$GITHUB_ENV"
+
+      - name: Test the app (gate vectors, orb mapping, reply latch, outbox)
+        run: |
+          set -o pipefail
+          xcodebuild \
+            -project ApparatusWatch.xcodeproj \
+            -scheme ApparatusWatch \
+            -destination "id=$WATCH_SIM" \
+            -configuration Debug \
+            -derivedDataPath build/DerivedData \
+            CODE_SIGNING_ALLOWED=NO \
+            test | tee "$LOG_DIR/test-app.log"
+
+      - name: Test ThinkingOrbsKit (golden vectors)
+        working-directory: clients/watchos/Vendor/ThinkingOrbsKit
+        run: |
+          set -o pipefail
+          SCHEME="$(xcodebuild -list -json | python3 -c '
+          import json, sys
+          schemes = json.load(sys.stdin)["workspace"]["schemes"]
+          print("ThinkingOrbsKit-Package" if "ThinkingOrbsKit-Package" in schemes else "ThinkingOrbsKit")
+          ')"
+          xcodebuild \
+            -scheme "$SCHEME" \
+            -destination "id=$WATCH_SIM" \
+            -derivedDataPath "$GITHUB_WORKSPACE/clients/watchos/build/KitDerivedData" \
+            CODE_SIGNING_ALLOWED=NO \
+            test | tee "$LOG_DIR/test-kit.log"
 
       - name: Import signing certificate and profile
         if: env.HAVE_SIGNING == 'true'

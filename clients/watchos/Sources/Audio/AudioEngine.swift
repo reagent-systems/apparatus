@@ -1,19 +1,22 @@
 import AVFoundation
 import Foundation
 
-/// Microphone in, model voice out.
+/// Microphone in, model voice out, for the length of one call.
 ///
 /// Input: AVAudioEngine tap on the input node -> AVAudioConverter to
-/// 16 kHz Int16 mono -> 20 ms chunks (640 bytes) to `onChunk`, only while
-/// capturing. Output: AVAudioPlayerNode at 24 kHz; `flushPlayback` drops
-/// every scheduled buffer at once (barge-in, Stop).
+/// 16 kHz Int16 mono -> 20 ms chunks (640 bytes) to `onChunk`, the whole
+/// time the engine runs: the microphone is open for the call and the voice
+/// gate decides what leaves the watch. Output: AVAudioPlayerNode at 24 kHz;
+/// `flushPlayback` drops every scheduled buffer at once (barge-in).
 ///
 /// The session is playAndRecord + voiceChat with voice processing on the
-/// input node: Apple's echo cancellation uses the output as its reference,
-/// so the model does not hear itself from the watch speaker.
+/// input node: the speaker plays while the microphone is open, and Apple's
+/// echo cancellation uses the output as its reference, so the model does
+/// not hear itself from the watch speaker.
 ///
 /// Public methods run on the main actor. `onChunk` runs on the audio
-/// thread; `onPlaybackDrained` on the main queue.
+/// thread; `onPlaybackDrained` on the main queue. `isSpeaking` may be read
+/// from any thread.
 final class AudioEngine {
     var onChunk: (@Sendable (Data) -> Void)?
     var onPlaybackDrained: (@Sendable () -> Void)?
@@ -33,7 +36,6 @@ final class AudioEngine {
 
     // Shared with the audio thread.
     private let lock = NSLock()
-    private var capturing = false
     private var pending = Data()
     private var scheduled = 0
     private var generation = 0
@@ -73,7 +75,14 @@ final class AudioEngine {
         }
 
         engine.prepare()
-        try engine.start()
+        do {
+            try engine.start()
+        } catch {
+            engine.inputNode.removeTap(onBus: 0)
+            converter = nil
+            try? session.setActive(false, options: .notifyOthersOnDeactivation)
+            throw error
+        }
         player.play()
         isRunning = true
         observeInterruptions()
@@ -87,7 +96,6 @@ final class AudioEngine {
         engine.stop()
         converter = nil
         lock.lock()
-        capturing = false
         pending.removeAll()
         lock.unlock()
         if let interruptionObserver {
@@ -99,27 +107,8 @@ final class AudioEngine {
 
     // MARK: - Capture
 
-    /// Opens or closes the microphone gate. Closing returns the partial
-    /// chunk that was still accumulating, so the last syllable is sent.
-    @discardableResult
-    func setCapturing(_ on: Bool) -> Data? {
-        lock.lock()
-        defer { lock.unlock() }
-        capturing = on
-        if on {
-            pending.removeAll()
-            return nil
-        }
-        let rest = pending
-        pending.removeAll()
-        return rest.isEmpty ? nil : rest
-    }
-
     private func convertAndEmit(_ buffer: AVAudioPCMBuffer) {
-        lock.lock()
-        let on = capturing
-        lock.unlock()
-        guard on, let converter, buffer.frameLength > 0 else { return }
+        guard let converter, buffer.frameLength > 0 else { return }
 
         let ratio = captureFormat.sampleRate / buffer.format.sampleRate
         let capacity = AVAudioFrameCount(Double(buffer.frameLength) * ratio) + 32
@@ -151,6 +140,17 @@ final class AudioEngine {
 
     // MARK: - Playback
 
+    /// True while model audio is scheduled or still on its way to the
+    /// speaker: the gate's "model speaking". A buffer counts until it has
+    /// played back at the output (`.dataPlayedBack`, which includes the
+    /// output latency), not until the player has consumed it, so echo of the
+    /// agent's last words still meets the barge-in bar.
+    var isSpeaking: Bool {
+        lock.lock()
+        defer { lock.unlock() }
+        return scheduled > 0
+    }
+
     /// Schedules pcm16le mono. Gemini emits 24 kHz; another rate reconnects
     /// the player once.
     func play(pcm16 data: Data, sampleRate: Double) {
@@ -174,11 +174,13 @@ final class AudioEngine {
         scheduled += 1
         let gen = generation
         lock.unlock()
-        player.scheduleBuffer(buffer) { [weak self] in self?.bufferDone(gen) }
+        player.scheduleBuffer(buffer, completionCallbackType: .dataPlayedBack) { [weak self] _ in
+            self?.bufferDone(gen)
+        }
         if !player.isPlaying { player.play() }
     }
 
-    /// Drops every scheduled buffer now. Design spec: stop within 200 ms.
+    /// Drops every scheduled buffer now, well inside `gate.bargein_stop_ms`.
     func flushPlayback() {
         lock.lock()
         generation += 1

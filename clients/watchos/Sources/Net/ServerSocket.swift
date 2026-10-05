@@ -4,7 +4,8 @@ import Foundation
 /// C2S and S2C messages per agent-kit/docs/PROTOCOL.md. Call every method
 /// on the main actor; URLSession callbacks hop to it before touching state.
 ///
-/// - Sends `hello` on open, then flushes messages queued while closed.
+/// - Sends `hello` on open, then flushes messages queued while closed
+///   (`Outbox`: bounded, and never at the cost of a control message).
 /// - Reconnects with exponential backoff (1 s to 30 s, jittered).
 /// - Sends a protocol `ping` every 20 s.
 @MainActor
@@ -19,12 +20,11 @@ final class ServerSocket: NSObject, URLSessionWebSocketDelegate {
     private var task: URLSessionWebSocketTask?
     private var wantsConnection = false
     private var attempt = 0
-    private var outbox: [[String: Any]] = []
+    private var outbox = Outbox(limit: 32)
     private var pingTimer: DispatchSourceTimer?
     private var reconnectWork: DispatchWorkItem?
 
     private let pingInterval: TimeInterval = 20
-    private let outboxLimit = 32
 
     override init() {
         super.init()
@@ -52,10 +52,10 @@ final class ServerSocket: NSObject, URLSessionWebSocketDelegate {
     }
 
     /// Sends one C2S message. While the socket is closed the message waits
-    /// in a bounded queue and goes out after the next `hello`.
+    /// in the outbox and goes out after the next `hello`.
     func send(_ message: [String: Any]) {
         guard isOpen, let task, let text = JSON.encodeString(message) else {
-            if outbox.count < outboxLimit { outbox.append(message) }
+            outbox.append(message)
             return
         }
         task.send(.string(text)) { [weak self] error in
@@ -106,10 +106,10 @@ final class ServerSocket: NSObject, URLSessionWebSocketDelegate {
         guard socketTask === task else { return }
         isOpen = true
         attempt = 0
-        send(["type": "hello", "device": Config.device, "wants_voice": true])
-        let queued = outbox
-        outbox.removeAll()
-        queued.forEach { send($0) }
+        // The watch takes the voice session only for a call (`voice.claim`
+        // on tap), so connecting never takes it from another device.
+        send(["type": "hello", "device": Config.device, "wants_voice": false])
+        outbox.drain().forEach { send($0) }
         startPing()
         onOpen?()
     }

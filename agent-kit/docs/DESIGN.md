@@ -1,6 +1,6 @@
 # DESIGN.md — the apparatus web app
 
-The binding visual and interaction spec for `web/src`. Stack: React 19, Vite 8, Tailwind CSS 4, shadcn/ui (new-york, zinc base), lucide-react, `thinking-orbs`. The Tauri and Capacitor shells show this same app. The watch apps are out of scope.
+The binding visual and interaction spec for `web/src`. Stack: React 19, Vite 8, Tailwind CSS 4, shadcn/ui (new-york, zinc base), lucide-react, `thinking-orbs`. The Tauri and Capacitor shells show this same app. The two native watch apps are not this app; section 11 gives their screen and their one gesture.
 
 The product rules stay: no explanatory text, taglines, helper text or toasts; state shows through the orb, color, progress and content; copy is short; secrets never appear; no setting changes an endpoint. Every visible string is content or one of the one-word labels in `docs/STYLE.md`, which governs every word on screen. The app is voice only: nothing on screen takes typed input.
 
@@ -28,6 +28,9 @@ Conversation-first won the judging; it took the Jobs view, the Receipt / Steps /
 | Copy | Every visible string is content or a one-word label from the `docs/STYLE.md` list. No placeholders, hints, captions, helper lines, empty-state text or toasts; icon buttons carry icons only; status is a glyph, a ring, a bar or a one-word chip | The author: "remove explanatory microcopy; no little reassurances; it's obvious what the buttons do" | The author, Cowork |
 | Filters | The Jobs chips are Needs you, Running, Done; the Audit chips are the kinds the server returned. No chip selected shows everything, so no chip says All | "All" is a label the list does not need | The author |
 | Keyboard | Space held is the orb's hold, Esc interrupts, Cmd/Ctrl+K palette, Cmd/Ctrl+1–5 views, Alt+J | Keyboard-first like every reference | Antigravity, Codex, Hermes |
+| Watch screen | The thinking orb on black and nothing else: no text, no feed, no buttons, no icons, no status line | The author: "make the watch orb only, no text … JUST THE THINKING ORB. NO BUTTONS." A watch face has no room for a thread; the voice carries the content and the orb carries the state | The author |
+| Watch gesture | A tap anywhere toggles a call, like a phone call: tap to start, tap to hang up. No hold, no long-press, no second gesture | The author: "its tap to start the conversation, no need to hold. its like a phone call through the watch." It replaces the spec's push-to-talk default on watches (`docs/DESIGN-SPEC.md`, Voice gate on the client). During a call the microphone stays open, so a hold has nothing to add | The author |
+| Watch gate | The voice gate runs on the watch, in open-mic mode, with the server's thresholds; parity with the web gate is proven by shared vectors | The spec puts the gate on the device, before audio leaves it ("Voice gate on the client", "Clients are thin"). An open microphone with no gate sends coughs, clicks and the agent's own echo to the model and bills them | `docs/DESIGN-SPEC.md` |
 
 ## 1. Thesis and the three moves
 
@@ -384,3 +387,41 @@ State and logic changes:
 10. `react-resizable-panels` adds weight to a bundle the repo keeps small; the Sheet paths do not need it.
 11. The references' dark tokens are undocumented; the dark palette here is designed, not copied, and must be judged on screen.
 12. The Audit `kind` vocabulary was not checked against the server; the filter takes its values from the data.
+
+## 11. The watch apps
+
+`clients/watchos` (SwiftUI, watchOS 10) and `clients/wearos` (Compose for Wear OS) share one design. They do not show the web app.
+
+**The screen.** Black, the thinking orb centred, its diameter 80% of the screen's shorter side. No text, no feed, no transcript, no buttons, no chips, no icons, no status line, and no time drawn by the app. The orb is the `thinking-orbs` engine (npm 0.3.2, MIT, by Jakub Antalik) in a native port: the 64 preset in the library's dark theme, light dots on black, scaled to the diameter. The web's 128 px orb is the same preset at scale 2. watchOS draws it with the vendored Swift kit (`clients/watchos/Vendor/ThinkingOrbsKit`); Wear OS draws it with a Kotlin port (`clients/wearos/.../ui/orb`).
+
+**The mapping.** Both apps port `orbRender` from `web/src/orb-state.ts` (`OrbRender.swift`, `OrbRender.kt`) and add the low-power display:
+
+| Voice state | Orb |
+|---|---|
+| idle | `breathing` |
+| connecting (the server socket is down) | `connecting` |
+| listening (the gate has a turn open) | `listening` |
+| speaking (the agent's audio plays) | `composing` |
+| working (a job runs) | `working` |
+| No call and no job | `breathing` at speed 0.5 |
+| Another device holds the voice session | paused, opacity 0.35 |
+| Reduced motion; the always-on display (watchOS `isLuminanceReduced`, Wear OS ambient mode) | the library's static frame, engine time 0.6 |
+
+**The gesture.** A tap anywhere on the screen toggles the call.
+
+| Tap | Action |
+|---|---|
+| Not in a call | A short haptic. Claim the voice session when another device holds it, open the Live session, open the microphone for the whole call (full duplex), run the gate in open-mic mode, play the agent's audio |
+| In a call | Hang up: end any open turn with `activityEnd`, stop playback, close the Live session, stop and release the microphone and the audio session, release the voice session. A short haptic |
+
+The haptics are `WKInterfaceDevice.play(.start)` and `.stop` on watchOS, `EFFECT_CLICK` and `EFFECT_DOUBLE_CLICK` on Wear OS. To talk over the agent, the user speaks: the gate's barge-in rule stops playback inside `gate.bargein_stop_ms`, as on the web. The call also ends by itself, with the end haptic, when the Live session closes (idle timeout, error, server drop) or another device takes the voice session.
+
+**Audio.** Echo cancellation is on, because the speaker plays while the microphone is open: watchOS uses `AVAudioSession` `.playAndRecord` with mode `.voiceChat`; Wear OS uses `AudioSource.VOICE_COMMUNICATION` with `AcousticEchoCanceler` and `NoiseSuppressor` when the device has them. The Live setup keeps automatic activity detection off (`live.automatic_activity_detection = false`), so the watch sends `activityStart` and `activityEnd` from its gate, like the web.
+
+**Wrist down.** watchOS: the app declares the `audio` background mode and keeps an active playAndRecord session through the call. Wear OS: a foreground service of type `microphone` holds the process and the microphone until hang-up. Neither has run on a watch; each app's README lists what is unverified.
+
+**Accessibility.** The orb is the one accessible element: a toggle named "Call" whose value is On or Off. VoiceOver's and TalkBack's double tap toggles the call.
+
+**Notifications.** Handoffs and approvals stay system notifications, with Approve and Deny on approvals. They are system UI, not the app's screen.
+
+**First launch.** Nothing covers the orb at launch. Wear OS draws a black splash with no icon (`values-v31/themes.xml`) and asks for no permission until the first call tap. On that tap the system asks for the microphone, and on both watches for notifications with it. Neither platform lets an app remove its permission prompts; they are system UI and appear once, as the result of the tap.

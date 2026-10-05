@@ -41,6 +41,19 @@ Evidence: <commit / tag / gate run / screenshot>
 
 <!-- Entries below, newest first. -->
 
+## 2026-10-05 — The watches became the thinking orb alone, and a tap is a phone call
+
+The author asked for the watch screen to be the thinking orb and nothing else: no text, no buttons.
+The author also asked for a tap, not a hold: a call through the watch, like a phone call.
+We removed the feed, Talk, Stop, the plain circle and the press-and-hold code from both watch apps.
+A tap now starts a call: the microphone stays open, the voice gate runs on the watch, and the agent speaks from the speaker.
+A second tap hangs up. Speaking over the agent stops its audio through the gate's barge-in rule.
+The orb is the same engine as the web's: a vendored Swift port on watchOS and a Kotlin port on Wear OS, both checked against the library's 72 golden frames.
+Both gate ports replay 12 scenarios that the web gate wrote to `clients/shared/gate-vectors.json`.
+No watch, simulator or emulator ran either app here, so the audio, the haptics and the wrist-down call are untested.
+
+Evidence: `verify/verify.sh` run on 2026-10-05 (result in the report of this change); `clients/watchos/README.md` and `clients/wearos/README.md` list what was checked.
+
 ## 2026-10-05 — The screen clients became voice only, with the orb as the one control
 
 The author asked for less on screen: no typing, no input modes, no long labels, no reassurance.

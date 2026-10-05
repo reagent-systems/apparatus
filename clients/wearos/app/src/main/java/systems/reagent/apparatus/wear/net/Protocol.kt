@@ -55,7 +55,7 @@ const val DEVICE = "watch"
 
 /** Builders for outbound C2S messages. */
 object Messages {
-    fun hello(wantsVoice: Boolean = true): JSONObject =
+    fun hello(wantsVoice: Boolean): JSONObject =
         of(C2S.HELLO).put("device", DEVICE).put("wants_voice", wantsVoice)
 
     fun voiceClaim(): JSONObject = of(C2S.VOICE_CLAIM)

@@ -2,7 +2,9 @@ package systems.reagent.apparatus.wear.net
 
 import android.util.Base64
 import android.util.Log
+import java.net.URLEncoder
 import java.util.concurrent.atomic.AtomicBoolean
+import java.util.concurrent.atomic.AtomicLong
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import okhttp3.Response
@@ -38,25 +40,37 @@ sealed interface LiveEvent {
 }
 
 /**
- * One WebSocket to Gemini Live, opened with an ephemeral token from the session server.
+ * One WebSocket to Gemini Live, opened with an ephemeral token from the session server. Port of
+ * web/src/live/session.ts.
  *
- * The first message is `setup`, verbatim from `POST /token`. Events arrive on OkHttp threads.
- * Wire shapes are camelCase JSON as in web/src/live/messages.ts.
+ * The first message is the `setup` message from `POST /token`, sent verbatim. Realtime input
+ * sent before `setupComplete` is queued (bounded), so a turn that starts during connect is not
+ * lost. Sends are safe from any thread; events arrive on OkHttp threads. Wire shapes are
+ * camelCase JSON as in web/src/live/messages.ts.
  */
 class LiveSession(
     private val client: OkHttpClient,
-    private val token: String,
-    private val setup: JSONObject,
     private val onEvent: (LiveEvent) -> Unit,
 ) {
-    @Volatile private var socket: WebSocket? = null
+    private val lock = Any()
+    private var socket: WebSocket? = null
+    private var ready = false
+    private var closed = false
+    private val queue = ArrayDeque<String>()
     private val finished = AtomicBoolean(false)
 
-    fun open() {
-        val request = Request.Builder().url("$ENDPOINT?access_token=$token").build()
-        socket = client.newWebSocket(request, object : WebSocketListener() {
+    /** PCM16 bytes sent and received since the last [takeAudioBytes]. */
+    private val bytesIn = AtomicLong(0)
+    private val bytesOut = AtomicLong(0)
+
+    val setupDone: Boolean get() = synchronized(lock) { ready }
+
+    /** [setup] is the complete first message (`{"setup": {...}}`), sent verbatim. */
+    fun connect(token: String, setup: JSONObject) {
+        val request = Request.Builder().url("$ENDPOINT?access_token=${URLEncoder.encode(token, "UTF-8")}").build()
+        val ws = client.newWebSocket(request, object : WebSocketListener() {
             override fun onOpen(webSocket: WebSocket, response: Response) {
-                webSocket.send(JSONObject().put("setup", setup).toString())
+                webSocket.send(setup.toString())
             }
 
             override fun onMessage(webSocket: WebSocket, text: String) = deliver(text)
@@ -76,49 +90,83 @@ class LiveSession(
                 finish("failure ${t.message ?: t.javaClass.simpleName}$http")
             }
         })
+        synchronized(lock) {
+            if (closed) {
+                ws.cancel()
+                return
+            }
+            socket = ws
+        }
     }
 
-    /** 16 kHz mono PCM16, little-endian. */
-    fun sendAudio(pcm: ByteArray, sampleRate: Int = INPUT_RATE): Boolean {
+    /** One gate frame: 16 kHz mono PCM16, sent little-endian. */
+    fun sendAudio(frame: ShortArray) {
+        val bytes = ByteArray(frame.size * 2)
+        for (i in frame.indices) {
+            val s = frame[i].toInt()
+            bytes[2 * i] = s.toByte()
+            bytes[2 * i + 1] = (s shr 8).toByte()
+        }
+        bytesIn.addAndGet(bytes.size.toLong())
         val audio = JSONObject()
-            .put("data", Base64.encodeToString(pcm, Base64.NO_WRAP))
-            .put("mimeType", "audio/pcm;rate=$sampleRate")
-        return send(JSONObject().put("realtimeInput", JSONObject().put("audio", audio)))
+            .put("data", Base64.encodeToString(bytes, Base64.NO_WRAP))
+            .put("mimeType", "audio/pcm;rate=$INPUT_RATE")
+        enqueue(JSONObject().put("realtimeInput", JSONObject().put("audio", audio)))
     }
 
-    fun activityStart(): Boolean = send(JSONObject().put("realtimeInput", JSONObject().put("activityStart", JSONObject())))
+    fun activityStart() = enqueue(JSONObject().put("realtimeInput", JSONObject().put("activityStart", JSONObject())))
 
-    fun activityEnd(): Boolean = send(JSONObject().put("realtimeInput", JSONObject().put("activityEnd", JSONObject())))
+    fun activityEnd() = enqueue(JSONObject().put("realtimeInput", JSONObject().put("activityEnd", JSONObject())))
 
     /** The answer to a relayed tool call, with the scheduling the server chose. */
-    fun sendToolResponse(callId: String, name: String, response: JSONObject, scheduling: String): Boolean {
+    fun sendToolResponse(callId: String, name: String, response: JSONObject, scheduling: String) {
         val functionResponse = JSONObject()
             .put("id", callId)
             .put("name", name)
             .put("response", response)
             .put("scheduling", scheduling)
         val toolResponse = JSONObject().put("functionResponses", JSONArray().put(functionResponse))
-        return send(JSONObject().put("toolResponse", toolResponse))
+        enqueue(JSONObject().put("toolResponse", toolResponse))
     }
 
     /** An S2C `voice` string as a user turn: `<event>text</event>`, turn complete. */
-    fun sendEventTurn(voiceText: String): Boolean {
+    fun sendEventTurn(voiceText: String) {
         val safe = voiceText.replace(Regex("(?i)</event>"), "")
         val turn = JSONObject()
             .put("role", "user")
             .put("parts", JSONArray().put(JSONObject().put("text", "<event>$safe</event>")))
         val content = JSONObject().put("turns", JSONArray().put(turn)).put("turnComplete", true)
-        return send(JSONObject().put("clientContent", content))
+        enqueue(JSONObject().put("clientContent", content))
     }
 
+    /** Audio byte counts since the last call, for `live.usage`. */
+    fun takeAudioBytes(): Pair<Long, Long> = bytesIn.getAndSet(0) to bytesOut.getAndSet(0)
+
+    /** Closes the socket. No [LiveEvent.Closed] follows a local close. */
     fun close(reason: String) {
-        if (!finished.compareAndSet(false, true)) return
-        val current = socket
-        socket = null
+        finished.set(true)
+        val current = synchronized(lock) {
+            closed = true
+            ready = false
+            queue.clear()
+            socket.also { socket = null }
+        }
         current?.close(NORMAL_CLOSE, reason.take(MAX_CLOSE_REASON))
     }
 
-    private fun send(message: JSONObject): Boolean = socket?.send(message.toString()) ?: false
+    private fun enqueue(message: JSONObject) {
+        val text = message.toString()
+        synchronized(lock) {
+            if (closed) return
+            val ws = socket
+            if (ready && ws != null) {
+                ws.send(text)
+                return
+            }
+            if (queue.size >= MAX_QUEUE) queue.removeFirst()
+            queue.addLast(text)
+        }
+    }
 
     private fun deliver(text: String) {
         val json = try {
@@ -127,12 +175,26 @@ class LiveSession(
             Log.w(TAG, "live sent non-JSON")
             return
         }
-        for (event in parseServerMessage(json)) onEvent(event)
+        for (event in parseServerMessage(json)) {
+            when (event) {
+                is LiveEvent.SetupComplete -> synchronized(lock) {
+                    ready = true
+                    val ws = socket
+                    while (ws != null && queue.isNotEmpty()) ws.send(queue.removeFirst())
+                }
+                is LiveEvent.Audio -> bytesOut.addAndGet(event.pcm.size.toLong())
+                else -> Unit
+            }
+            onEvent(event)
+        }
     }
 
     private fun finish(reason: String) {
         if (!finished.compareAndSet(false, true)) return
-        socket = null
+        synchronized(lock) {
+            socket = null
+            ready = false
+        }
         onEvent(LiveEvent.Closed(reason))
     }
 
@@ -141,12 +203,31 @@ class LiveSession(
         private const val NORMAL_CLOSE = 1000
         private const val MAX_CLOSE_REASON = 120
 
+        // 30 s of 20 ms frames: the most a slow connect may hold back.
+        private const val MAX_QUEUE = 1500
+
         // Confirm the path and the query parameter name against the current Gemini Live API
         // docs (ai.google.dev/api/live) before the paid tier. The "Constrained" method is the
         // one that accepts an ephemeral token.
         const val ENDPOINT =
             "wss://generativelanguage.googleapis.com/ws/google.ai.generativelanguage.v1alpha.GenerativeService.BidiGenerateContentConstrained"
     }
+}
+
+/**
+ * The setup message with a resumption handle, like the web `withHandle`: the handle goes into
+ * `setup.sessionResumption` unless the server already put one there. Returns a new object.
+ */
+fun withHandle(setup: JSONObject, handle: String?): JSONObject {
+    if (handle == null) return setup
+    val inner = setup.optJSONObject("setup") ?: return setup
+    val out = JSONObject(setup.toString())
+    val outInner = out.getJSONObject("setup")
+    val existing = inner.optJSONObject("sessionResumption")
+    val resumption = if (existing != null) JSONObject(existing.toString()) else JSONObject()
+    if (resumption.opt("handle") !is String) resumption.put("handle", handle)
+    outInner.put("sessionResumption", resumption)
+    return out
 }
 
 /** `audio/pcm;rate=24000` -> 24000. Falls back to the Live output rate. */

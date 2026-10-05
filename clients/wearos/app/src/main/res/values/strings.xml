@@ -1,8 +1,10 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="app_name">apparatus</string>
-    <string name="talk">Talk</string>
-    <string name="stop">Stop</string>
+    <!-- Accessibility only: the screen shows no text. -->
+    <string name="call">Call</string>
+    <string name="call_on">On</string>
+    <string name="call_off">Off</string>
     <string name="continue_on_another_device">Continue on another device</string>
     <string name="approve">Approve</string>
     <string name="deny">Deny</string>

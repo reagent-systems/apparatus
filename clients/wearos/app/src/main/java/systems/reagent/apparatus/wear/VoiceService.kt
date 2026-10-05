@@ -9,8 +9,10 @@ import android.util.Log
 import systems.reagent.apparatus.wear.push.Notifier
 
 /**
- * Foreground service with the microphone type. It holds the process and the audio path while
- * the screen is off during a voice turn. It owns no state; the view model starts and stops it.
+ * Foreground service with the microphone type. It holds the process and the microphone for the
+ * whole call, so the call keeps running with the wrist down and the screen off. It owns no
+ * state; the view model starts it when a call starts (the app is in front then, which Android
+ * 14 requires for a microphone service) and stops it on hang-up.
  */
 class VoiceService : Service() {
 

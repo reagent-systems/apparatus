@@ -9,6 +9,7 @@
     "build": "node build.mjs",
     "typecheck": "tsc --noEmit -p tsconfig.json",
     "test": "node --test test/*.test.ts",
+    "gate-vectors": "node scripts/gate-vectors.ts",
     "verify": "npm run typecheck && npm run build && npm test"
   },
   "devDependencies": {

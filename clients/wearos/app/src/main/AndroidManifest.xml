@@ -4,6 +4,8 @@
     <uses-feature android:name="android.hardware.type.watch" />
 
     <uses-permission android:name="android.permission.RECORD_AUDIO" />
+    <!-- MODE_IN_COMMUNICATION for the call's audio session. -->
+    <uses-permission android:name="android.permission.MODIFY_AUDIO_SETTINGS" />
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
@@ -35,7 +37,7 @@
             </intent-filter>
         </activity>
 
-        <!-- Holds the microphone and the process while a voice turn runs with the screen off. -->
+        <!-- Holds the microphone and the process while a call runs with the screen off. -->
         <service
             android:name=".VoiceService"
             android:exported="false"

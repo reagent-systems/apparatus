@@ -8,23 +8,24 @@ import android.media.audiofx.AcousticEchoCanceler
 import android.media.audiofx.NoiseSuppressor
 import kotlin.concurrent.thread
 import kotlin.math.max
-import kotlin.math.sqrt
 
 /**
- * Microphone capture: 16 kHz mono PCM16, 20 ms frames.
+ * Microphone capture for a call: 16 kHz mono PCM16, 20 ms frames, open for the whole call.
  *
- * Source VOICE_COMMUNICATION gives the platform echo path. The echo canceller and the noise
- * suppressor are attached when the device offers them. [onFrame] runs on the capture thread
- * with the frame bytes and the RMS level (0..1).
+ * Source VOICE_COMMUNICATION is the platform's call path, with its echo reference on the
+ * call output (gate steps 1 and 2: the speaker plays while the microphone is open). The echo
+ * canceller and the noise suppressor are attached when the watch offers them. [onFrame] runs
+ * on the capture thread.
  */
-class AudioIn(private val onFrame: (pcm: ByteArray, level: Float) -> Unit) {
+class AudioIn(private val onFrame: (frame: ShortArray) -> Unit) {
 
     private var record: AudioRecord? = null
     private var echo: AcousticEchoCanceler? = null
     private var noise: NoiseSuppressor? = null
     private var thread: Thread? = null
 
-    @Volatile private var running = false
+    @Volatile var running = false
+        private set
 
     /** Starts capture. False when the microphone is not available (no permission, in use). */
     @SuppressLint("MissingPermission") // The caller checks RECORD_AUDIO.
@@ -38,7 +39,7 @@ class AudioIn(private val onFrame: (pcm: ByteArray, level: Float) -> Unit) {
                 SAMPLE_RATE,
                 CHANNEL,
                 ENCODING,
-                max(minBuffer, FRAME_BYTES * 10),
+                max(minBuffer, FRAME_SAMPLES * 2 * 10),
             )
         } catch (e: IllegalArgumentException) {
             return false
@@ -71,6 +72,7 @@ class AudioIn(private val onFrame: (pcm: ByteArray, level: Float) -> Unit) {
         return true
     }
 
+    /** Stops capture and releases the microphone. The capture thread has exited when this returns. */
     fun stop() {
         val rec = record ?: return
         running = false
@@ -87,18 +89,19 @@ class AudioIn(private val onFrame: (pcm: ByteArray, level: Float) -> Unit) {
     }
 
     private fun loop(rec: AudioRecord) {
-        val frame = ByteArray(FRAME_BYTES)
         while (running) {
+            // A fresh array per frame: the gate buffers frames by reference.
+            val frame = ShortArray(FRAME_SAMPLES)
             var offset = 0
-            while (offset < FRAME_BYTES && running) {
-                val n = rec.read(frame, offset, FRAME_BYTES - offset)
+            while (offset < FRAME_SAMPLES && running) {
+                val n = rec.read(frame, offset, FRAME_SAMPLES - offset)
                 if (n <= 0) {
                     running = false
                     break
                 }
                 offset += n
             }
-            if (offset == FRAME_BYTES) onFrame(frame.copyOf(), rms(frame))
+            if (offset == FRAME_SAMPLES) onFrame(frame)
         }
     }
 
@@ -110,21 +113,10 @@ class AudioIn(private val onFrame: (pcm: ByteArray, level: Float) -> Unit) {
         rec.release()
     }
 
-    private fun rms(frame: ByteArray): Float {
-        var sum = 0.0
-        var i = 0
-        while (i + 1 < frame.size) {
-            val sample = ((frame[i].toInt() and 0xff) or (frame[i + 1].toInt() shl 8)).toShort().toDouble() / 32768.0
-            sum += sample * sample
-            i += 2
-        }
-        return sqrt(sum / (frame.size / 2)).toFloat()
-    }
-
     companion object {
         const val SAMPLE_RATE = 16000
         const val FRAME_MS = 20
-        const val FRAME_BYTES = SAMPLE_RATE * FRAME_MS / 1000 * 2
+        const val FRAME_SAMPLES = SAMPLE_RATE * FRAME_MS / 1000
         private const val CHANNEL = AudioFormat.CHANNEL_IN_MONO
         private const val ENCODING = AudioFormat.ENCODING_PCM_16BIT
         private const val JOIN_MS = 500L

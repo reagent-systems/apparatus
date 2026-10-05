@@ -1,46 +1,57 @@
 import Combine
 import Foundation
+import WatchKit
 
-/// The one object behind the UI. It owns the server socket, the Live
-/// session and the audio engine, and relays between them per
+/// The one object behind the screen. It owns the server socket, the Live
+/// session, the audio engine and the voice gate, and relays between them per
 /// agent-kit/docs/PROTOCOL.md "Live session wiring (client side)".
 ///
-/// Push to talk only: `pressTalk` opens a turn with `activityStart`,
-/// `releaseTalk` closes it with `activityEnd`. No gate runs on the watch.
+/// A call is a phone call through the watch: `toggleCall` starts one (claim
+/// the voice session, open Live, open the microphone for the whole call) or
+/// hangs up (end any turn, stop playback, close Live, release the microphone,
+/// the audio session and the voice claim). While the call runs the gate
+/// (Gate/Gate.swift, open-mic mode, thresholds from `ready.gate`) decides
+/// every turn: `activityStart` / `activityEnd` go out from its events, and
+/// voice that clears its barge-in bar stops the agent's playback. The Live
+/// setup from `/token` keeps automatic activity detection off.
 @MainActor
 final class AppModel: ObservableObject {
-    enum State { case idle, listening, speaking, working }
-
     static let shared = AppModel()
 
-    @Published private(set) var state: State = .idle
-    /// Spoken lines, oldest first. The only text the screen shows.
-    @Published private(set) var feed: [String] = []
-    @Published private(set) var connected = false
+    /// The orb's voice state, mapped as in web/src/App.tsx.
+    @Published private(set) var orbState: OrbVoiceState = .connecting
+    @Published private(set) var inCall = false
+    /// Another device holds the voice session.
+    @Published private(set) var otherHoldsVoice = false
 
     private let socket = ServerSocket()
     private let audio = AudioEngine()
+    /// Built at the first `ready` from its `gate` table, as on the web.
+    private var gate: VoiceGate?
     private var live: LiveSession?
     private var liveReady = false
     private var openingLive = false
-    private var voiceHeld = false
+    private var connected = false
+    /// `ready` seen on the open socket. A claim goes out only then.
+    private var serverReady = false
+    private var deviceId: String?
+    private var voiceHolder: String?
+    /// `voice.claim` sent for this call, `voice.granted` not yet seen.
+    private var claimPending = false
+    /// This call has held the voice session. Another holder after a
+    /// reconnect then took it.
+    private var callHeldVoice = false
     private var micAllowed: Bool?
+    /// Mutes the rest of a reply the user talked over.
+    private var reply = ReplyLatch()
 
-    // Turn state.
-    private var talking = false
-    private var turnOpen = false
-    private var pendingAudio: [Data] = []
-    private var pendingEnd = false
+    /// Gate output and event turns from before `setupComplete`.
+    private var liveQueue: [LiveOut] = []
     private var pendingEvents: [String] = []
-    private var awaitingReply = false
-    private var speaking = false
     private var jobsRunning = Set<String>()
+    private var userText = ""
+    private var agentText = ""
 
-    // Feed lines under construction (indices into `feed`).
-    private var userLine: Int?
-    private var agentLine: Int?
-
-    // Session bookkeeping.
     private var resumptionHandle: String?
     private var idleCloseSeconds: TimeInterval = Config.idleCloseSeconds
     private var idleWork: DispatchWorkItem?
@@ -49,18 +60,33 @@ final class AppModel: ObservableObject {
     private var pushToken: String?
     private var pushSent = false
 
-    private let feedLimit = 20
-    private let pendingAudioLimit = 1500  // 30 s of 20 ms chunks
+    private let queuedAudioLimit = 1500  // 30 s of 20 ms frames
+
+    private enum LiveOut {
+        case activityStart
+        case audio(Data)
+        case activityEnd
+    }
+
+    private var holdsVoice: Bool { deviceId != nil && voiceHolder == deviceId }
 
     private init() {
         socket.onMessage = { [weak self] message in self?.handleServer(message) }
-        socket.onOpen = { [weak self] in self?.connected = true }
+        socket.onOpen = { [weak self] in
+            self?.connected = true
+            self?.updateOrb()
+        }
         socket.onClose = { [weak self] in
             guard let self else { return }
             self.connected = false
+            self.serverReady = false
             self.pushSent = false
-            self.voiceHeld = false
-            self.closeLive(reason: "socket_closed", report: false)
+            // The server frees the voice session of a device that drops; the
+            // next `ready` says who holds it. A call keeps running meanwhile:
+            // Live is a direct socket, and C2S messages wait in the outbox.
+            self.voiceHolder = nil
+            self.claimPending = false
+            self.updateOrb()
         }
         audio.onChunk = { [weak self] chunk in onMain { self?.handleChunk(chunk) } }
         audio.onPlaybackDrained = { [weak self] in onMain { self?.playbackDrained() } }
@@ -72,54 +98,13 @@ final class AppModel: ObservableObject {
         socket.connect()
     }
 
-    func pressTalk() {
-        guard !talking else { return }
-        talking = true
-        // The Talk button is the manual barge-in: playback stops at once.
-        if speaking {
-            audio.flushPlayback()
-            speaking = false
-        }
-        awaitingReply = false
-        finishAgentLine()
-        finishUserLine()
-        cancelIdle()
-        if !voiceHeld, connected { socket.send(["type": "voice.claim"]) }
-        audio.setCapturing(true)
-        if liveReady, let live {
-            live.sendActivityStart()
-            turnOpen = true
+    /// The one gesture: a tap anywhere starts or ends the call.
+    func toggleCall() {
+        if inCall {
+            endCall(reason: "user")
         } else {
-            openLive()
+            startCall()
         }
-        updateState()
-    }
-
-    func releaseTalk() {
-        guard talking else { return }
-        talking = false
-        if let rest = audio.setCapturing(false) { handleChunk(rest) }
-        if liveReady, let live, turnOpen {
-            live.sendActivityEnd()
-            turnOpen = false
-            awaitingReply = true
-        } else if !liveReady {
-            pendingEnd = true
-            awaitingReply = true
-        }
-        updateState()
-        touchIdle()
-    }
-
-    /// Stops the voice now. Jobs keep running (design spec, barge-in).
-    func stop() {
-        audio.flushPlayback()
-        speaking = false
-        awaitingReply = false
-        if talking { releaseTalk() }
-        finishAgentLine()
-        updateState()
-        touchIdle()
     }
 
     func answerApproval(_ approvalId: String, approved: Bool) {
@@ -135,38 +120,136 @@ final class AppModel: ObservableObject {
         sendPushIfNeeded()
     }
 
+    // MARK: - The call
+
+    private func startCall() {
+        // A tap before the first `ready` (or with the server unreachable)
+        // starts the call too: the claim goes out at `ready`, and the gate,
+        // built there from `ready.gate`, takes the microphone from then on.
+        guard !inCall else { return }
+        inCall = true
+        callHeldVoice = false
+        WKInterfaceDevice.current().play(.start)
+        if holdsVoice {
+            callHeldVoice = true
+            openLive()
+        } else {
+            claimVoice()
+        }
+        Task { [weak self] in
+            guard let self else { return }
+            if self.micAllowed == nil { self.micAllowed = await AudioEngine.requestPermission() }
+            // Asked on the first call, not at launch, so the first screen is
+            // the orb alone. Approvals arrive as alerts from then on.
+            await Notifier.requestAuthorizationOnce()
+            guard self.inCall else { return }
+            guard self.micAllowed == true else {
+                self.endCall(reason: "microphone_denied")
+                return
+            }
+            do {
+                try self.audio.start()
+            } catch {
+                self.endCall(reason: "audio_failed")
+            }
+        }
+        touchIdle()
+        updateOrb()
+    }
+
+    /// `voice.claim`, on a socket that has seen `ready`. Before that the
+    /// claim waits for the `ready` handler, which knows who holds the voice
+    /// session; a claim queued in the outbox would go out unchecked.
+    private func claimVoice() {
+        guard serverReady, !claimPending else { return }
+        claimPending = true
+        socket.send(["type": "voice.claim"])
+    }
+
+    /// Hang-up, by the user or because the call cannot go on. Every resource
+    /// the call took is released here.
+    private func endCall(reason: String, releaseVoice: Bool = true) {
+        guard inCall else { return }
+        inCall = false
+        // A turn still open ends here; its activityEnd goes out before close.
+        gate?.stopAll()
+        closeLive(reason: reason)
+        audio.stop()
+        reply.end()
+        liveQueue.removeAll()
+        pendingEvents.removeAll()
+        userText = ""
+        agentText = ""
+        if releaseVoice && (holdsVoice || claimPending) {
+            socket.send(["type": "voice.release"])
+            if holdsVoice { voiceHolder = nil }
+        }
+        claimPending = false
+        cancelIdle()
+        WKInterfaceDevice.current().play(.stop)
+        updateOrb()
+    }
+
     // MARK: - Server messages (S2C)
 
     private func handleServer(_ message: [String: Any]) {
         guard let type = message["type"] as? String else { return }
         switch type {
         case "ready":
-            if let n = JSON.int((message["live"] as? [String: Any])?["idle_close_seconds"]), n > 0 {
-                idleCloseSeconds = TimeInterval(n)
+            serverReady = true
+            // A new connection: no claim of this watch is in flight on it.
+            claimPending = false
+            deviceId = message["device_id"] as? String
+            voiceHolder = message["voice_holder"] as? String
+            if let n = JSONScalar.number((message["live"] as? [String: Any])?["idle_close_seconds"]), n > 0 {
+                idleCloseSeconds = n
             }
+            if gate == nil { makeGate(GateConfig.merged(message["gate"] as? [String: Any])) }
+            let jobs = message["jobs"] as? [[String: Any]] ?? []
+            jobsRunning = Set(jobs.compactMap { $0["job_id"] as? String })
             sendPushIfNeeded()
-            socket.send(["type": "voice.claim"])
+            if inCall && holdsVoice {
+                callHeldVoice = true
+                openLive()
+            } else if inCall {
+                // The server freed this watch's voice session when the socket
+                // dropped. Another holder now means another device took it
+                // meanwhile: the call ends, as on `voice.revoked`. A call that
+                // never held it claims it, as the tap would have.
+                if voiceHolder != nil && callHeldVoice {
+                    endCall(reason: "revoked", releaseVoice: false)
+                } else {
+                    claimVoice()
+                }
+            }
 
         case "voice.granted":
-            voiceHeld = true
-            openLive()
+            claimPending = false
+            voiceHolder = deviceId
+            if inCall {
+                callHeldVoice = true
+                openLive()
+            } else {
+                // Granted after a hang-up: give it straight back.
+                socket.send(["type": "voice.release"])
+                voiceHolder = nil
+            }
 
         case "voice.revoked":
-            voiceHeld = false
-            closeLive(reason: "revoked", report: true)
-
-        case "transcript":
-            // Lines from the device that holds the voice. Ours come from Live.
-            if !voiceHeld, let text = message["text"] as? String { appendLine(text) }
+            voiceHolder = message["by"] as? String
+            claimPending = false
+            endCall(reason: "revoked", releaseVoice: false)
 
         case "job.started":
             if let id = message["job_id"] as? String { jobsRunning.insert(id) }
-            updateState()
+            if live != nil { touchIdle() }
+
+        case "job.progress":
+            if live != nil { touchIdle() }
 
         case "job.done":
             if let id = message["job_id"] as? String { jobsRunning.remove(id) }
-            if !voiceHeld, let say = message["say"] as? String { appendLine(say) }
-            updateState()
+            if live != nil { touchIdle() }
 
         case "handoff.requested":
             // No screen for the VM on a watch: notification only.
@@ -192,22 +275,22 @@ final class AppModel: ObservableObject {
                                    scheduling: message["scheduling"] as? String)
 
         default:
-            break  // show, credits, signal, error, pong, job.progress
+            break  // transcript, show, credits, signal, control, error, pong
         }
 
-        if voiceHeld, let voice = message["voice"] as? String, !voice.isEmpty {
+        // Only a call speaks events; with no call open they are dropped, as
+        // on the web.
+        if inCall, holdsVoice, let voice = message["voice"] as? String, !voice.isEmpty {
             speakEvent(voice)
         }
+        updateOrb()
     }
 
     private func speakEvent(_ text: String) {
         if liveReady, let live {
             live.sendEventTurn(text)
-            awaitingReply = true
-            updateState()
         } else {
             pendingEvents.append(text)
-            openLive()
         }
         touchIdle()
     }
@@ -218,20 +301,76 @@ final class AppModel: ObservableObject {
         socket.send(["type": "push.register", "platform": "apns", "token": pushToken])
     }
 
+    // MARK: - Gate
+
+    private func makeGate(_ config: GateConfig) {
+        let gate = VoiceGate(config: config, isModelSpeaking: { [audio] in audio.isSpeaking })
+        gate.onEvent = { [weak self] event in self?.handleGate(event) }
+        self.gate = gate
+    }
+
+    /// Frames before the first `ready` (no gate yet) are dropped.
+    private func handleChunk(_ chunk: Data) {
+        guard inCall, let gate else { return }
+        gate.pushFrame(PCMFrame(pcm16le: chunk))
+    }
+
+    private func handleGate(_ event: GateEvent) {
+        switch event {
+        case .speechStart:
+            userText = ""
+            sendLive(.activityStart)
+            touchIdle()
+            updateOrb()
+        case .audio(let frame):
+            sendLive(.audio(frame.pcm16le))
+        case .speechEnd:
+            sendLive(.activityEnd)
+            touchIdle()
+            updateOrb()
+        case .bargeIn:
+            // Voice cleared the barge-in bar while the agent spoke: playback
+            // stops now, inside gate.bargein_stop_ms, and the rest of the
+            // reply, still in flight until `interrupted`, stays silent.
+            reply.interrupt()
+            audio.flushPlayback()
+            updateOrb()
+        case .drop:
+            break
+        }
+    }
+
+    private func sendLive(_ item: LiveOut) {
+        if liveReady, let live {
+            send(item, to: live)
+            return
+        }
+        guard inCall else { return }
+        if case .audio = item, liveQueue.count >= queuedAudioLimit { return }
+        liveQueue.append(item)
+    }
+
+    private func send(_ item: LiveOut, to live: LiveSession) {
+        switch item {
+        case .activityStart: live.sendActivityStart()
+        case .activityEnd: live.sendActivityEnd()
+        case .audio(let pcm):
+            sentAudioBytes += pcm.count
+            live.sendAudio(pcm)
+        }
+    }
+
     // MARK: - Live session
 
     private func openLive() {
-        guard voiceHeld, live == nil, !openingLive else { return }
+        guard inCall, holdsVoice, live == nil, !openingLive else { return }
         openingLive = true
         Task { [weak self] in
             guard let self else { return }
-            if self.micAllowed == nil { self.micAllowed = await AudioEngine.requestPermission() }
             do {
                 let token = try await TokenClient.fetch()
-                guard self.voiceHeld, self.live == nil else {
-                    self.openingLive = false
-                    return
-                }
+                self.openingLive = false
+                guard self.inCall, self.holdsVoice, self.live == nil else { return }
                 if let seconds = token.idleCloseSeconds { self.idleCloseSeconds = seconds }
                 var setup = token.setup
                 if let handle = self.resumptionHandle ?? token.resumptionHandle {
@@ -240,48 +379,26 @@ final class AppModel: ObservableObject {
                 let session = LiveSession(setup: setup)
                 session.onEvent = { [weak self] event in self?.handleLive(event) }
                 self.live = session
-                self.startAudio()
                 session.connect(token: token.token)
+                self.touchIdle()
             } catch {
                 self.openingLive = false
-                self.dropPendingTurn()
-                self.updateState()
+                self.socket.send(["type": "live.closed", "reason": "token_failed"])
+                self.endCall(reason: "token_failed")
             }
         }
     }
 
-    private func startAudio() {
-        guard micAllowed == true, !audio.isRunning else { return }
-        try? audio.start()
-    }
-
-    private func closeLive(reason: String, report: Bool) {
+    /// Closes the Live socket and reports it. The call state is the caller's.
+    private func closeLive(reason: String) {
         openingLive = false
         liveReady = false
-        turnOpen = false
-        dropPendingTurn()
-        pendingEvents.removeAll()
-        cancelIdle()
+        reply.end()
         if let session = live {
             live = nil
             session.onEvent = nil
             session.close(reason: reason)
-            if report { socket.send(["type": "live.closed", "reason": reason]) }
-        }
-        audio.stop()
-        speaking = false
-        awaitingReply = false
-        finishAgentLine()
-        finishUserLine()
-        updateState()
-    }
-
-    private func dropPendingTurn() {
-        pendingAudio.removeAll()
-        pendingEnd = false
-        if talking {
-            talking = false
-            audio.setCapturing(false)
+            socket.send(["type": "live.closed", "reason": reason])
         }
     }
 
@@ -289,41 +406,48 @@ final class AppModel: ObservableObject {
         switch event {
         case .setupComplete:
             liveReady = true
-            openingLive = false
-            flushPendingTurn()
-            for text in pendingEvents { live?.sendEventTurn(text) }
-            if !pendingEvents.isEmpty { awaitingReply = true }
+            if let live {
+                for item in liveQueue { send(item, to: live) }
+                for text in pendingEvents { live.sendEventTurn(text) }
+            }
+            liveQueue.removeAll()
             pendingEvents.removeAll()
-            updateState()
             touchIdle()
 
         case .audio(let pcm, let rate):
             receivedAudioBytes += pcm.count
-            awaitingReply = false
-            speaking = true
-            audio.play(pcm16: pcm, sampleRate: rate)
-            updateState()
+            if reply.audio() { audio.play(pcm16: pcm, sampleRate: rate) }
             touchIdle()
 
         case .interrupted:
             audio.flushPlayback()
-            speaking = false
-            awaitingReply = false
-            finishAgentLine()
-            updateState()
+            reply.end()
+
+        case .generationComplete:
+            reply.end()
 
         case .turnComplete:
-            awaitingReply = false
-            finishAgentLine()
-            finishUserLine()
-            updateState()
+            reply.end()
+            if !agentText.isEmpty {
+                relayTranscript(role: "agent", text: agentText, final: true)
+                agentText = ""
+            }
+            if !userText.isEmpty {
+                relayTranscript(role: "user", text: userText, final: true)
+                userText = ""
+            }
             touchIdle()
 
         case .inputTranscription(let text, let finished):
-            appendUser(text, finished: finished)
+            userText += text
+            gate?.setTranscript(userText)
+            relayTranscript(role: "user", text: userText, final: finished)
+            if finished { userText = "" }
 
         case .outputTranscription(let text, let finished):
-            appendAgent(text, finished: finished)
+            agentText += text
+            relayTranscript(role: "agent", text: agentText, final: finished)
+            if finished { agentText = "" }
 
         case .toolCall(let calls):
             for call in calls {
@@ -353,63 +477,42 @@ final class AppModel: ObservableObject {
 
         case .goAway:
             // Fresh token, same handle, before the server closes the socket.
-            closeLive(reason: "go_away", report: true)
+            // The call goes on; a turn that is open restarts on the new one.
+            closeLive(reason: "go_away")
+            if gate?.isOpen == true { liveQueue.append(.activityStart) }
             openLive()
 
         case .closed(let reason):
-            closeLive(reason: reason, report: true)
+            // The Live session ended by itself (error, server drop): so does
+            // the call.
+            endCall(reason: reason)
         }
+        updateOrb()
     }
 
-    /// Audio captured before `setupComplete` goes out as one turn.
-    private func flushPendingTurn() {
-        guard let live, liveReady else { return }
-        guard talking || pendingEnd || !pendingAudio.isEmpty else { return }
-        live.sendActivityStart()
-        turnOpen = true
-        for chunk in pendingAudio { live.sendAudio(chunk) }
-        pendingAudio.removeAll()
-        if pendingEnd {
-            live.sendActivityEnd()
-            turnOpen = false
-            pendingEnd = false
-            awaitingReply = true
-        }
-    }
-
-    private func handleChunk(_ chunk: Data) {
-        sentAudioBytes += chunk.count
-        if liveReady, let live {
-            if !turnOpen {
-                live.sendActivityStart()
-                turnOpen = true
-            }
-            live.sendAudio(chunk)
-        } else if pendingAudio.count < pendingAudioLimit {
-            pendingAudio.append(chunk)
-        }
+    private func relayTranscript(role: String, text: String, final: Bool) {
+        socket.send(["type": "transcript", "role": role, "text": text, "final": final])
     }
 
     private func playbackDrained() {
-        speaking = false
-        updateState()
-        touchIdle()
+        updateOrb()
+        if live != nil { touchIdle() }
     }
 
     // MARK: - Idle close (config [live] idle_close_seconds)
 
     private func touchIdle() {
         cancelIdle()
-        guard live != nil else { return }
+        guard inCall else { return }
         let work = DispatchWorkItem { [weak self] in
             MainActor.assumeIsolated {
                 guard let self else { return }
                 self.idleWork = nil
-                guard !self.talking, !self.speaking, !self.awaitingReply, self.jobsRunning.isEmpty else {
+                if self.gate?.isOpen == true || self.audio.isSpeaking {
                     self.touchIdle()
                     return
                 }
-                self.closeLive(reason: "idle", report: true)
+                self.endCall(reason: "idle")
             }
         }
         idleWork = work
@@ -421,79 +524,23 @@ final class AppModel: ObservableObject {
         idleWork = nil
     }
 
-    // MARK: - Feed
+    // MARK: - Orb
 
-    private func updateState() {
-        if talking {
+    private func updateOrb() {
+        let state: OrbVoiceState
+        if !connected {
+            state = .connecting
+        } else if gate?.isOpen == true {
             state = .listening
-        } else if speaking {
+        } else if audio.isSpeaking {
             state = .speaking
-        } else if awaitingReply || !jobsRunning.isEmpty {
+        } else if !jobsRunning.isEmpty {
             state = .working
         } else {
             state = .idle
         }
-    }
-
-    private func appendLine(_ text: String) {
-        let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !trimmed.isEmpty else { return }
-        feed.append(trimmed)
-        trimFeed()
-    }
-
-    private func appendUser(_ fragment: String, finished: Bool) {
-        userLine = extend(line: userLine, with: fragment)
-        if finished { finishUserLine() }
-    }
-
-    private func appendAgent(_ fragment: String, finished: Bool) {
-        agentLine = extend(line: agentLine, with: fragment)
-        if finished { finishAgentLine() }
-    }
-
-    /// Adds a transcription fragment to the line at `index`, or starts one.
-    private func extend(line index: Int?, with fragment: String) -> Int? {
-        guard !fragment.isEmpty else { return index }
-        if let index, feed.indices.contains(index) {
-            feed[index] += fragment
-            return index
-        }
-        let trimmed = fragment.trimmingCharacters(in: .whitespaces)
-        guard !trimmed.isEmpty else { return nil }
-        feed.append(trimmed)
-        trimFeed()
-        return feed.count - 1
-    }
-
-    private func finishUserLine() {
-        guard let index = userLine else { return }
-        userLine = nil
-        relayTranscript(role: "user", index: index)
-    }
-
-    private func finishAgentLine() {
-        guard let index = agentLine else { return }
-        agentLine = nil
-        relayTranscript(role: "agent", index: index)
-    }
-
-    private func relayTranscript(role: String, index: Int) {
-        guard feed.indices.contains(index) else { return }
-        let text = feed[index].trimmingCharacters(in: .whitespacesAndNewlines)
-        if text.isEmpty {
-            feed.remove(at: index)
-            return
-        }
-        feed[index] = text
-        socket.send(["type": "transcript", "role": role, "text": text, "final": true])
-    }
-
-    private func trimFeed() {
-        let overflow = feed.count - feedLimit
-        guard overflow > 0 else { return }
-        feed.removeFirst(overflow)
-        if let u = userLine { userLine = u - overflow >= 0 ? u - overflow : nil }
-        if let a = agentLine { agentLine = a - overflow >= 0 ? a - overflow : nil }
+        if orbState != state { orbState = state }
+        let other = voiceHolder != nil && voiceHolder != deviceId
+        if otherHoldsVoice != other { otherHoldsVoice = other }
     }
 }

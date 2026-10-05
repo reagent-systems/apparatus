@@ -1,6 +1,6 @@
 # Clients
 
-Native shells around the web client in `web/`, plus 2 native watch apps. Each shell builds `web/dist`, copies the whole tree into its own `dist/`, and overwrites `bridge.js` with its own build of `src/bridge.ts`. The web app reads `window.apparatusBridge` at startup and gets the OS keychain, notifications, push, and the session server origin from it. The watch apps run no web view: they speak the same protocol natively, with push to talk and notifications only (`clients/watchos/README.md`, `clients/wearos/README.md`).
+Native shells around the web client in `web/`, plus 2 native watch apps. Each shell builds `web/dist`, copies the whole tree into its own `dist/`, and overwrites `bridge.js` with its own build of `src/bridge.ts`. The web app reads `window.apparatusBridge` at startup and gets the OS keychain, notifications, push, and the session server origin from it. The watch apps run no web view: they speak the same protocol natively (`clients/watchos/README.md`, `clients/wearos/README.md`).
 
 | Platform | Shell | Build command | CI job | Artifact |
 |---|---|---|---|---|
@@ -11,6 +11,28 @@ Native shells around the web client in `web/`, plus 2 native watch apps. Each sh
 | iOS (simulator app, ipa) | `clients/mobile` (Capacitor 6) | `npm run prepare-dist && npx cap sync ios`, then build in Xcode | `clients-mobile` / `ios` | `mobile-ios` |
 | watchOS (xcarchive, ipa) | `clients/watchos` (SwiftUI, XcodeGen) | `xcodegen generate && xcodebuild -scheme ApparatusWatch build` | `clients-watchos` | `watchos` |
 | Wear OS (apk) | `clients/wearos` (Kotlin, Compose for Wear OS) | `gradle assembleDebug` | `clients-wearos` | `wearos` |
+
+## Watch apps
+
+The 2 watch apps share one design (`agent-kit/docs/DESIGN.md`, section 11):
+
+- The screen is the thinking orb on black and nothing else: no text, no buttons, no icons. Its diameter is 80% of the screen's shorter side. It is the 64 preset of `thinking-orbs` in the dark theme, scaled to that size.
+- A tap anywhere toggles a call, like a phone call. Tap to start: the watch claims the voice session if needed, opens the Live session and keeps the microphone open. Tap again to hang up. There is no hold.
+- The voice gate runs on the watch in open-mic mode, with the thresholds from `ready.gate`. It sends `activityStart` and `activityEnd`, and stops playback on barge-in. `clients/shared/gate-vectors.json` holds the web gate's output; both watch test suites replay it.
+- The orb follows `orbRender` from `web/src/orb-state.ts`. Reduced motion and the always-on display draw the library's static frame.
+- Handoff and approval arrive as system notifications; approvals carry Approve and Deny.
+- Nothing covers the orb at launch. The microphone and notification permission prompts are system UI that no app can remove; they appear on the first call tap. Wear OS also replaces the Android 12+ launch splash with plain black.
+
+| | watchOS | Wear OS |
+|---|---|---|
+| Orb engine | `Vendor/ThinkingOrbsKit`, the upstream Swift port, vendored | `ui/orb/engine`, a Kotlin port |
+| Engine check | `OrbGoldenTests`, 72 golden frames | `OrbGoldenTest`, 18 presets and 72 golden frames |
+| Gate check | `Tests/GateVectorTests.swift` | `GateVectorsTest.kt` |
+| Call audio | `.playAndRecord`, `.voiceChat` | `VOICE_COMMUNICATION`, `AcousticEchoCanceler`, `NoiseSuppressor` |
+| Wrist down | `audio` background mode, active session | Foreground service of type `microphone` |
+| Call haptics | `.start`, `.stop` | `EFFECT_CLICK`, `EFFECT_DOUBLE_CLICK` |
+
+No watch, simulator or emulator ran either app in the sandbox that wrote them. Each README lists what was checked and what is unverified. `THIRD_PARTY_NOTICES.md` carries the MIT notice of `thinking-orbs`.
 
 ## Rules both shells follow
 

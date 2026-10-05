@@ -12,7 +12,7 @@ code has 8 parts.
 | agentlib | `agentd/agentlib/` | Inside a task kernel. Thin calls to the server through agentd: say, progress, show, request_approval, api, handoff. |
 | Web client | `web/` | Audio capture and playback, the voice gate, the Live session, the thread and the voice composer, the rail and the Jobs desk, the pane, the orb, the VM screen. React 19, Vite, Tailwind CSS 4, shadcn/ui, built to `docs/DESIGN.md`; the audio, gate and WebRTC code is plain TypeScript. |
 | Native shells | `clients/desktop`, `clients/mobile` | Tauri 2 and Capacitor 6 around the web app, each with a `bridge.js` for keychain, push and notifications. |
-| Watch apps | `clients/watchos`, `clients/wearos` | Native push-to-talk apps on the same protocol. Notifications only; no handoff screen. |
+| Watch apps | `clients/watchos`, `clients/wearos` | Native apps on the same protocol. The screen is the thinking orb alone; a tap starts or ends a full duplex call with the voice gate on the watch. Handoff and approval arrive as notifications; no handoff screen. |
 | Deployment | `config/`, `deploy/`, `vm/`, `verify/`, `.github/` | The one config file, GCP Terraform, VM image scripts, the health gate, CI. |
 
 ## Data flow
@@ -111,6 +111,35 @@ One screen the user watches or takes:
 | `src/orb-state.ts`, `src/lib/status.ts`, `src/lib/jobs-list.ts` | Pure: the voice state → orb animation; a job → bucket and glyph, relative times; the Jobs desk's chips, counts and groups. |
 | `src/feed/reducer.ts`, `src/vm/*.ts` | Pure: the feed state (cards, jobs with `progressHistory`, approvals and handoffs by job); the `input` data-channel shape, pointer math, perfect negotiation; `ScreenPeer`, the answerer side of one stream. |
 | `src/bridge.ts`, `src/bridge-web.ts` | The native bridge contract and the web default. |
+
+## Watch clients
+
+`clients/watchos` (SwiftUI) and `clients/wearos` (Kotlin, Compose for Wear OS) run no web view. They speak `docs/PROTOCOL.md` natively and hold no agent state, no prompt and no threshold. `docs/DESIGN.md` section 11 is their screen.
+
+One call, start to end:
+
+1. The app opens `/ws/client` with `hello` `wants_voice: false`. The first `ready` gives the gate table (`ready.gate`, the `[gate]` table that `GET /config/gate` also serves) and `ready.live.idle_close_seconds`.
+2. A tap with no call sends `voice.claim` when another device holds the voice session. On `voice.granted` the app fetches `POST /token` and opens Gemini Live with the server's `setup`, which has automatic activity detection off.
+3. The microphone stays open for the whole call: 16 kHz Int16, 20 ms frames, on the platform's call path with echo cancellation (watchOS `playAndRecord` + `voiceChat`; Wear OS `VOICE_COMMUNICATION` with `AcousticEchoCanceler` and `NoiseSuppressor`).
+4. Every frame goes through the gate in open-mic mode. The gate emits `speechStart`, `audio`, `speechEnd` and `bargeIn`; the app sends `activityStart`, the turn's audio and `activityEnd` to Live. On `bargeIn` it stops playback and a reply latch keeps the rest of that reply silent until `interrupted`, `generationComplete` or `turnComplete`.
+5. The app relays tool calls, transcripts, usage and resumption handles as the web does, and injects `voice` lines as `<event>` turns while it holds the voice session.
+6. A second tap hangs up: `activityEnd` for an open turn, `live.closed`, playback and microphone stopped, the audio session released, `voice.release`. A Live close, the idle limit or `voice.revoked` ends the call the same way.
+
+| Part | watchOS | Wear OS |
+|---|---|---|
+| The call | `Sources/Model/AppModel.swift` | `AppViewModel.kt`, `VoiceService.kt` (foreground service, type `microphone`) |
+| Audio | `Sources/Audio/AudioEngine.swift`, `ReplyLatch.swift` | `audio/AudioIn.kt`, `AudioOut.kt`, `CallAudio.kt`, `ReplyLatch.kt` |
+| The gate | `Sources/Gate/*.swift` | `gate/*.kt` |
+| Orb mapping | `Sources/Model/OrbRender.swift` | `ui/OrbRender.kt` |
+| Orb engine | `Vendor/ThinkingOrbsKit` (vendored Swift port) | `ui/orb/engine/*.kt` (Kotlin port), `ui/orb/ThinkingOrb.kt` |
+| Screen | `Sources/UI/ContentView.swift`, `OrbView.swift` | `ui/App.kt`, `MainActivity.kt` |
+| Notifications | `ApparatusWatchApp.swift` (`Notifier`, APNs) | `push/PushService.kt`, `Notifier.kt`, `ApprovalReceiver.kt` |
+
+**The gate on the watch.** Both apps port the open-mic path of `web/src/gate` as pure modules: `gate.ts`, `vad.ts`, `turn.ts`, `bargein.ts`, `words.ts`, and `speaker.ts` as `NoSpeakerCheck`. The web's push-to-talk path, wake word and decision log are not ported. A missing or mistyped threshold keeps its default, as `mergeGate` does on the web.
+
+**Shared gate vectors.** `clients/shared/gate-vectors.json` holds 13 scenarios of synthetic audio and the events the web gate emits for them. `npm --prefix web run gate-vectors` writes it from the web gate, and `web/test/gate-vectors.test.ts` fails when the file drifts. `GateVectorTests.swift` and `GateVectorsTest.kt` replay every scenario and assert the same ordered events, timings and end state. Parity is proven by these tests, not by reading.
+
+**The orb engine.** The web uses npm `thinking-orbs` 0.3.2 (MIT, Jakub Antalik). watchOS vendors the upstream Swift port, ThinkingOrbsKit, from commit `0d44887` with 2 edits listed in its `VENDORED.md`; its golden test checks 72 frames of upstream `spec/orbs-golden.json` within 1e-4. Wear OS has a Kotlin port of the same engine; `OrbGoldenTest` checks the 18 resolved presets and the same 72 golden frames within 1e-4. The notices are in `THIRD_PARTY_NOTICES.md`.
 
 ## Boundaries
 

@@ -9,7 +9,7 @@ options:
   bundleIdPrefix: systems.reagent.apparatus
   deploymentTarget:
     watchOS: "10.0"
-  xcodeVersion: "15.0"
+  xcodeVersion: "15.3"
   createIntermediateGroups: true
   generateEmptyDirectories: false
   groupSortPosition: top
@@ -17,6 +17,13 @@ options:
 configs:
   Debug: debug
   Release: release
+
+# The thinking orb: the Swift port of thinking-orbs, vendored with its golden
+# vectors (Vendor/ThinkingOrbsKit/VENDORED.md). Its own tests run with
+# `xcodebuild test` in that folder; see README.md.
+packages:
+  ThinkingOrbsKit:
+    path: Vendor/ThinkingOrbsKit
 
 # One xcconfig for both configurations. It holds APPARATUS_SERVER_ORIGIN and
 # the signing defaults. Override at build time with
@@ -44,6 +51,8 @@ targets:
     deploymentTarget: "10.0"
     sources:
       - path: Sources
+    dependencies:
+      - package: ThinkingOrbsKit
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: systems.reagent.apparatus.watch
@@ -68,7 +77,9 @@ targets:
         # Single-target watchOS app with no iOS companion.
         WKApplication: true
         WKWatchOnly: true
-        NSMicrophoneUsageDescription: "Hold Talk to speak."
+        NSMicrophoneUsageDescription: "The microphone is on during a call."
+        # `audio`: a call keeps its playAndRecord session, and with it the
+        # microphone and the speaker, when the wrist goes down.
         UIBackgroundModes:
           - audio
           - remote-notification
@@ -87,5 +98,24 @@ targets:
         # provisioning profile.
         aps-environment: development
     scheme:
-      testTargets: []
+      testTargets:
+        - ApparatusWatchTests
       gatherCoverageData: false
+
+  # Unit tests of the pure parts: the gate against
+  # clients/shared/gate-vectors.json, and the orb mapping. Hosted by the app.
+  ApparatusWatchTests:
+    type: bundle.unit-test
+    platform: watchOS
+    deploymentTarget: "10.0"
+    sources:
+      - path: Tests
+      - path: ../shared/gate-vectors.json
+        buildPhase: resources
+    dependencies:
+      - target: ApparatusWatch
+      - package: ThinkingOrbsKit
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: systems.reagent.apparatus.watch.tests
+        GENERATE_INFOPLIST_FILE: "YES"
