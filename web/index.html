@@ -3,7 +3,20 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="color-scheme" content="light dark">
 <title>apparatus</title>
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+<script>
+// Theme before first paint: the localStorage copy of "apparatus.theme"
+// (light | dark; absent = system). ThemeProvider re-applies it from the
+// bridge's secure store once the app boots.
+(function () {
+  var t = null;
+  try { t = localStorage.getItem("apparatus.theme"); } catch (e) {}
+  var dark = t === "dark" || (t !== "light" && matchMedia("(prefers-color-scheme: dark)").matches);
+  document.documentElement.classList.toggle("dark", dark);
+})();
+</script>
 </head>
 <body>
 <div id="app"></div>

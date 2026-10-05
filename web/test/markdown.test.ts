@@ -47,3 +47,19 @@ test("paragraphs, blockquotes and rules", () => {
   assert.equal(renderMarkdown("> quoted"), "<blockquote><p>quoted</p></blockquote>");
   assert.equal(renderMarkdown("---"), "<hr>");
 });
+
+test("pipe tables", () => {
+  const html = renderMarkdown("| Region | Orders |\n|---|---:|\n| North | 12 |\n| <b>South</b> | **9** |");
+  assert.equal(
+    html,
+    '<div class="table-wrap"><table><thead><tr><th>Region</th><th style="text-align:right">Orders</th></tr></thead>' +
+      '<tbody><tr><td>North</td><td style="text-align:right">12</td></tr>' +
+      '<tr><td>&lt;b&gt;South&lt;/b&gt;</td><td style="text-align:right"><strong>9</strong></td></tr></tbody></table></div>',
+  );
+  assert.equal(
+    renderMarkdown("# Weekly orders\n\nA | B\n--|--\n1 | 2\n\nafter"),
+    '<h1>Weekly orders</h1>\n<div class="table-wrap"><table><thead><tr><th>A</th><th>B</th></tr></thead>' +
+      "<tbody><tr><td>1</td><td>2</td></tr></tbody></table></div>\n<p>after</p>",
+  );
+  assert.equal(renderMarkdown("a | b\nnot a delimiter"), "<p>a | b not a delimiter</p>");
+});

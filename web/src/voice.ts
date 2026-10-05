@@ -84,6 +84,8 @@ export class VoiceController {
   private swapTimer: ReturnType<typeof setTimeout> | null = null;
   private holds = false;
   private pendingStart = false;
+  /** Text typed before this device held the voice session; sent once granted. */
+  private pendingText: string[] = [];
   private userText = "";
   private agentText = "";
   private speaker: SpeakerCheck;
@@ -126,14 +128,24 @@ export class VoiceController {
     return this.playback.isSpeaking();
   }
 
+  get inputMode(): InputMode {
+    return this.gate.mode;
+  }
+
   setHoldsVoice(holds: boolean): void {
     if (holds === this.holds) return;
     this.holds = holds;
     if (!holds) {
       this.closeLive("revoked");
-    } else if (this.pendingStart) {
-      this.pendingStart = false;
-      this.start();
+      this.pendingText = [];
+    } else {
+      if (this.pendingStart) {
+        this.pendingStart = false;
+        this.start();
+      }
+      const texts = this.pendingText;
+      this.pendingText = [];
+      for (const t of texts) this.sendText(t);
     }
     this.opts.onChange?.();
   }
@@ -176,6 +188,34 @@ export class VoiceController {
   stop(): void {
     this.playback.stop();
     this.gate.stopAll();
+  }
+
+  /** Push to talk or open mic; `gate.setMode` does the work. */
+  setInputMode(mode: InputMode): void {
+    this.gate.setMode(mode);
+    this.opts.onChange?.();
+  }
+
+  /**
+   * Typed text goes to the same voice model: the Live session opens when it
+   * is closed, the text is one plain user turn (no `<event>` wrapper), and
+   * the server gets the transcript so other devices show the card. Without
+   * the voice session the text waits for `voice.granted`.
+   */
+  sendText(text: string): void {
+    const t = text.trim();
+    if (t.length === 0) return;
+    if (!this.holds) {
+      this.pendingText.push(t);
+      this.opts.send({ type: C2S.VOICE_CLAIM });
+      return;
+    }
+    this.ensureLive();
+    void this.playback.unlock();
+    this.live?.sendUserTextTurn(t);
+    this.relayTranscript("user", t, true);
+    this.touchIdle();
+    this.opts.onChange?.();
   }
 
   /** On-device enrollment; throws without consent. */

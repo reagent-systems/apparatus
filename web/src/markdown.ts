@@ -1,7 +1,7 @@
 // Minimal markdown to HTML for the `show` pane. DOM-free: returns a string.
 //
 // Supported: headings, fenced code, inline code, unordered and ordered
-// lists, blockquotes, horizontal rules, bold, italic, links. Every character
+// lists, blockquotes, horizontal rules, GFM pipe tables, bold, italic, links. Every character
 // of the source is HTML-escaped before any tag is added, and link targets
 // are limited to http(s), mailto and relative paths.
 
@@ -49,6 +49,34 @@ const UL = /^\s{0,3}[-*+]\s+(.*)$/;
 const OL = /^\s{0,3}\d+[.)]\s+(.*)$/;
 const QUOTE = /^\s{0,3}>\s?(.*)$/;
 const HR = /^\s{0,3}([-*_])(\s*\1){2,}\s*$/;
+const TABLE_ROW = /^\s{0,3}\|?.*\|.*$/;
+const TABLE_DELIM = /^\s{0,3}\|?\s*:?-+:?\s*(\|\s*:?-+:?\s*)*\|?\s*$/;
+
+/** The cells of one pipe-table row; a `\|` stays a literal pipe. */
+function tableCells(line: string): string[] {
+  let row = line.trim();
+  if (row.startsWith("|")) row = row.slice(1);
+  if (row.endsWith("|") && !row.endsWith("\\|")) row = row.slice(0, -1);
+  return row.split(/(?<!\\)\|/).map((c) => c.replace(/\\\|/g, "|").trim());
+}
+
+type Align = "left" | "center" | "right" | null;
+
+function tableAligns(line: string): Align[] {
+  return tableCells(line).map((c) => {
+    const left = c.startsWith(":");
+    const right = c.endsWith(":");
+    if (left && right) return "center";
+    if (right) return "right";
+    if (left) return "left";
+    return null;
+  });
+}
+
+function tableCell(tag: "th" | "td", text: string, align: Align): string {
+  const style = align ? ` style="text-align:${align}"` : "";
+  return `<${tag}${style}>${inline(escapeHtml(text))}</${tag}>`;
+}
 
 export function renderMarkdown(markdown: string): string {
   const lines = markdown.replace(/\r\n?/g, "\n").split("\n");
@@ -100,6 +128,29 @@ export function renderMarkdown(markdown: string): string {
     if (line.trim() === "") {
       flushAll();
       continue;
+    }
+    if (TABLE_ROW.test(line) && i + 1 < lines.length && TABLE_DELIM.test(lines[i + 1]) && lines[i + 1].includes("|")) {
+      const head = tableCells(line);
+      const aligns = tableAligns(lines[i + 1]);
+      if (aligns.length === head.length) {
+        flushAll();
+        const width = head.length;
+        const cells = (tag: "th" | "td", row: string[]): string => {
+          const parts: string[] = [];
+          for (let c = 0; c < width; c++) parts.push(tableCell(tag, row[c] ?? "", aligns[c]));
+          return `<tr>${parts.join("")}</tr>`;
+        };
+        const body: string[] = [];
+        i += 2;
+        while (i < lines.length && lines[i].trim() !== "" && lines[i].includes("|")) {
+          body.push(cells("td", tableCells(lines[i])));
+          i++;
+        }
+        i--;
+        const tbody = body.length ? `<tbody>${body.join("")}</tbody>` : "";
+        out.push(`<div class="table-wrap"><table><thead>${cells("th", head)}</thead>${tbody}</table></div>`);
+        continue;
+      }
     }
     const heading = HEADING.exec(line);
     if (heading) {

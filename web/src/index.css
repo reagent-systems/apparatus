@@ -1,75 +1,103 @@
 @import "tailwindcss";
 @import "tw-animate-css";
+@import "@fontsource-variable/inter";
+@import "@fontsource-variable/jetbrains-mono";
 
 @custom-variant dark (&:is(.dark *));
 
+/* Paper and ink (DESIGN.md section 8): warm neutrals on hue 60–85, one
+   ink-blue accent on hue 264, amber / green / red for state only. */
 :root {
-  --radius: 0.625rem;
-  --background: oklch(1 0 0);
-  --foreground: oklch(0.141 0.005 285.823);
-  --card: oklch(1 0 0);
-  --card-foreground: oklch(0.141 0.005 285.823);
+  --radius: 0.75rem;
+
+  --background: oklch(0.985 0.004 85);
+  --foreground: oklch(0.20 0.010 60);
+  --card: oklch(0.995 0.002 85);
+  --card-foreground: oklch(0.20 0.010 60);
   --popover: oklch(1 0 0);
-  --popover-foreground: oklch(0.141 0.005 285.823);
-  --primary: oklch(0.21 0.006 285.885);
-  --primary-foreground: oklch(0.985 0 0);
-  --secondary: oklch(0.967 0.001 286.375);
-  --secondary-foreground: oklch(0.21 0.006 285.885);
-  --muted: oklch(0.967 0.001 286.375);
-  --muted-foreground: oklch(0.552 0.016 285.938);
-  --accent: oklch(0.967 0.001 286.375);
-  --accent-foreground: oklch(0.21 0.006 285.885);
-  --destructive: oklch(0.577 0.245 27.325);
-  --border: oklch(0.92 0.004 286.32);
-  --input: oklch(0.92 0.004 286.32);
-  --ring: oklch(0.705 0.015 286.067);
-  --chart-1: oklch(0.646 0.222 41.116);
-  --chart-2: oklch(0.6 0.118 184.704);
-  --chart-3: oklch(0.398 0.07 227.392);
-  --chart-4: oklch(0.828 0.189 84.429);
-  --chart-5: oklch(0.769 0.188 70.08);
-  --sidebar: oklch(0.985 0 0);
-  --sidebar-foreground: oklch(0.141 0.005 285.823);
-  --sidebar-primary: oklch(0.21 0.006 285.885);
-  --sidebar-primary-foreground: oklch(0.985 0 0);
-  --sidebar-accent: oklch(0.967 0.001 286.375);
-  --sidebar-accent-foreground: oklch(0.21 0.006 285.885);
-  --sidebar-border: oklch(0.92 0.004 286.32);
-  --sidebar-ring: oklch(0.705 0.015 286.067);
+  --popover-foreground: oklch(0.20 0.010 60);
+
+  --primary: oklch(0.45 0.180 264);
+  --primary-foreground: oklch(0.985 0.004 85);
+  --secondary: oklch(0.955 0.006 80);
+  --secondary-foreground: oklch(0.25 0.010 60);
+  --muted: oklch(0.955 0.006 80);
+  --muted-foreground: oklch(0.52 0.015 70);
+  --accent: oklch(0.93 0.030 264);
+  --accent-foreground: oklch(0.30 0.090 264);
+  --destructive: oklch(0.55 0.200 25);
+
+  --border: oklch(0.90 0.008 80);
+  --input: oklch(0.90 0.008 80);
+  --ring: oklch(0.60 0.140 264);
+
+  --chart-1: oklch(0.45 0.180 264);
+  --chart-2: oklch(0.72 0.150 70);
+  --chart-3: oklch(0.62 0.150 150);
+  --chart-4: oklch(0.55 0.200 25);
+  --chart-5: oklch(0.70 0.020 70);
+
+  --sidebar: oklch(0.965 0.005 85);
+  --sidebar-foreground: oklch(0.25 0.010 60);
+  --sidebar-primary: oklch(0.45 0.180 264);
+  --sidebar-primary-foreground: oklch(0.985 0.004 85);
+  --sidebar-accent: oklch(0.93 0.030 264);
+  --sidebar-accent-foreground: oklch(0.30 0.090 264);
+  --sidebar-border: oklch(0.90 0.008 80);
+  --sidebar-ring: oklch(0.60 0.140 264);
+
+  /* apparatus */
+  --status-wait: oklch(0.72 0.150 70);
+  --status-ok: oklch(0.62 0.150 150);
+  --status-run: oklch(0.45 0.180 264);
+  --orb-disc: oklch(0.20 0.010 60);
+  --orb-ring: oklch(0.20 0.010 60 / 0%);
+  --composer-shadow: 0 8px 24px -12px oklch(0.20 0.010 60 / 25%);
 }
 
 .dark {
-  --background: oklch(0.141 0.005 285.823);
-  --foreground: oklch(0.985 0 0);
-  --card: oklch(0.21 0.006 285.885);
-  --card-foreground: oklch(0.985 0 0);
-  --popover: oklch(0.21 0.006 285.885);
-  --popover-foreground: oklch(0.985 0 0);
-  --primary: oklch(0.92 0.004 286.32);
-  --primary-foreground: oklch(0.21 0.006 285.885);
-  --secondary: oklch(0.274 0.006 286.033);
-  --secondary-foreground: oklch(0.985 0 0);
-  --muted: oklch(0.274 0.006 286.033);
-  --muted-foreground: oklch(0.705 0.015 286.067);
-  --accent: oklch(0.274 0.006 286.033);
-  --accent-foreground: oklch(0.985 0 0);
-  --destructive: oklch(0.704 0.191 22.216);
+  --background: oklch(0.19 0.006 60);
+  --foreground: oklch(0.95 0.005 85);
+  --card: oklch(0.23 0.006 60);
+  --card-foreground: oklch(0.95 0.005 85);
+  --popover: oklch(0.25 0.006 60);
+  --popover-foreground: oklch(0.95 0.005 85);
+
+  --primary: oklch(0.72 0.130 264);
+  --primary-foreground: oklch(0.15 0.030 264);
+  --secondary: oklch(0.27 0.006 60);
+  --secondary-foreground: oklch(0.95 0.005 85);
+  --muted: oklch(0.27 0.006 60);
+  --muted-foreground: oklch(0.68 0.012 75);
+  --accent: oklch(0.30 0.040 264);
+  --accent-foreground: oklch(0.88 0.060 264);
+  --destructive: oklch(0.68 0.170 25);
+
   --border: oklch(1 0 0 / 10%);
-  --input: oklch(1 0 0 / 15%);
-  --ring: oklch(0.552 0.016 285.938);
-  --chart-1: oklch(0.488 0.243 264.376);
-  --chart-2: oklch(0.696 0.17 162.48);
-  --chart-3: oklch(0.769 0.188 70.08);
-  --chart-4: oklch(0.627 0.265 303.9);
-  --chart-5: oklch(0.645 0.246 16.439);
-  --sidebar: oklch(0.21 0.006 285.885);
-  --sidebar-foreground: oklch(0.985 0 0);
-  --sidebar-primary: oklch(0.488 0.243 264.376);
-  --sidebar-primary-foreground: oklch(0.985 0 0);
-  --sidebar-accent: oklch(0.274 0.006 286.033);
-  --sidebar-accent-foreground: oklch(0.985 0 0);
+  --input: oklch(1 0 0 / 14%);
+  --ring: oklch(0.62 0.130 264);
+
+  --chart-1: oklch(0.72 0.130 264);
+  --chart-2: oklch(0.78 0.140 75);
+  --chart-3: oklch(0.72 0.140 150);
+  --chart-4: oklch(0.68 0.170 25);
+  --chart-5: oklch(0.62 0.015 70);
+
+  --sidebar: oklch(0.165 0.006 60);
+  --sidebar-foreground: oklch(0.92 0.005 85);
+  --sidebar-primary: oklch(0.72 0.130 264);
+  --sidebar-primary-foreground: oklch(0.15 0.030 264);
+  --sidebar-accent: oklch(0.30 0.040 264);
+  --sidebar-accent-foreground: oklch(0.88 0.060 264);
   --sidebar-border: oklch(1 0 0 / 10%);
-  --sidebar-ring: oklch(0.552 0.016 285.938);
+  --sidebar-ring: oklch(0.62 0.130 264);
+
+  --status-wait: oklch(0.78 0.140 75);
+  --status-ok: oklch(0.72 0.140 150);
+  --status-run: oklch(0.72 0.130 264);
+  --orb-disc: oklch(0.12 0.006 60);
+  --orb-ring: oklch(1 0 0 / 14%);
+  --composer-shadow: 0 8px 24px -12px oklch(0 0 0 / 60%);
 }
 
 @theme inline {
@@ -108,6 +136,18 @@
   --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
   --color-sidebar-border: var(--sidebar-border);
   --color-sidebar-ring: var(--sidebar-ring);
+
+  --font-sans: "Inter Variable", ui-sans-serif, system-ui, sans-serif;
+  --font-mono: "JetBrains Mono Variable", ui-monospace, SFMono-Regular, Menlo, monospace;
+  --color-status-wait: var(--status-wait);
+  --color-status-ok: var(--status-ok);
+  --color-status-run: var(--status-run);
+  --color-orb-disc: var(--orb-disc);
+  --color-orb-ring: var(--orb-ring);
+  --shadow-composer: var(--composer-shadow);
+
+  /* Motion: hover and press; nothing enters from the edge, glows or bounces. */
+  --ease-ui: cubic-bezier(0.2, 0, 0, 1);
 }
 
 @layer base {
@@ -120,35 +160,89 @@
     height: 100%;
   }
   body {
-    @apply bg-background text-foreground;
-    -webkit-font-smoothing: antialiased;
+    @apply bg-background text-foreground font-sans text-sm antialiased;
+    font-feature-settings: "cv11", "ss01";
+  }
+  /* Every number sits in a tabular column. */
+  :where(.tabular-nums) {
+    font-variant-numeric: tabular-nums;
+  }
+  button,
+  [role="button"] {
+    transition-timing-function: var(--ease-ui);
+    transition-duration: 150ms;
+  }
+  :focus-visible {
+    @apply outline-none ring-2 ring-ring/50;
+  }
+  /* Thin, unobtrusive scrollbars on every surface; the thumb follows the ink. */
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: color-mix(in oklch, var(--foreground) 20%, transparent) transparent;
+  }
+  *::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+  }
+  *::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  *::-webkit-scrollbar-thumb {
+    border-radius: 9999px;
+    background: color-mix(in oklch, var(--foreground) 20%, transparent);
+    border: 2px solid transparent;
+    background-clip: padding-box;
+  }
+  *::-webkit-scrollbar-thumb:hover {
+    background: color-mix(in oklch, var(--foreground) 32%, transparent);
+    background-clip: padding-box;
+  }
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+      transition-duration: 0.01ms !important;
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+    }
   }
 }
 
-/* `show` markdown in the pane. The renderer emits plain tags. */
-.show-output > :first-child {
-  margin-top: 0;
+/* `show` markdown in the pane and under a job card. The renderer emits plain tags.
+   In the components layer so a utility on the container (the job card's
+   prose-size headings) wins over these rules. */
+@layer components {
+  .show-output > :first-child {
+    margin-top: 0;
+  }
+  .show-output h1,
+  .show-output h2,
+  .show-output h3,
+  .show-output h4 {
+    @apply mt-6 mb-2 font-medium;
+  }
+  .show-output h1 { @apply text-2xl; }
+  .show-output h2 { @apply text-xl; }
+  .show-output h3 { @apply text-lg; }
+  .show-output p,
+  .show-output ul,
+  .show-output ol,
+  .show-output blockquote,
+  .show-output pre {
+    @apply my-3;
+  }
+  .show-output ul { @apply list-disc pl-6; }
+  .show-output ol { @apply list-decimal pl-6; }
+  .show-output blockquote { @apply border-l-2 pl-4 text-muted-foreground; }
+  .show-output pre { @apply overflow-auto rounded-md bg-muted p-3 font-mono text-[13px] leading-5; }
+  .show-output code { @apply font-mono text-[0.92em]; }
+  .show-output a { @apply underline underline-offset-4; }
+  .show-output hr { @apply my-6; }
+  .show-output strong { @apply font-medium; }
+  .show-output p,
+  .show-output li { overflow-wrap: anywhere; }
+  .show-output .table-wrap { @apply my-3 overflow-x-auto; }
+  .show-output table { @apply w-full border-collapse text-sm tabular-nums; }
+  .show-output th { @apply border-b px-2 py-1.5 text-left font-medium text-muted-foreground; }
+  .show-output td { @apply border-b px-2 py-1.5; }
 }
-.show-output h1,
-.show-output h2,
-.show-output h3,
-.show-output h4 {
-  @apply mt-6 mb-2 font-semibold;
-}
-.show-output h1 { @apply text-2xl; }
-.show-output h2 { @apply text-xl; }
-.show-output h3 { @apply text-lg; }
-.show-output p,
-.show-output ul,
-.show-output ol,
-.show-output blockquote,
-.show-output pre {
-  @apply my-3;
-}
-.show-output ul { @apply list-disc pl-6; }
-.show-output ol { @apply list-decimal pl-6; }
-.show-output blockquote { @apply border-l-2 pl-4 text-muted-foreground; }
-.show-output pre { @apply overflow-auto rounded-md bg-muted p-3; }
-.show-output code { @apply font-mono text-[0.92em]; }
-.show-output a { @apply underline underline-offset-4; }
-.show-output hr { @apply my-6; }

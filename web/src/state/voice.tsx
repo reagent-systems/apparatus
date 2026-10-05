@@ -5,7 +5,7 @@
 
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { mergeGate, mergeLive } from "../config.ts";
-import type { GateLogEntry } from "../gate/gate.ts";
+import { InputMode, type GateLogEntry } from "../gate/gate.ts";
 import type { SpeakerProfile } from "../gate/speaker.ts";
 import type { TranscriptRole } from "../protocol.ts";
 import { VoiceController } from "../voice.ts";
@@ -20,7 +20,13 @@ declare global {
 
 export type TranscriptHandler = (role: TranscriptRole, text: string, final: boolean) => void;
 
-export type VoiceSnapshot = { holdsVoice: boolean; liveOpen: boolean; listening: boolean; speaking: boolean };
+export type VoiceSnapshot = {
+  holdsVoice: boolean;
+  liveOpen: boolean;
+  listening: boolean;
+  speaking: boolean;
+  inputMode: InputMode;
+};
 
 export type VoiceValue = VoiceSnapshot & {
   /** Open the microphone and the Live session; claims the voice session first when needed. */
@@ -33,6 +39,10 @@ export type VoiceValue = VoiceSnapshot & {
   stop: () => void;
   /** Take the voice session for this device. */
   claim: () => void;
+  /** Typed text to the voice model; opens the Live session when closed. */
+  sendText: (text: string) => void;
+  /** Push to talk or open mic. Persists under `apparatus.input`. */
+  setInputMode: (mode: InputMode) => void;
   subscribeTranscript: (handler: TranscriptHandler) => () => void;
   /** The current value, outside React's render cycle. */
   holdsVoiceNow: () => boolean;
@@ -40,16 +50,7 @@ export type VoiceValue = VoiceSnapshot & {
 
 const VoiceContext = createContext<VoiceValue | null>(null);
 
-const IDLE: VoiceSnapshot = { holdsVoice: false, liveOpen: false, listening: false, speaking: false };
-
-function snapshot(v: VoiceController | null): VoiceSnapshot {
-  if (!v) return IDLE;
-  return { holdsVoice: v.holdsVoice, liveOpen: v.liveOpen, listening: v.listening, speaking: v.speaking };
-}
-
-function same(a: VoiceSnapshot, b: VoiceSnapshot): boolean {
-  return a.holdsVoice === b.holdsVoice && a.liveOpen === b.liveOpen && a.listening === b.listening && a.speaking === b.speaking;
-}
+const INPUT_KEY = "apparatus.input";
 
 function storageOrNull(): Storage | null {
   try {
@@ -59,14 +60,47 @@ function storageOrNull(): Storage | null {
   }
 }
 
+function parseInputMode(value: string | null | undefined): InputMode {
+  return value === InputMode.PUSH_TO_TALK ? InputMode.PUSH_TO_TALK : InputMode.OPEN_MIC;
+}
+
+function readInputMode(): InputMode {
+  return parseInputMode(storageOrNull()?.getItem(INPUT_KEY));
+}
+
+function writeInputMode(mode: InputMode): void {
+  try {
+    storageOrNull()?.setItem(INPUT_KEY, mode);
+  } catch {
+    // storage blocked: the choice lives for this page only
+  }
+}
+
+function snapshot(v: VoiceController | null, fallbackMode: InputMode): VoiceSnapshot {
+  if (!v) return { holdsVoice: false, liveOpen: false, listening: false, speaking: false, inputMode: fallbackMode };
+  return { holdsVoice: v.holdsVoice, liveOpen: v.liveOpen, listening: v.listening, speaking: v.speaking, inputMode: v.inputMode };
+}
+
+function same(a: VoiceSnapshot, b: VoiceSnapshot): boolean {
+  return (
+    a.holdsVoice === b.holdsVoice &&
+    a.liveOpen === b.liveOpen &&
+    a.listening === b.listening &&
+    a.speaking === b.speaking &&
+    a.inputMode === b.inputMode
+  );
+}
+
 export function VoiceProvider({ children }: { children: ReactNode }) {
   const server = useServer();
   const controller = useRef<VoiceController | null>(null);
   const transcriptHandlers = useRef(new Set<TranscriptHandler>());
-  const [state, setState] = useState<VoiceSnapshot>(IDLE);
+  // The stored choice stands in until the controller exists at the first `ready`.
+  const storedMode = useRef<InputMode>(readInputMode());
+  const [state, setState] = useState<VoiceSnapshot>(() => snapshot(null, storedMode.current));
 
   const refresh = useCallback(() => {
-    const next = snapshot(controller.current);
+    const next = snapshot(controller.current, storedMode.current);
     setState((prev) => (same(prev, next) ? prev : next));
   }, []);
 
@@ -93,6 +127,7 @@ export function VoiceProvider({ children }: { children: ReactNode }) {
               onChange: refresh,
               storage: storageOrNull(),
             });
+            v.setInputMode(storedMode.current);
             controller.current = v;
             window.apparatusGateLog = () => v.gate.log();
             window.apparatusEnrollSpeaker = (samples, consent) => v.enroll(samples, consent);
@@ -125,6 +160,13 @@ export function VoiceProvider({ children }: { children: ReactNode }) {
         const v = controller.current;
         if (v && !v.holdsVoice) v.start();
       },
+      sendText: (text) => controller.current?.sendText(text),
+      setInputMode: (mode) => {
+        storedMode.current = mode;
+        writeInputMode(mode);
+        controller.current?.setInputMode(mode);
+        refresh();
+      },
       subscribeTranscript: (handler) => {
         transcriptHandlers.current.add(handler);
         return () => {
@@ -133,7 +175,7 @@ export function VoiceProvider({ children }: { children: ReactNode }) {
       },
       holdsVoiceNow: () => controller.current?.holdsVoice ?? false,
     }),
-    [],
+    [refresh],
   );
 
   const value = useMemo<VoiceValue>(() => ({ ...state, ...actions }), [state, actions]);

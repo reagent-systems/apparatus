@@ -180,7 +180,8 @@ export type S2CApprovalRequested = Voiced & {
   approval_id: string;
   job_id: string;
   action: string;
-  details: string;
+  /** Whatever the job passed to `request_approval`: a string, an object or null. */
+  details: unknown;
 };
 export type S2CApprovalEnded = Voiced & { type: typeof S2C.APPROVAL_ENDED; approval_id: string; approved: boolean };
 export type S2CToolResult = Voiced & {

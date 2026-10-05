@@ -1,12 +1,19 @@
 // The orb: a button over the thinking-orbs canvas. The mapping from the voice
-// state to the animation is `src/orb-state.ts`.
+// state to the animation is `src/orb-state.ts`. The 20 px inline orb is
+// `OrbMini.tsx`.
+//
+// A filled disc with the 64 px preset pinned to its dark theme, so the dots
+// are always light on a dark disc. The box is fixed and the canvas is scaled
+// inside it, so the layout never moves with the transform (DESIGN.md 3).
 
-import { useSyncExternalStore } from "react";
 import { ThinkingOrb } from "thinking-orbs";
 import { orbRender, type OrbState } from "@/orb-state";
 import { cn } from "@/lib/utils";
+import { useReducedMotion } from "./use-reduced-motion";
 
 export type { OrbState } from "@/orb-state";
+
+export type OrbSize = 48 | 56 | 128;
 
 export type OrbProps = {
   state: OrbState;
@@ -15,26 +22,24 @@ export type OrbProps = {
   /** A Live session is open. */
   live: boolean;
   onClick: () => void;
+  /** 48 in the composer, 56 in the phone composer, 128 as the empty thread. */
+  size?: OrbSize;
+  className?: string;
 };
 
-const REDUCED = "(prefers-reduced-motion: reduce)";
+const BOX: Record<OrbSize, string> = {
+  48: "size-12",
+  56: "size-14",
+  128: "size-32",
+};
 
-function subscribeReducedMotion(onChange: () => void): () => void {
-  if (typeof window === "undefined" || !window.matchMedia) return () => undefined;
-  const query = window.matchMedia(REDUCED);
-  query.addEventListener("change", onChange);
-  return () => query.removeEventListener("change", onChange);
-}
+const SCALE: Record<OrbSize, string> = {
+  48: "scale-75",
+  56: "scale-[.875]",
+  128: "scale-200",
+};
 
-function readReducedMotion(): boolean {
-  return typeof window !== "undefined" && !!window.matchMedia && window.matchMedia(REDUCED).matches;
-}
-
-function useReducedMotion(): boolean {
-  return useSyncExternalStore(subscribeReducedMotion, readReducedMotion, () => false);
-}
-
-export function Orb({ state, held, live, onClick }: OrbProps) {
+export function Orb({ state, held, live, onClick, size = 48, className }: OrbProps) {
   const reducedMotion = useReducedMotion();
   const render = orbRender({ state, held, live, reducedMotion });
   return (
@@ -44,14 +49,15 @@ export function Orb({ state, held, live, onClick }: OrbProps) {
       data-state={state}
       data-held={held}
       data-live={live}
+      data-size={size}
       onClick={onClick}
       className={cn(
-        // The sketches draw a dark sphere with light dots: a filled disc with the
-        // 64 px preset pinned to its dark theme. Scaled 2x on a phone and 1.5x on
-        // a desktop inside a fixed box, so the layout never moves with the transform.
-        "flex size-32 shrink-0 items-center justify-center overflow-hidden rounded-full bg-zinc-950 shadow-md transition-opacity outline-none select-none lg:size-24",
+        "flex shrink-0 items-center justify-center overflow-hidden rounded-full bg-orb-disc transition-opacity outline-none select-none",
+        "dark:ring-1 dark:ring-orb-ring",
         "focus-visible:ring-2 focus-visible:ring-ring/50",
+        BOX[size],
         render.dimmed && "opacity-40",
+        className,
       )}
     >
       <ThinkingOrb
@@ -61,25 +67,8 @@ export function Orb({ state, held, live, onClick }: OrbProps) {
         speed={render.speed}
         paused={render.paused}
         aria-hidden="true"
-        className="scale-200 lg:scale-150"
+        className={SCALE[size]}
       />
     </button>
-  );
-}
-
-/** The inline orb for a job row: the 20 px preset, `working` while the job runs. */
-export function OrbMini({ state }: { state: OrbState }) {
-  const reducedMotion = useReducedMotion();
-  const render = orbRender({ state, held: true, live: true, reducedMotion });
-  return (
-    <ThinkingOrb
-      state={render.animation}
-      size={20}
-      theme="auto"
-      speed={render.speed}
-      paused={render.paused}
-      aria-hidden="true"
-      className="inline-block shrink-0 align-middle"
-    />
   );
 }

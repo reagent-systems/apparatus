@@ -47,80 +47,73 @@ origin, or on `bridge.serverOrigin` inside a shell.
 3. Open the server origin in a browser. The auth value comes from
    `bridge.secureStore.get("apparatus.auth")` (localStorage on the web) and
    falls back to `dev`.
-4. Press the orb to open the microphone, or hold Talk.
+4. Press the orb to open the microphone, hold Talk, or type in the composer and press Enter.
+
+### Demo mode
+
+`APPARATUS_DEMO=1` makes the server run scripted jobs with no key; start a local agentd with
+`AGENTD_DESKTOP=fake` so they reach a kernel. No seed script is in the repo; seed through the protocol:
+
+1. Open a second socket: `/ws/client?auth=dev&device=desktop`, then send `hello {device: "desktop", wants_voice: false}`.
+2. Send `tool.call {name: "start_job", args: {request}}`; "approve" in the request adds an approval, "login" adds a handoff.
+3. Send `transcript {role, text, final: true}` for speech cards; keep the socket open while you look.
 
 ## Components
 
-One React tree, responsive. `src/main.tsx` boots: theme, bridge, auth,
-device, then `ServerProvider > VoiceProvider > App`.
+One React tree, responsive, built to `agent-kit/docs/DESIGN.md`. `src/main.tsx`
+boots: bridge, auth, stored theme, device, then the providers in this order:
+`ThemeProvider > ServerProvider > VoiceProvider > FeedProvider >
+SelectionProvider > ScreenProvider > App`. Components read these contexts
+rather than taking long prop lists.
 
 | File | Task |
 |---|---|
-| `src/App.tsx` | State: the feed reducer, the sidebar selection, the pane mode, push registration, hidden-page notifications, Done and Cancel, Approve and Deny. |
+| `src/App.tsx` | Computes the orb state, picks the column view, mounts `AppShell` and `CommandPalette`; push registration, hidden-page notifications, the handoff lock on the pane, the keyboard. |
 | `src/state/server.tsx` | `ServerContext` on `ServerSocket`: `{ send, subscribe, deviceId, ready, connected, device, httpOrigin, auth, bridge }`. `useServerMessages(handler)` subscribes for a component's life. Sends `hello` on every open. |
-| `src/state/voice.tsx` | `VoiceContext` on `VoiceController`: `{ holdsVoice, liveOpen, listening, speaking, start, end, pressTalk, releaseTalk, stop, claim, subscribeTranscript, holdsVoiceNow }`. Polled every 100 ms and on change. Sets `window.apparatusGateLog` and `window.apparatusEnrollSpeaker`. |
-| `src/state/feed.tsx` | `useFeed()`: the reducer wired to the socket and to the Live transcripts. The voice holder skips the server's transcript relay. |
-| `src/feed/reducer.ts` | Pure. Cards, jobs, the latest `show`, the latest spoken line, the active handoff. Tested in `test/reducer.test.ts`. |
-| `src/components/layout/AppShell.tsx` | The frame: desktop `sidebar | pane | feed`; tablet `pane | feed`; phone the feed column with the pane in a full-screen Sheet. |
-| `src/components/jobs/JobSidebar.tsx` | shadcn Sidebar: running jobs, a Separator, recent jobs, then Audit and Credits. |
-| `src/components/pane/Pane.tsx` | The large pane: a Screen / Output toggle, then `VmScreen` or the markdown (`ShowOutput.tsx`) or a view. A handoff forces Screen. |
-| `src/components/feed/Feed.tsx`, `FeedCard.tsx` | ScrollArea of cards: transcripts short, job, approval (Approve, Deny) and handoff cards tall, credits short. |
-| `src/components/feed/Controls.tsx` | Talk (press and hold) and Stop as two squares, the spoken line as one wide bar, the orb at the bottom right. |
-| `src/components/views/AuditView.tsx`, `CreditsView.tsx` | `GET /audit` rows; `GET /credits` balance with the Top up placeholder. |
-| `src/components/orb/Orb.tsx` | The orb (owned by the orb agent). |
-| `src/components/vm/VmScreen.tsx` | The VM screen (owned by the VM agent). |
-| `src/components/ui/*` | shadcn/ui: sidebar, card, scroll-area, separator, button, toggle, toggle-group, sheet, skeleton. The sidebar's tooltip was removed: the UI holds no helper text. |
-| `src/hooks/use-breakpoint.ts` | phone < 768, tablet 768..1023, desktop >= 1024; `isTabletWidth()` for `hello.device`. |
-| `src/lib/theme.ts` | The `dark` class on `<html>` follows `prefers-color-scheme`. |
+| `src/state/voice.tsx` | `VoiceContext` on `VoiceController`: `{ holdsVoice, liveOpen, listening, speaking, start, end, pressTalk, releaseTalk, stop, claim, sendText, inputMode, setInputMode, ... }`. Polled every 100 ms and on change. |
+| `src/state/feed.tsx` | `FeedProvider` / `useFeed()`: `[state, dispatch]`, the reducer wired to the socket and the Live transcripts. The voice holder skips the server's transcript relay. |
+| `src/feed/reducer.ts` | Pure. Cards (cap 100), jobs by id with `progressHistory` (cap 50), approvals and handoffs by id and by job, `show`, `spoken`, credits; `runningJobs`, `recentJobs`, `needsYou`, `jobOf`, `seedFromReady`. Tested in `test/reducer.test.ts`. |
+| `src/state/selection.tsx` | `useSelection()`: view, selected job, pane open / mode / width / lock, rail, status bar, notifications; persisted through `bridge.secureStore` (`selection-codec.ts`). |
+| `src/state/screen.tsx` | `useScreenStore()`: `useScreen` (`components/vm/useScreen.ts`) hoisted to app scope with reference-counted `wantOpen` / `wantClose`, so the pane and the PiP share one `MediaStream`. |
+| `src/lib/status.ts` | Pure: `bucketOf`, `glyphOf`, `relativeTime`, `elapsedTime`. Tested in `test/status.test.ts`. |
+| `src/lib/jobs-list.ts`, `src/lib/api.ts` | The Jobs desk's filter chips, counts, groups and row subtitles (`test/jobs-list.test.ts`); `apiGet` and the `/audit` and `/credits` parsers (`test/api.test.ts`). |
+| `src/components/layout/` | `AppShell` (rail, column, pane in a `ResizablePanelGroup`; sheets on tablet and phone), `Titlebar`, `StatusBar`, `CommandPalette`. |
+| `src/components/rail/` | `Rail`, `RailNav` (Thread, Jobs, Screen, Audit, Credits), `RailJobRow` and the Needs you / Running / Recent groups, `RailFooter` (settings popover: Input, Appearance, Notifications). |
+| `src/components/thread/` | `Thread` and its cards: speech, job (activity slab, say, show, artifacts), approval, handoff, credits line, day divider, turn header, scroll-to-end. |
+| `src/components/composer/` | `VoiceComposer` (orb, text field, mode picker, Talk, send, Stop), `TalkButton`, `ModePicker`. |
+| `src/components/orb/` | `Orb` (48 / 56 / 128 px on the disc) and `OrbMini` (20 px), both `thinking-orbs`; state names in `src/orb-state.ts`. |
+| `src/components/status/` | `StatusGlyph`, `ProgressRing`, `CountChip`. |
+| `src/components/pane/` | `Inspector` (Output / Screen), `JobInspector` (Receipt / Steps / Artifacts), `ShowOutput`. |
+| `src/components/vm/` | `ScreenFrame` (watch or handoff, the control ring, input), `ScreenPip`, `useScreen`. |
+| `src/components/views/` | `JobsView` and `JobRow`, `AuditView` (`GET /audit`), `CreditsView` (`GET /credits`, Top up disabled). |
+| `src/components/theme/` | `ThemeProvider` / `useTheme()`: Light, Dark or System; `.dark` on `<html>` before first paint (an inline script in `index.html`), persisted under `apparatus.theme`. |
+| `src/components/ui/*` | shadcn/ui primitives. No tooltip, sonner or toast: the UI holds no helper text. |
+| `src/hooks/` | `use-breakpoint` (phone < 768, tablet 768..1023, desktop >= 1024; `isTabletWidth()` for `hello.device`), `shortcuts` (pure key matcher) and `use-shortcuts` (the window binding). |
 | `src/vm/input.ts` | Pure: the `input` data-channel shape, pointer math over a letterboxed video, perfect-negotiation decisions. Tested in `test/vm-input.test.ts`. |
 
-Breakpoints from the sketches: desktop and wide tablet (>= 1024 px) show
-three columns, the sidebar, the pane and the feed with the orb at the bottom
-right. Tablet (768 to 1023 px) shows the pane left and the feed right. Phone
-(< 768 px) shows the feed stack, the two squares, the wide bar and the orb;
-the VM screen and the handoff open as a full-screen Sheet with Done and
-Cancel. Tapping a job card on a phone opens its output in the Sheet.
+Desktop shows the rail, the thread column with the composer and the pane,
+with a 24 px status bar beneath. Tablet keeps a 56 px icon rail and opens the
+pane as a right sheet. Phone shows the thread under a 48 px top bar; the rail
+and the pane are sheets, and a handoff locks the pane sheet until Done or
+Cancel.
 
-### Stub contracts
+### Keyboard
 
-Two files are stubs for the other agents. The layout imports them with
-exactly these props.
+Space (held, focus outside a text field, a control and the VM video) talks;
+Esc stops; Cmd/Ctrl+K opens the palette; Cmd/Ctrl+1..5 pick Thread, Jobs,
+Screen, Audit, Credits; Cmd/Ctrl+B toggles the rail; Cmd/Ctrl+J the pane;
+Alt+J focuses the oldest card that needs you; Enter / Backspace answer a
+focused approval or handoff card; Cmd/Ctrl+Shift+C takes or releases control.
 
-`src/components/orb/Orb.tsx`:
+### Screen store
 
-```ts
-export type OrbState = "idle" | "connecting" | "listening" | "speaking" | "working";
-export function Orb({ state, held, live, onClick }: {
-  state: OrbState;
-  held: boolean;      // this device holds the voice session
-  live: boolean;      // a Live session is open
-  onClick: () => void;
-}): JSX.Element
-```
-
-`connecting` shows while the server socket is down. `working` shows while a
-job runs and nothing is heard or spoken. The click claims the voice session,
-or toggles the microphone when this device holds it.
-
-`src/components/vm/VmScreen.tsx`:
-
-```ts
-export function VmScreen({ mode, handoffId, onDone, onCancel }: {
-  mode: "watch" | "handoff";
-  handoffId: string | null;
-  onDone: () => void;
-  onCancel: () => void;
-}): JSX.Element
-```
-
-The widget mounts when the user picks Screen or a handoff is active, and
-unmounts when neither holds. On mount it sends `screen.open`; on unmount
-`screen.close {stream_id}`. It reads `screen.opened`, `signal`,
-`screen.closed` and `control` through `useServerMessages` and sends
-`signal`, `control.take` and `control.release` through `useServer().send`.
-In handoff mode it shows Done and Cancel; the layout answers them with
-`handoff.done` and `handoff.cancel`. The pure helpers in `src/vm/input.ts`
-hold the data-channel shape and the math.
+`ScreenFrame` holds the shared stream open while mounted; `ScreenPip` does
+the same while the pane is closed on the Screen. The store sends
+`screen.open` with the first holder and `screen.close {stream_id}` after the
+last. It reads `screen.opened`, `signal`, `screen.closed` and `control`
+through `useServerMessages` and sends `signal`, `control.take` and
+`control.release`. In handoff mode the frame shows Done and Cancel and sends
+`handoff.done` / `handoff.cancel`.
 
 ## Gate pipeline
 
@@ -203,6 +196,7 @@ message becomes a list of events.
 | `sessionResumptionUpdate.newHandle` | `C2S.live.resumption`, kept for reconnects |
 | `goAway` | open a second session now; switch when it is ready and no turn is open, or 1 s before `timeLeft` ends |
 | any `S2C` with `voice` | `clientContent` turn `<event>text</event>`, `turnComplete: true`, only when this device holds voice and a session is open |
+| typed text (`voice.sendText`) | claim voice if needed; open the session; `clientContent` user turn with the plain text, `turnComplete: true` (`buildUserTextTurn`); `C2S.transcript {role: "user", final: true}` |
 
 `voice.revoked` closes the Live session and stops capture; the page keeps
 showing the feed.

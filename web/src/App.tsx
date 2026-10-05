@@ -1,19 +1,28 @@
-// The one React tree. State: the feed reducer, the selection in the
-// sidebar, the pane mode, and the handoff from the reducer.
+// The one React tree. Reads every context, computes the orb state, wires the
+// views into the shell, keeps the behaviors the page always had: push
+// registration, a local notification while hidden, the handoff lock on the
+// pane, the PiP when the pane closes on an open stream, and the keyboard.
 
 import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
+import { VoiceComposer } from "@/components/composer/VoiceComposer";
 import { AppShell } from "@/components/layout/AppShell";
-import { Controls } from "@/components/feed/Controls";
-import { Feed } from "@/components/feed/Feed";
-import { JobSidebar, type SidebarSelection } from "@/components/jobs/JobSidebar";
+import { CommandPalette } from "@/components/layout/CommandPalette";
+import { StatusBar } from "@/components/layout/StatusBar";
 import type { OrbState } from "@/components/orb/Orb";
-import { Pane, type PaneMode } from "@/components/pane/Pane";
+import { Inspector } from "@/components/pane/Inspector";
+import { Rail } from "@/components/rail/Rail";
+import { Thread } from "@/components/thread/Thread";
 import { AuditView } from "@/components/views/AuditView";
 import { CreditsView } from "@/components/views/CreditsView";
-import { recentJobs, runningJobs } from "@/feed/reducer";
+import { JobsView } from "@/components/views/JobsView";
+import { ScreenPip } from "@/components/vm/ScreenPip";
+import { detailsText, runningJobs } from "@/feed/reducer";
 import { useBreakpoint } from "@/hooks/use-breakpoint";
+import { focusNeedsYou, useShortcuts } from "@/hooks/use-shortcuts";
 import { C2S } from "@/protocol";
 import { useFeed } from "@/state/feed";
+import { useScreenStore } from "@/state/screen";
+import { useSelection } from "@/state/selection";
 import { useServer, useServerMessages } from "@/state/server";
 import { useVoice } from "@/state/voice";
 
@@ -22,20 +31,22 @@ export function App() {
   const voice = useVoice();
   const breakpoint = useBreakpoint();
   const [feed, dispatch] = useFeed();
-  const [selected, setSelected] = useState<SidebarSelection>({ kind: "live" });
-  const [paneMode, setPaneMode] = useState<PaneMode>("output");
-  const [sheetOpen, setSheetOpen] = useState(false);
+  const selection = useSelection();
+  const screen = useScreenStore();
+  const [paletteOpen, setPaletteOpen] = useState(false);
   const pushRegistered = useRef(false);
 
   const { bridge, send, ready } = server;
+  const { view, setView, paneOpen, setPaneOpen, paneMode, setPaneMode, setPaneLocked, statusBar, notifications, railOpen, setRailOpen } =
+    selection;
   const handoffId = feed.handoff?.handoffId ?? null;
 
   // Local notification while the page is hidden.
   useServerMessages((msg) => {
-    if (!bridge.notify || document.visibilityState === "visible") return;
+    if (!bridge.notify || !notifications || document.visibilityState === "visible") return;
     let body: string | null = null;
     if (msg.type === "handoff.requested") body = msg.voice ?? msg.reason;
-    else if (msg.type === "approval.requested") body = msg.voice ?? `${msg.action}: ${msg.details}`;
+    else if (msg.type === "approval.requested") body = msg.voice ?? `${msg.action}: ${detailsText(msg.details)}`;
     if (body) void bridge.notify("apparatus", body).catch(() => undefined);
   });
 
@@ -58,96 +69,88 @@ export function App() {
       .catch((err: unknown) => console.error("push", err));
   }, [ready, bridge, send, dispatch]);
 
-  // A handoff takes the whole phone screen.
+  // A handoff opens the pane in Screen and holds it there until it ends.
   useEffect(() => {
-    if (handoffId !== null) setSheetOpen(true);
-  }, [handoffId]);
+    if (handoffId !== null) {
+      setPaneMode("screen");
+      setPaneOpen(true);
+    }
+    setPaneLocked(handoffId !== null);
+  }, [handoffId, setPaneMode, setPaneOpen, setPaneLocked]);
 
-  const onDone = useCallback(() => {
-    if (handoffId) send({ type: C2S.HANDOFF_DONE, handoff_id: handoffId });
-    dispatch({ kind: "handoffClosed" });
-  }, [handoffId, send, dispatch]);
-  const onCancel = useCallback(() => {
-    if (handoffId) send({ type: C2S.HANDOFF_CANCEL, handoff_id: handoffId });
-    dispatch({ kind: "handoffClosed" });
-  }, [handoffId, send, dispatch]);
-  const onAnswer = useCallback(
-    (approvalId: string, approved: boolean) => {
-      send({ type: C2S.APPROVAL_ANSWER, approval_id: approvalId, approved });
+  const toggleControl = useCallback(() => {
+    if (screen.controlledByMe) screen.releaseControl();
+    else if (screen.status === "live") screen.takeControl();
+  }, [screen]);
+
+  useShortcuts({
+    onShortcut: (shortcut) => {
+      switch (shortcut) {
+        case "palette":
+          setPaletteOpen((o) => !o);
+          return;
+        case "rail":
+          // Desktop and tablet: the SidebarProvider owns Cmd/Ctrl+B.
+          if (breakpoint === "phone") setRailOpen(!railOpen);
+          return;
+        case "pane":
+          setPaneOpen(!paneOpen);
+          return;
+        case "needsYou":
+          setView("thread");
+          setTimeout(() => focusNeedsYou(), 0);
+          return;
+        case "control":
+          toggleControl();
+          return;
+        case "stop":
+          voice.stop();
+          return;
+        default:
+          setView(shortcut.slice("view:".length) as typeof view);
+      }
     },
-    [send],
-  );
-  const onOpenJob = useCallback((jobId: string) => {
-    setSelected({ kind: "job", jobId });
-    setPaneMode("output");
-    setSheetOpen(true);
-  }, []);
+    onTalkDown: () => voice.pressTalk(),
+    onTalkUp: () => voice.releaseTalk(),
+  });
 
   const running = runningJobs(feed);
-  const recent = recentJobs(feed);
-
   let orbState: OrbState = "idle";
   if (!server.connected) orbState = "connecting";
   else if (voice.listening) orbState = "listening";
   else if (voice.speaking) orbState = "speaking";
   else if (running.length > 0) orbState = "working";
 
-  let markdown = feed.show;
-  let view: ReactNode | undefined;
-  if (selected.kind === "job") {
-    const job = feed.jobs[selected.jobId];
-    markdown = job ? (job.show ?? (job.say || null)) : null;
-  } else if (selected.kind === "audit") view = <AuditView />;
-  else if (selected.kind === "credits") view = <CreditsView />;
+  let main: ReactNode;
+  switch (view) {
+    case "jobs":
+      main = <JobsView />;
+      break;
+    case "audit":
+      main = <AuditView />;
+      break;
+    case "credits":
+      main = <CreditsView />;
+      break;
+    default:
+      main = <Thread />;
+  }
 
-  const pane = (
-    <Pane
-      className="h-full"
-      mode={paneMode}
-      onMode={(m) => {
-        setPaneMode(m);
-        if (m === "screen") setSheetOpen(true);
-        if (m === "output" && selected.kind !== "live" && selected.kind !== "job") setSelected({ kind: "live" });
-      }}
-      handoffId={handoffId}
-      onDone={onDone}
-      onCancel={onCancel}
-      markdown={markdown}
-      view={paneMode === "screen" || handoffId !== null ? undefined : view}
-    />
-  );
-
-  const feedColumn = (
-    <>
-      <Feed feed={feed} onAnswer={onAnswer} onOpenJob={onOpenJob} />
-      <Controls
-        orbState={orbState}
-        spoken={feed.spoken}
-        onScreen={
-          breakpoint === "phone"
-            ? () => {
-                setPaneMode("screen");
-                setSheetOpen(true);
-              }
-            : undefined
-        }
-      />
-    </>
-  );
+  // The PiP: the desktop, the pane closed on the Screen, a stream still open.
+  const pip =
+    breakpoint === "desktop" && view === "thread" && !paneOpen && paneMode === "screen" && screen.status === "live" ? <ScreenPip /> : null;
 
   return (
-    <AppShell
-      breakpoint={breakpoint}
-      sidebar={<JobSidebar running={running} recent={recent} selected={selected} onSelect={setSelected} />}
-      pane={pane}
-      feed={feedColumn}
-      sheetOpen={sheetOpen && (handoffId !== null || paneMode === "screen" || markdown !== null)}
-      sheetLocked={handoffId !== null}
-      onSheetClose={() => {
-        if (handoffId !== null) return;
-        setSheetOpen(false);
-        setPaneMode("output");
-      }}
-    />
+    <>
+      <AppShell
+        rail={<Rail />}
+        main={main}
+        pane={<Inspector />}
+        composer={<VoiceComposer orbState={orbState} />}
+        statusBar={breakpoint === "desktop" && statusBar ? <StatusBar /> : null}
+        pip={pip}
+      />
+      <CommandPalette open={paletteOpen} onOpenChange={setPaletteOpen} />
+    </>
   );
 }

@@ -1,13 +1,17 @@
-// Boot: bridge, auth, device, theme, then the React tree.
+// Boot: bridge, auth, theme, device, then the React tree. Providers mount in
+// the contract order: Theme > Server > Voice > Feed > Selection > Screen.
 
 import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 import "./index.css";
 import { App } from "./App.tsx";
 import { getBridge, type BridgePlatform } from "./bridge.ts";
+import { ThemeProvider, readStoredTheme } from "./components/theme/ThemeProvider.tsx";
 import { isTabletWidth } from "./hooks/use-breakpoint.ts";
-import { installTheme } from "./lib/theme.ts";
 import type { Device } from "./protocol.ts";
+import { FeedProvider } from "./state/feed.tsx";
+import { ScreenProvider } from "./state/screen.tsx";
+import { SelectionProvider } from "./state/selection.tsx";
 import { ServerProvider } from "./state/server.tsx";
 import { VoiceProvider } from "./state/voice.tsx";
 
@@ -20,19 +24,29 @@ function detectDevice(platform: BridgePlatform): Device {
 }
 
 async function boot(): Promise<void> {
-  installTheme();
   const bridge = getBridge();
-  const auth = (await bridge.secureStore.get(AUTH_KEY)) ?? "dev";
+  if (bridge.platform === "desktop" && navigator.platform.startsWith("Mac")) {
+    document.documentElement.classList.add("tauri-mac");
+  }
+  const [auth, theme] = await Promise.all([bridge.secureStore.get(AUTH_KEY), readStoredTheme(bridge)]);
   const httpOrigin = (bridge.serverOrigin ?? location.origin).replace(/\/+$/, "");
   const device = detectDevice(bridge.platform);
   const root = document.getElementById("app") ?? document.body.appendChild(document.createElement("div"));
   createRoot(root).render(
     <StrictMode>
-      <ServerProvider bridge={bridge} auth={auth} device={device} httpOrigin={httpOrigin}>
-        <VoiceProvider>
-          <App />
-        </VoiceProvider>
-      </ServerProvider>
+      <ThemeProvider bridge={bridge} initial={theme}>
+        <ServerProvider bridge={bridge} auth={auth ?? "dev"} device={device} httpOrigin={httpOrigin}>
+          <VoiceProvider>
+            <FeedProvider>
+              <SelectionProvider>
+                <ScreenProvider>
+                  <App />
+                </ScreenProvider>
+              </SelectionProvider>
+            </FeedProvider>
+          </VoiceProvider>
+        </ServerProvider>
+      </ThemeProvider>
     </StrictMode>,
   );
 }
