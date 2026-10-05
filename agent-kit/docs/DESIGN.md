@@ -362,7 +362,7 @@ Weights 400 and 500 only; 600 nowhere. `tabular-nums` on every number.
 | Outline buttons and toggles (`border-input`, `shadow-xs`, `bg-input/30` in dark) | `flat:border-transparent flat:shadow-none flat:bg-transparent`; no fill in either theme, only the hover fill (`flat:hover:bg-accent`, `flat:dark:hover:bg-input/50`) |
 | Inspector `TabsList` `bg-muted`; the active tab | the list goes transparent; the active tab takes the state fill `bg-accent` |
 | Activity slab, user speech, Jobs glyph circle, `show` and Audit `pre` (`bg-muted`), artifact chips (`bg-muted`), the palette `Kbd` (`bg-muted`, `bg-foreground/10` in dark), the phone screen bar (`bg-background/90`) | flattened onto the background; artifact chips keep their hover fill |
-| Sheet and dialog scrims (`bg-black/50`) | transparent; the layer's shadow separates it |
+| Sheet and dialog scrims (`bg-black/50`) | kept: a scrim dims the page under a layer at a higher z and draws no line. The author: "you absolutely can have page dimming since it's at a different z level, i just don't want the lines" |
 | The screen skeleton in dark (`bg-white/10` over the black frame, which nears the dark page) | `flat:dark:bg-white/[0.03]`; the frame stays near-black and parts from the page as the live video does, and the pulse still shows |
 | Floating layer shadows (`shadow-md`, `shadow-lg`) on popover, dialog, palette, sheet, PiP and the scroll-to-end button | `flat:shadow-float`: a deeper shadow with a zero-offset part, so every edge, the top included, shows in both themes; the scroll-to-end button sits on `flat:bg-background` |
 | The pane's resize handle hover (`hover:bg-ring/40`) | `flat:hover:bg-transparent`; the `col-resize` cursor and the focus-visible ring mark it |
