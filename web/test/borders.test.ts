@@ -1,7 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
-import { BORDERS_KEY, bootValue, bordersAttribute, parseBorders, storedBorders } from "../src/components/theme/borders.ts";
+import { BORDERS_KEY, DEFAULT_BORDERS, bootValue, bordersAttribute, parseBorders, storedBorders } from "../src/components/theme/borders.ts";
 
 const WEB = new URL("../", import.meta.url);
 const css = readFileSync(new URL("src/index.css", WEB), "utf8");
@@ -22,20 +22,24 @@ function block(source: string, selector: string): Map<string, string> {
   return decls;
 }
 
-test("the stored value parses to on unless it is exactly off", () => {
-  assert.equal(parseBorders("off"), "off");
-  assert.equal(parseBorders("on"), "on");
-  assert.equal(parseBorders(null), "on");
-  assert.equal(parseBorders(undefined), "on");
-  assert.equal(parseBorders(""), "on");
-  assert.equal(parseBorders("OFF"), "on");
-  assert.equal(parseBorders("false"), "on");
+test("the default is off: borderless", () => {
+  assert.equal(DEFAULT_BORDERS, "off");
 });
 
-test("only off is stored; on removes the key", () => {
+test("the stored value parses to off unless it is exactly on", () => {
+  assert.equal(parseBorders("on"), "on");
+  assert.equal(parseBorders("off"), "off");
+  assert.equal(parseBorders(null), "off");
+  assert.equal(parseBorders(undefined), "off");
+  assert.equal(parseBorders(""), "off");
+  assert.equal(parseBorders("ON"), "off");
+  assert.equal(parseBorders("true"), "off");
+});
+
+test("only on is stored; off removes the key", () => {
   assert.equal(BORDERS_KEY, "apparatus.borders");
-  assert.equal(storedBorders("off"), "off");
-  assert.equal(storedBorders("on"), null);
+  assert.equal(storedBorders("on"), "on");
+  assert.equal(storedBorders("off"), null);
   for (const b of ["on", "off"] as const) assert.equal(parseBorders(storedBorders(b)), b);
 });
 
@@ -44,8 +48,9 @@ test("off writes data-borders=off on <html>; on writes no attribute", () => {
   assert.equal(bordersAttribute("on"), null);
 });
 
-test("index.html applies the stored choice before first paint", () => {
+test("index.html applies the stored choice before first paint, borderless unless on is stored", () => {
   const head = html.slice(0, html.indexOf("</head>"));
+  assert.match(head, /if \(b === "on"\) root\.removeAttribute\("data-borders"\);\s*else root\.setAttribute\("data-borders", "off"\);/);
   assert.match(head, /localStorage\.getItem\("apparatus\.borders"\)/);
   assert.match(head, /setAttribute\("data-borders", "off"\)/);
   assert.match(head, /removeAttribute\("data-borders"\)/);

@@ -6,14 +6,14 @@
 // No disc, no ring, no shadow: only the dots, in the ink opposite the page
 // (black in light mode, white in dark), from the resolved app theme. Only
 // the circle takes the pointer: `clip-path` cuts the square's corners out of
-// the hit region, so the focus ring is drawn inset to stay inside it. The
-// box is fixed and the canvas is scaled inside it, so the layout never moves
-// with the transform (DESIGN.md 3).
+// the hit region, so the focus ring is drawn inset to stay inside it.
+// `OrbCanvas` draws the 64 preset at the box's own size, so no transform
+// resamples it and the layout never moves (DESIGN.md 3).
 
-import { ThinkingOrb } from "thinking-orbs";
 import { useTheme } from "@/components/theme/ThemeProvider";
 import { orbRender, type OrbState } from "@/orb-state";
 import { cn } from "@/lib/utils";
+import { OrbCanvas } from "./OrbCanvas";
 import { useReducedMotion } from "./use-reduced-motion";
 import type { OrbControl } from "./use-orb-control";
 
@@ -40,15 +40,9 @@ const BOX: Record<OrbSize, string> = {
   128: "size-32",
 };
 
-const SCALE: Record<OrbSize, string> = {
-  48: "scale-75",
-  56: "scale-[.875]",
-  128: "scale-200",
-};
-
-// The 48 px box shrinks the 64 px canvas to 3/4; on a DPR 1 screen that
-// resampling greys the sub-pixel dots. Dots 4/3 larger cancel it, so the
-// 48 px orb draws the 64 preset's dots at their tuned size (DESIGN.md 3).
+// The 48 px orb draws the 64 preset at 3/4, which would shrink its dots
+// below a device pixel on a DPR 1 screen and grey them. Dots 4/3 larger keep
+// the preset's tuned dot size in CSS px (DESIGN.md 3).
 const DOT_SIZE: Record<OrbSize, number> = {
   48: 4 / 3,
   56: 1,
@@ -80,15 +74,15 @@ export function Orb({ state, held, live, control, size = 48, className }: OrbPro
         className,
       )}
     >
-      <ThinkingOrb
+      <OrbCanvas
         state={render.animation}
-        size={64}
+        preset={64}
+        size={size}
         theme={resolved}
         speed={render.speed}
         paused={render.paused}
         dotSize={DOT_SIZE[size]}
         aria-hidden="true"
-        className={SCALE[size]}
       />
     </button>
   );

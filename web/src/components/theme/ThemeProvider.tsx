@@ -14,7 +14,7 @@
 
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
 import type { ApparatusBridge } from "@/bridge";
-import { bootValue, bordersAttribute, BORDERS_KEY, parseBorders, storedBorders, type Borders } from "./borders";
+import { bootValue, bordersAttribute, BORDERS_KEY, DEFAULT_BORDERS, parseBorders, storedBorders, type Borders } from "./borders";
 import { isDark, parseTheme, THEME_KEY, type Theme } from "./theme";
 
 export type ThemeValue = {
@@ -104,7 +104,7 @@ export type ThemeProviderProps = {
   children: ReactNode;
 };
 
-export function ThemeProvider({ bridge, initial = "system", initialBorders = "on", children }: ThemeProviderProps) {
+export function ThemeProvider({ bridge, initial = "system", initialBorders = DEFAULT_BORDERS, children }: ThemeProviderProps) {
   const [theme, setThemeState] = useState<Theme>(() => {
     applyTheme(initial);
     writeLocal(THEME_KEY, initial === "system" ? null : initial);

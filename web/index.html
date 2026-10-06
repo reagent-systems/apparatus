@@ -9,7 +9,7 @@
 <script>
 // Theme and borders before first paint: the localStorage copies of
 // "apparatus.theme" (light | dark; absent = system) and "apparatus.borders"
-// (off; absent = on). ThemeProvider re-applies both from the bridge's
+// (on; absent = off, the borderless default). ThemeProvider re-applies both from the bridge's
 // secure store once the app boots.
 (function () {
   var root = document.documentElement;
@@ -19,8 +19,8 @@
   root.classList.toggle("dark", dark);
   var b = null;
   try { b = localStorage.getItem("apparatus.borders"); } catch (e) {}
-  if (b === "off") root.setAttribute("data-borders", "off");
-  else root.removeAttribute("data-borders");
+  if (b === "on") root.removeAttribute("data-borders");
+  else root.setAttribute("data-borders", "off");
 })();
 </script>
 </head>

@@ -7,14 +7,16 @@ export type Borders = "on" | "off";
 
 export const BORDERS_KEY = "apparatus.borders";
 
-/** Anything but "off" is the default: borders shown. */
+/** The default is off, borderless: anything but "on" parses to off. */
+export const DEFAULT_BORDERS: Borders = "off";
+
 export function parseBorders(value: string | null | undefined): Borders {
-  return value === "off" ? "off" : "on";
+  return value === "on" ? "on" : DEFAULT_BORDERS;
 }
 
-/** The stored value: "off", or null to remove the key (the default is never stored). */
+/** The stored value: "on", or null to remove the key (the default is never stored). */
 export function storedBorders(borders: Borders): string | null {
-  return borders === "off" ? "off" : null;
+  return borders === "on" ? "on" : null;
 }
 
 /**

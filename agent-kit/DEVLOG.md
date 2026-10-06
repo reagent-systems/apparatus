@@ -41,6 +41,15 @@ Evidence: <commit / tag / gate run / screenshot>
 
 <!-- Entries below, newest first. -->
 
+## 2026-10-06 — Borderless is the default
+
+The author asked for borderless as the default. A device with no stored choice now boots with
+borders off: one background and no lines. The store flipped with it: "on" is the value kept,
+and off removes the key. A device that stored "off" before stays off.
+
+Evidence: `npm --prefix web run verify` and `verify/verify.sh` pass; `test/borders.test.ts`
+checks the default, the parse, the stored value and the inline first-paint rule.
+
 ## 2026-10-05 — The orb became the agent's on-switch, centred, with no disc
 
 The author asked for one tap to turn the agent on and off on every screen, like the

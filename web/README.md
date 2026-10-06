@@ -87,7 +87,7 @@ rather than taking long prop lists.
 | `src/components/pane/` | `Inspector` (Output / Screen), `JobInspector` (Receipt / Steps / Artifacts), `ShowOutput`. |
 | `src/components/vm/` | `ScreenFrame` (watch or handoff, the control ring, input), `ScreenPip`, `useScreen`. |
 | `src/components/views/` | `JobsView` and `JobRow`, `AuditView` (`GET /audit`), `CreditsView` (`GET /credits`, Top up disabled). |
-| `src/components/theme/` | `ThemeProvider` / `useTheme()`: Light, Dark or System, and `resolved` (light or dark) for the orbs' ink; `.dark` on `<html>` before first paint (an inline script in `index.html`), persisted under `apparatus.theme`. Borders on or off the same way: `data-borders="off"` on `<html>`, persisted under `apparatus.borders`; the pure rules are in `borders.ts` (`test/borders.test.ts`). |
+| `src/components/theme/` | `ThemeProvider` / `useTheme()`: Light, Dark or System, and `resolved` (light or dark) for the orbs' ink; `.dark` on `<html>` before first paint (an inline script in `index.html`), persisted under `apparatus.theme`. Borders on or off the same way: `data-borders="off"` on `<html>`, persisted under `apparatus.borders` (borderless is the default; only "on" is stored); the pure rules are in `borders.ts` (`test/borders.test.ts`). |
 | `src/components/ui/*` | shadcn/ui primitives. No tooltip, sonner or toast: the UI holds no helper text. |
 | `src/hooks/` | `use-breakpoint` (phone < 768, tablet 768..1023, desktop >= 1024; `isTabletWidth()` for `hello.device`), `shortcuts` (pure key matcher) and `use-shortcuts` (the window binding). |
 | `src/vm/input.ts` | Pure: the `input` data-channel shape, pointer math over a letterboxed video, perfect-negotiation decisions. Tested in `test/vm-input.test.ts`. |

@@ -32,7 +32,7 @@ Conversation-first won the judging; it took the Jobs view, the Receipt / Steps /
 | Elevation | Borders, not shadows; one shadow on the composer | Flat surfaces read faster | Paseo, Claude Desktop |
 | Borders toggle | One preference, `borders: on \| off`, per device like the theme: a Borders switch under Appearance and a Borders row in the palette. Off hides every border, divider, rule and outline ring and puts every surface on the page background | The author: "add a toggle to remove borders and dividers"; "the toggle would make everything the same background" | The author |
 | Borders by token | Off is one block, `:root[data-borders="off"]`: `--border` and `--sidebar-border` go transparent, `--card`, `--popover` and `--sidebar` become `var(--background)`, the composer loses its shadow. A `flat:` utility covers each hard-coded colour | Lines keep their width, so nothing shifts; one block switches every primitive at once; the few hard-coded colours are named where they are drawn | — |
-| Borders default | On: the look above, unchanged | The spec's hairlines and stepped surfaces are the designed look; off is a preference, not a fix | The author |
+| Borders default | Off: borderless, one background and no lines. Borders on is the opt-in | The author: "Make the borderless the default please" | The author |
 | What keeps its fill | Controls and states: filled buttons (Approve, Done, Top up), the Switch, a selected, hovered or pressed row, chip or tab, status chips and badges, keycaps, progress bars, skeletons, the scrollbar thumb, the screen video and its letterbox. Floating layers keep their shadow | A fill on a control or a state is information, not a surface. The shadow is the only depth left, so a popover still separates from the page it covers | — |
 | Theme | Light default; dark on the same hue; System follows the OS | Antigravity's light mode was an afterthought | Quick, Paseo |
 | Copy | Every visible string is content or a one-word label from the `docs/STYLE.md` list. No placeholders, hints, captions, helper lines, empty-state text or toasts; icon buttons carry icons only; status is a glyph, a ring, a bar or a one-word chip | The author: "remove explanatory microcopy; no little reassurances; it's obvious what the buttons do" | The author, Cowork |
@@ -108,14 +108,14 @@ shadcn `Command` inside a `Dialog`, Cmd/Ctrl+K. Four groups with no headings, sp
 
 The orb is `thinking-orbs` and nothing else: no disc, no ring, no shadow, no background of its own, in Borders on and off alike. Its dots take the ink opposite the page, black in light mode and white in dark mode: `Orb` passes `theme="light"` or `theme="dark"` from `useTheme().resolved`, which follows a live theme switch. `theme="auto"` is not used, because the library falls back to the OS preference when `.dark` is absent, so Light on a dark OS would draw white dots on paper.
 
-| Place | Box | Transform | Preset | `dotSize` |
+| Place | Box | Drawn at | Preset | `dotSize` |
 |---|---|---|---|---|
-| Composer, desktop and tablet | 48 px | `scale-75` | 64 | 4/3 |
-| Composer, phone | 56 px | `scale-[.875]` | 64 | 1 |
-| Empty thread | 128 px, centered | `scale-200` | 64 | 1 |
-| Job rows, job card headers, turn headers, product mark | 20 px | none, `theme` from `useTheme().resolved` | 20 | 1 |
+| Composer, desktop and tablet | 48 px | 48 px, scale 3/4 | 64 | 4/3 |
+| Composer, phone | 56 px | 56 px, scale 7/8 | 64 | 1 |
+| Empty thread | 128 px, centered | 128 px, scale 2 | 64 | 1 |
+| Job rows, job card headers, turn headers, product mark | 20 px | 20 px, scale 1 | 20 | 1 |
 
-The 48 px orb passes `dotSize={4/3}`: `scale-75` shrinks the 64 px canvas, and on a DPR 1 screen that resampling greys the sub-pixel dots; dots 4/3 larger draw the preset's dots at their tuned size. The 128 px orb stays soft: the library sizes its backing store from `size` × DPR (capped at 2), not from the element, so `scale-200` enlarges a 64 px bitmap and no style on the canvas sharpens it. The ink is the library's depth ramp, not one flat colour: the nearest dots are black or white, farther dots fade toward the page. At idle (`breathing`) the nearest dot is a dark or light grey (about 80 on a light page, 170 on a dark one); `listening` reaches true black and white.
+Every orb is drawn crisp at its real size. `ThinkingOrb` sizes its backing store from its preset (64 or 20) × DPR, so a CSS scale on it resampled a bitmap: grey dots at 48 px, soft dashes at 128 px. `orb/OrbCanvas.tsx` draws instead with the library's own engine (`orb/orb-paint.ts`): `resolvePreset(state, preset)`, `MODE_FRAMES[mode](preset, t, opts)` and `paintFrame`, in a context scaled by (box / preset) × DPR (capped at 2). It keeps `ThinkingOrb`'s behaviour: `speed`, `paused` holds the current frame, reduced motion draws the static frame at raw t = 0.6, and the loop stops off-screen and while the tab is hidden. One frame loop drives every orb and reads `performance.now()` once per frame (`orb/orb-clock.ts`). At each preset's own size the canvas matches `ThinkingOrb` pixel for pixel. The 48 px orb passes `dotSize={4/3}`: at scale 3/4 the dots would fall below a device pixel on a DPR 1 screen and turn grey, so dots 4/3 larger keep the preset's dot size in CSS px. The ink is the library's depth ramp, not one flat colour: the nearest dots are black or white, farther dots fade toward the page. At idle (`breathing`) the nearest dot is a dark or light grey (about 80 on a light page, 170 on a dark one); `listening` reaches true black and white.
 
 State mapping stays in `orb-state.ts`: idle `breathing` (speed 0.5 while the Live session is closed), connecting `connecting`, listening `listening`, speaking `composing`, working `working`. Another device holding voice: paused at `opacity-40`.
 
@@ -185,7 +185,7 @@ Picture-in-picture: on desktop, when the pane is closed and a stream is open, a 
 
 **Credits** (Cmd/Ctrl+5): the balance at `text-5xl font-medium tabular-nums`, a 10 px dot beside it (`--status-ok` ok, `--status-wait` low, `--destructive` out), then the history as a two-column list (time, signed delta in mono). **Top up** stays a disabled primary button until a payment path exists.
 
-**Settings** live in the rail footer `Popover` and nowhere else: **Appearance** (Light / Dark / System, a `ToggleGroup`, and under it **Borders**, a `Switch` that is checked while borders show), **Notifications** (a `Switch`), and on the desktop **Status bar** (a `Switch`). There is no input setting: voice is full duplex. `theme/ThemeProvider.tsx` replaces `lib/theme.ts`: it writes `.dark` on `<html>` before first paint and persists the choice under `apparatus.theme`. It does the same for Borders: `data-borders="off"` on `<html>` from the same inline script in `index.html`, persisted under `apparatus.borders` (only "off" is stored; on removes the key), exposed as `borders` / `setBorders` on `useTheme()`. On boot both choices come from the secure store, or from the localStorage copy when the store holds none; the provider then rewrites that copy, so the next first paint matches. The pure rules are `theme/borders.ts`, tested in `test/borders.test.ts`. Nothing addresses an endpoint or a model.
+**Settings** live in the rail footer `Popover` and nowhere else: **Appearance** (Light / Dark / System, a `ToggleGroup`, and under it **Borders**, a `Switch` that is checked while borders show), **Notifications** (a `Switch`), and on the desktop **Status bar** (a `Switch`). There is no input setting: voice is full duplex. `theme/ThemeProvider.tsx` replaces `lib/theme.ts`: it writes `.dark` on `<html>` before first paint and persists the choice under `apparatus.theme`. It does the same for Borders: `data-borders="off"` on `<html>` from the same inline script in `index.html`, persisted under `apparatus.borders` (off, borderless, is the default and is never stored; "on" is stored, and off removes the key), exposed as `borders` / `setBorders` on `useTheme()`. On boot both choices come from the secure store, or from the localStorage copy when the store holds none; the provider then rewrites that copy, so the next first paint matches. The pure rules are `theme/borders.ts`, tested in `test/borders.test.ts`. Nothing addresses an endpoint or a model.
 
 ## 8. Visual language
 
@@ -394,7 +394,7 @@ Custom components, all under `web/src/components`:
 - `rail/Rail.tsx`, `rail/RailNav.tsx`, `rail/RailJobRow.tsx`, `rail/RailFooter.tsx` (avatar, device name, settings popover).
 - `thread/Thread.tsx`, `thread/DayDivider.tsx`, `thread/TurnHeader.tsx`, `thread/SpeechCard.tsx`, `thread/JobCard.tsx`, `thread/ActivitySlab.tsx`, `thread/ApprovalCard.tsx`, `thread/HandoffCard.tsx`, `thread/CreditsLine.tsx`, `thread/ScrollToEnd.tsx`.
 - `composer/VoiceComposer.tsx` (the centred orb and the heard line above it). `TalkButton.tsx` and `ModePicker.tsx` are gone.
-- `orb/Orb.tsx` (`size: 48 | 56 | 128`, the switch, no disc, the circular hit region, the ink from the resolved theme), `orb/use-orb-control.ts` (the tap: one click handler for a click, a touch, Enter and Space), `orb/OrbMini.tsx` (split out of `Orb.tsx`, the ink from the resolved theme).
+- `orb/Orb.tsx` (`size: 48 | 56 | 128`, the switch, no disc, the circular hit region, the ink from the resolved theme), `orb/use-orb-control.ts` (the tap: one click handler for a click, a touch, Enter and Space), `orb/OrbMini.tsx` (split out of `Orb.tsx`, the ink from the resolved theme), `orb/OrbCanvas.tsx` with `orb/orb-paint.ts` and `orb/orb-clock.ts` (the orb drawn at its real size, tested in `test/orb-paint.test.ts` and `test/orb-clock.test.ts`).
 - `status/StatusGlyph.tsx`, `status/ProgressRing.tsx`, `status/CountChip.tsx`.
 - `pane/Inspector.tsx` (evolves `Pane`), `pane/JobInspector.tsx` (Receipt / Steps / Artifacts tabs), `pane/ShowOutput.tsx` (keep).
 - `vm/ScreenFrame.tsx` (evolves `VmScreen`), `vm/ScreenPip.tsx`.
@@ -414,14 +414,14 @@ State and logic changes:
 
 ## 10. Risks and unverified items
 
-1. `thinking-orbs` presets are tuned designs, not scale factors. The 48 px orb's `dotSize` 4/3 was measured in headless Chromium at DPR 1 and 2 only. The 128 px orb at `scale-200` is soft by construction (section 3).
+1. `thinking-orbs` presets are tuned designs, not scale factors. The 48, 56 and 128 px orbs draw the 64 preset scaled (section 3); the 48 px orb's `dotSize` 4/3 and the crisp drawing were checked in headless Chromium at DPR 1 and 2 only. `OrbCanvas` calls the library's engine, so a `thinking-orbs` upgrade that changes `resolvePreset`, `MODE_FRAMES` or `paintFrame` changes the orb with it.
 2. The on-switch is tested as pure rules, on the controller with fakes, and in headless Chromium with a fake microphone. No real microphone, finger or screen reader has run it on a device.
 3. `progressHistory` is lost on reload because `ready.jobs` carries only the latest `progress`; the Steps tab is complete only for jobs seen live.
 4. `voice.release` reaches no other device: the server sends nothing on it, so another device's orb stays dimmed until its next `ready`. The watches release the same way.
 5. The circular hit region relies on `clip-path` hit testing; checked in headless Chromium only, not on iOS Safari or Android WebView.
 6. The Tauri overlay titlebar and the 76 px inset come from the Tauri 2 docs, not from this repo's `tauri.conf.json`; verify on macOS.
 7. Contrast is computed, not measured: `muted-foreground` on `background` is about 4.6:1; amber on paper is about 2.8:1, so amber colors glyphs and bars only; verify the credits-low number.
-8. Every orb takes its ink from `useTheme().resolved`. The library starts its resolved theme at dark and sets it in an effect; whether a light page shows one frame of white dots on mount was not checked frame by frame.
+8. Every orb takes its ink from `useTheme().resolved`. `OrbCanvas` reads it on the first frame, so a light page never draws white dots on mount; a DPR change while the page is open (a window moved to another screen) keeps the old backing store until a prop changes, as `ThinkingOrb` does.
 9. The shared screen store makes `useScreen` app-scoped; the PiP and the pane must not both call `open()` and `close()`.
 10. `react-resizable-panels` adds weight to a bundle the repo keeps small; the Sheet paths do not need it.
 11. The references' dark tokens are undocumented; the dark palette here is designed, not copied, and must be judged on screen.
