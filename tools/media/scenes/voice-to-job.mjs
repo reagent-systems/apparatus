@@ -9,7 +9,7 @@
 // line. The story ends on the poster frame, so the loop has no cut. The
 // window is tall enough that the thread never scrolls, and no taller.
 
-import { parkPointer, primeSwitch, tapOrb } from "../lib/browser.mjs";
+import { heardShownAt, listenCut, parkPointer, primeSwitch, tapOrb } from "../lib/browser.mjs";
 import { RAIL_COLLAPSED, columnClip } from "../lib/column.mjs";
 import { GIF_HEARD_MS, GIF_MIC_HOLD, GIF_WPS, LINES, speakResult } from "../lib/day.mjs";
 import { finish, record } from "../lib/gifscene.mjs";
@@ -40,15 +40,20 @@ export default {
       await sleep(600);
       // The story opens 0.3 s before the tap: the idle orb, then the switch.
       rec.marks.start = Date.now() - 300;
+      const tapAt = Date.now();
+      const heard = heardShownAt(page);
       await tapOrb(app, { big: true });
       await parkPointer(page);
       await live.user(LINES.ordersAsk, { ms: GIF_HEARD_MS });
+      // The fade, the idle orb and the wait for the first heard words come to
+      // about 1.5 s: whole frames of the orb before the words are cut.
+      const cuts = listenCut(tapAt, await heard, { keepMs: 800 });
       const { job_id } = await live.agent(LINES.ordersAck, { tool: { name: "start_job", args: { request: LINES.ordersJob } }, ms: 850 });
       await speakResult(app, job_id, { wps: GIF_WPS });
       await sleep(1000);
       rec.mark("end");
       await assertNoScroll(page);
-      return [await finish(rec, ctx, "voice-to-job.gif", { width: 880, posterMs: 1000, posterFade: 4 })];
+      return [await finish(rec, ctx, "voice-to-job.gif", { width: 880, posterMs: 1000, posterFade: 4, cuts })];
     });
   },
 };

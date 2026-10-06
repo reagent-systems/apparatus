@@ -7,7 +7,7 @@
 
 import fs from "node:fs";
 import path from "node:path";
-import { primeSwitch, tapOrb } from "../lib/browser.mjs";
+import { heardShownAt, listenCut, primeSwitch, tapOrb } from "../lib/browser.mjs";
 import { GIF_HEARD_MS, GIF_MIC_HOLD, GIF_WPS, LINES, speakResult } from "../lib/day.mjs";
 import { PALETTE } from "../lib/compose.mjs";
 import { dropFrames, editTime, encodeChecked, record } from "../lib/gifscene.mjs";
@@ -46,14 +46,19 @@ export default {
       await sleep(600);
       // The story opens 0.3 s before the tap: the idle orb, then the switch.
       rec.marks.start = Date.now() - 300;
+      const tapAt = Date.now();
+      const heard = heardShownAt(page);
       await tapOrb(app, { big: true });
       await live.user(LINES.ordersAsk, { ms: GIF_HEARD_MS });
+      // The fade, the idle orb and the wait for the first heard words come to
+      // about 1.5 s: whole frames of the orb before the words are cut.
+      const cuts = listenCut(tapAt, await heard, { keepMs: 800 });
       const { job_id } = await live.agent(LINES.ordersAck, { tool: { name: "start_job", args: { request: LINES.ordersJob } }, ms: 850 });
       await speakResult(app, job_id, { wps: GIF_WPS });
       await sleep(1000);
       rec.mark("end");
       const frames = await rec.stop({ from: "start", to: "end" });
-      frames.count = await editTime(rec.dir, frames, { posterMs: 1000, posterFade: 4 });
+      frames.count = await editTime(rec.dir, frames, { posterMs: 1000, posterFade: 4, cuts });
       for (let k = 0; k < frames.count; k++) await bezel(path.join(rec.dir, `frame-${String(k).padStart(5, "0")}.png`), frames.scale, PALETTE.light.hex);
       const gif = await encodeChecked({ input: frames.pattern, fps: frames.fps, out: path.join(ctx.out, "phone.gif"), width: null, dither: "bayer" });
       dropFrames(rec, ctx);

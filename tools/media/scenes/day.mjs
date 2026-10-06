@@ -21,7 +21,8 @@
 //      mid-run too.
 //   The phone takes the voice session and listens to "Which region brought
 //   in the most revenue?" over G at work (phone-listening). The agent answers
-//   it with R; R ends, G is let go and ends, the phone turns the agent off.
+//   it with R; R ends, G is let go and ends with its say line on its card,
+//   the phone turns the agent off.
 //   The desktop: approval-card, jobs (the pane on A's Receipt), palette,
 //   audit, credits. The phone: the sheet on A's Receipt (phone-sheet).
 //   E  "Get the export from the reports site. I'll do the login": a handoff,
@@ -165,7 +166,7 @@ async function phoneAt(phone, height) {
  * phone. Dark: the bezels get a lighter rim, so the outlines read.
  */
 const HERO = { pad: 44, top: 48, win: 900, gap: 44, watch: 196, ring: 14 };
-function heroPage({ theme, desktop, phone, watch, deskSize, phoneAspect }) {
+export function heroPage({ theme, desktop, phone, watch, deskSize, phoneAspect }) {
   const c = PALETTE[theme];
   const rim = theme === "dark" ? "oklch(0.30 0.006 60)" : c.border;
   const ring = theme === "dark" ? "0 0 0 2px oklch(0.32 0.006 60)," : "";
@@ -224,7 +225,7 @@ async function twoUp(on, off, out, theme) {
   return out;
 }
 
-/** Grow every file to the largest width and height among them, the capture centred on its page colour: one canvas for the close cards. */
+/** Grow every file to the largest width and height among them on its page colour, the capture at the left edge and centred top to bottom: one canvas for the close cards. */
 async function sameCanvas(files) {
   const sizes = [];
   for (const f of files) sizes.push((await run("identify", ["-format", "%w %h", f])).trim().split(" ").map(Number));
@@ -232,7 +233,7 @@ async function sameCanvas(files) {
   const H = Math.max(...sizes.map((s) => s[1]));
   for (const f of files) {
     const bg = (await run("convert", [f, "-format", "%[pixel:p{0,0}]", "info:"])).trim();
-    await run("convert", [f, "-background", bg, "-gravity", "center", "-extent", `${W}x${H}`, "-alpha", "off", f]);
+    await run("convert", [f, "-background", bg, "-gravity", "west", "-extent", `${W}x${H}`, "-alpha", "off", f]);
   }
   log(`day: ${files.map((f) => path.basename(f)).join(", ")} on one ${W} x ${H} canvas`);
 }
@@ -363,8 +364,16 @@ export default {
       await phone.live.endTurn();
       const r = (await phone.live.agent(LINES.revenueAck, { tool: { name: "start_job", args: { request: LINES.revenueJob } } })).job_id;
       await speakResult(phone, r);
+      // G's held events reach the pages now. The server sent its done event
+      // to the desktop, which held the voice session then, so nobody speaks
+      // it: the card ends with its say line.
       holdG.release();
-      await speakResult(phone, g);
+      await pp.waitForFunction(
+        (id) => document.querySelector(`[data-kind="job"][data-job-id="${id}"], [data-job-id="${id}"] [data-kind="job"]`)?.getAttribute("data-state") === "done" ||
+          [...document.querySelectorAll('[data-kind="job"][data-state="done"]')].some((el) => el.textContent.includes("Which region grew the most")),
+        g,
+        { timeout: 20_000 },
+      );
       await turnOff(phone);
       await sleep(800);
 

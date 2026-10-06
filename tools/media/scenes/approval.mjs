@@ -1,7 +1,7 @@
 // approval.gif: the thread column, drawn at 2x and scaled to 880 px. The
 // first frame is the poster: a job needs you, its approval card waits with
 // the amber bar, Approve and Deny. The pointer rests on Approve (its hover
-// fill), the user presses it and holds the press for about 5 frames, the bar
+// fill), the user presses it and holds the press for about 7 frames, the bar
 // goes and the card reads "Approved" for 0.7 s before the job's next event
 // reaches the page (pacer.notBefore), then the job's card returns with its
 // steps, the job ends with its table and report.csv, and the agent speaks its
@@ -38,7 +38,7 @@ export default {
       await approve.hover();
       await sleep(700); // the hover fill
       await page.mouse.down();
-      await sleep(450); // active:scale-[.97]: about 5 frames
+      await sleep(600); // active:scale-[.97]: about 7 frames
       // The job's next event waits 0.7 s at the browser, so "Approved" reads before the card moves.
       app.pacer.notBefore = Date.now() + 700;
       await page.mouse.up();

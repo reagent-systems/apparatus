@@ -371,3 +371,23 @@ export async function fitHeightToRow(page, { min, max, pad = 8, clear = null }) 
   }
   return height;
 }
+
+/** Resolves with the Date.now() time the composer first shows a heard line. */
+export function heardShownAt(page, timeout = 20_000) {
+  return page
+    .waitForFunction(() => (document.querySelector('[data-kind="composer"] [data-slot="heard"]')?.textContent ?? "").trim().length > 0, null, { timeout, polling: 30 })
+    .then(() => Date.now());
+}
+
+/**
+ * The cut that shortens the wait between the tap and the first heard words
+ * to `keepMs` (the idle orb before the tap counts as `preMs`): whole frames
+ * of the listening orb before the words arrive are dropped, `guardMs` before
+ * them, so the words still appear on a running orb. Returns [] when the
+ * wait is short enough.
+ */
+export function listenCut(tapAt, heardAt, { preMs = 300, keepMs = 1500, guardMs = 500 } = {}) {
+  const over = preMs + (heardAt - tapAt) - keepMs;
+  if (over <= 0) return [];
+  return [[heardAt - guardMs - over, heardAt - guardMs]];
+}

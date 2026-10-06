@@ -12,7 +12,7 @@ Every capture shows the default look, Borders off, except `borders-split`.
 ```sh
 npm --prefix tools/media install
 npm --prefix web run build
-node tools/media/capture.mjs --out docs/media
+MEDIA_ZONE=Etc/GMT-7 node tools/media/capture.mjs --out docs/media   # one clock for every scene
 rm docs/media/audit*.png docs/media/borders-on*.png   # made by the day scene, not published
 ```
 
