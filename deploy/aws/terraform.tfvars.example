@@ -1,0 +1,7 @@
+region             = "us-east-1"
+firebase_project_id = "my-firebase-project"
+# certificate_arn   = "arn:aws:acm:us-east-1:123456789012:certificate/..."
+# api_domain        = "api.example.com"
+# server_image      = "123456789012.dkr.ecr.us-east-1.amazonaws.com/apparatus-server:abc123"
+# gemini_api_key    = ""
+# auth_mode         = "firebase"

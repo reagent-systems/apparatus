@@ -5,7 +5,8 @@ The VM dials out. ``VmLink`` wraps one connected agentd and turns the
 message stream into awaitable calls. ``VmRegistry`` finds the link for a
 user and hands events to the job manager. ``VmController`` starts and stops
 the machine itself: ``local`` is a no-op for development; ``gce`` calls the
-Compute Engine API. ``IdleStopper`` stops a VM after idle time.
+Compute Engine API; ``ec2`` calls the EC2 API. ``IdleStopper`` stops a VM
+after idle time.
 """
 
 from __future__ import annotations
@@ -321,13 +322,112 @@ class GceVmController:
         return str(r.json().get("status", "UNKNOWN"))
 
 
-def make_vm_controller(kind: str, project: str, zone: str) -> VmController:
+# EC2 state names, translated into the words ``GceVmController`` already uses.
+# A stopped instance is TERMINATED: powered off, disk kept, start brings it back.
+_EC2_STATUS = {
+    "pending": "PROVISIONING",
+    "running": "RUNNING",
+    "stopping": "STOPPING",
+    "shutting-down": "STOPPING",
+    "stopped": "TERMINATED",
+}
+_EC2_VISIBLE = ("pending", "running", "stopping", "stopped", "shutting-down")
+
+
+class Ec2VmController:
+    """EC2 instances, one per user, started and stopped through the API.
+
+    The instance ``Name`` tag is ``instance_name(user_id)``. The task role needs
+    ``ec2:DescribeInstances``, plus ``ec2:StartInstances`` and ``ec2:StopInstances``
+    on instances tagged ``apparatus=vm``. The VM's instance role has no policies.
+    """
+
+    def __init__(self, region: str, client: Any | None = None):
+        if not region:
+            raise ValueError("ec2 controller needs EC2_REGION or AWS_REGION")
+        self.region = region
+        self.client = client
+
+    def _ec2(self) -> Any:
+        if self.client is None:
+            import boto3
+
+            self.client = boto3.client("ec2", region_name=self.region)
+        return self.client
+
+    def _instance(self, user_id: str) -> tuple[str, str] | None:
+        name = instance_name(user_id)
+        found: list[tuple[str, str]] = []
+        token: str | None = None
+        while True:
+            kwargs: dict[str, Any] = {
+                "Filters": [
+                    {"Name": "tag:Name", "Values": [name]},
+                    {"Name": "instance-state-name", "Values": list(_EC2_VISIBLE)},
+                ]
+            }
+            if token:
+                kwargs["NextToken"] = token
+            resp = self._ec2().describe_instances(**kwargs)
+            for reservation in resp.get("Reservations", []):
+                for inst in reservation.get("Instances", []):
+                    found.append((inst["InstanceId"], inst["State"]["Name"]))
+            token = resp.get("NextToken")
+            if not token:
+                break
+        if not found:
+            return None
+        if len(found) > 1:
+            raise VmUnavailable(f"more than one EC2 instance named {name}")
+        return found[0]
+
+    def _status(self, user_id: str) -> str:
+        found = self._instance(user_id)
+        if found is None:
+            return "NOT_FOUND"
+        return _EC2_STATUS.get(found[1], "UNKNOWN")
+
+    def _start(self, user_id: str) -> None:
+        found = self._instance(user_id)
+        if found is None:
+            raise VmUnavailable(f"no EC2 instance for {user_id}")
+        self._ec2().start_instances(InstanceIds=[found[0]])
+
+    def _stop(self, user_id: str) -> None:
+        found = self._instance(user_id)
+        if found is None:
+            return
+        self._ec2().stop_instances(InstanceIds=[found[0]])
+
+    async def start(self, user_id: str) -> None:
+        state = await asyncio.to_thread(self._status, user_id)
+        if state in ("RUNNING", "STAGING", "PROVISIONING"):
+            return
+        if state == "NOT_FOUND":
+            raise VmUnavailable(f"no EC2 instance for {user_id}")
+        if state == "STOPPING":
+            raise VmUnavailable(f"the EC2 instance for {user_id} is stopping")
+        await asyncio.to_thread(self._start, user_id)
+
+    async def stop(self, user_id: str) -> None:
+        state = await asyncio.to_thread(self._status, user_id)
+        if state in ("TERMINATED", "STOPPING", "NOT_FOUND"):
+            return
+        await asyncio.to_thread(self._stop, user_id)
+
+    async def status(self, user_id: str) -> str:
+        return await asyncio.to_thread(self._status, user_id)
+
+
+def make_vm_controller(kind: str, project: str, zone: str, region: str = "") -> VmController:
     if kind == "local":
         return LocalVmController()
     if kind == "gce":
         from .push import gce_metadata_token
 
         return GceVmController(project, zone, gce_metadata_token)
+    if kind == "ec2":
+        return Ec2VmController(region)
     raise ValueError(f"unknown vm controller {kind!r}")
 
 

@@ -21,5 +21,15 @@ data/
 .claude/ralph-loop.local.md
 .claude/*.local.md
 
+# Terraform
+.terraform/
+*.tfstate
+*.tfstate.*
+*.tfvars
+!*.tfvars.example
+crash.log
+override.tf
+override.tf.json
+
 # OS
 .DS_Store

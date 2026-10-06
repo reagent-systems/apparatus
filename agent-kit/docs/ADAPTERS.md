@@ -2,8 +2,8 @@
 
 An adapter connects apparatus to one environment: where state lives, who signs the user in,
 how a VM starts, how a push is sent, which model answers. apparatus has 8 adapter seams.
-Each is a Python `Protocol` with 2 implementations; the first listed is the default and the
-safe one. Select one with the environment variable named in each section.
+Each is a Python `Protocol` with 2 or more implementations. The first listed is the default
+and the safe one. Select one with the environment variable named in each section.
 
 ## Store (`APPARATUS_STORE`)
 
@@ -31,11 +31,16 @@ Interface: `auth.py` `Authenticator.user_id(token) -> str`.
 ## VM controller (`APPARATUS_VM_CONTROLLER`)
 
 `local` does nothing: agentd runs on this machine. `gce` starts and stops the user's
-Compute Engine instance, named by `vm.instance_name(user_id)`.
+Compute Engine instance, named by `vm.instance_name(user_id)`. `ec2` starts and stops
+the EC2 instance whose `Name` tag is that same name.
 
 ```sh
 APPARATUS_VM_CONTROLLER=gce GCE_PROJECT=my-project GCE_ZONE=us-central1-a
+APPARATUS_VM_CONTROLLER=ec2 EC2_REGION=us-east-1
 ```
+
+`EC2_REGION` wins when `AWS_REGION` is also set. A stopped EC2 instance is reported as
+`TERMINATED`, the same word the GCE controller uses for a powered-off VM.
 
 Interface: `vm.py` `VmController` — `start`, `stop`, `status`.
 

@@ -1,0 +1,59 @@
+# Deploy the session server to ECS and refresh the user-VM image.
+# Runs by hand. Needs an IAM role that GitHub Actions can assume:
+#   vars.AWS_DEPLOY_ROLE_ARN, vars.AWS_REGION
+# Image builds also need vars.AWS_BUILD_BUCKET, vars.AWS_BUILDER_SUBNET, vars.AWS_BUILDER_SG
+# (the terraform outputs of the same names). Without AWS_DEPLOY_ROLE_ARN every job skips.
+# Nothing here holds a key.
+name: Deploy AWS
+on:
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: Target environment
+        default: staging
+        type: choice
+        options: [staging, production]
+permissions:
+  contents: read
+  id-token: write
+jobs:
+  server:
+    if: vars.AWS_DEPLOY_ROLE_ARN != ''
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    environment: ${{ inputs.environment || 'production' }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ vars.AWS_DEPLOY_ROLE_ARN }}
+          aws-region: ${{ vars.AWS_REGION }}
+      - name: Build and push the server image to ECR
+        id: push
+        run: echo "image=$(deploy/aws/push-server.sh)" >> "$GITHUB_OUTPUT"
+        env:
+          AWS_REGION: ${{ vars.AWS_REGION }}
+      - name: Roll the ECS service
+        run: deploy/aws/deploy-server.sh
+        env:
+          AWS_REGION: ${{ vars.AWS_REGION }}
+          IMAGE: ${{ steps.push.outputs.image }}
+
+  vm-image:
+    if: vars.AWS_DEPLOY_ROLE_ARN != ''
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    environment: ${{ inputs.environment || 'production' }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ vars.AWS_DEPLOY_ROLE_ARN }}
+          aws-region: ${{ vars.AWS_REGION }}
+      - name: Build the user-VM image with vm/setup.sh on a builder instance
+        run: deploy/aws/build-vm-image.sh
+        env:
+          AWS_REGION: ${{ vars.AWS_REGION }}
+          AWS_BUILD_BUCKET: ${{ vars.AWS_BUILD_BUCKET }}
+          AWS_BUILDER_SUBNET: ${{ vars.AWS_BUILDER_SUBNET }}
+          AWS_BUILDER_SG: ${{ vars.AWS_BUILDER_SG }}

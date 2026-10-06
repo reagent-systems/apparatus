@@ -3,7 +3,8 @@
 # Run once as root on the image-builder VM, then create an image from its disk:
 #   gcloud compute images create apparatus-vm-$(date +%Y%m%d) --source-disk=<builder-disk> --family=apparatus-vm
 # The design spec: light desktop, Chromium, Python, agentd as a daemon, one outbound connection,
-# no inbound ports, metadata server blocked for the agent, VM service account with no permissions.
+# no inbound ports, metadata server blocked for the agent, VM identity with no permissions.
+# The same image boots on Compute Engine and on EC2. vm/startup.sh reads whichever metadata service answers.
 set -euo pipefail
 export DEBIAN_FRONTEND=noninteractive
 

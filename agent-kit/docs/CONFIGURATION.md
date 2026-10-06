@@ -130,8 +130,9 @@ TURN credentials follow coturn `use-auth-secret`: username is `<unix expiry>:app
 | `APPARATUS_STORE` | `memory` | Store adapter: `memory` or `file`. |
 | `APPARATUS_DATA_DIR` | `data` | Folder for the `file` store. |
 | `APPARATUS_VM_ENROLL_SECRET` | empty | Shared secret behind the VM hello HMAC. Empty accepts every VM (development). |
-| `APPARATUS_VM_CONTROLLER` | `local` | `local` (no-op) or `gce` (Compute Engine start/stop). |
+| `APPARATUS_VM_CONTROLLER` | `local` | `local` (no-op), `gce` (Compute Engine start/stop), or `ec2` (EC2 start/stop). |
 | `GCE_PROJECT` / `GCE_ZONE` | empty | For the `gce` controller. |
+| `EC2_REGION` | `AWS_REGION`, else empty | Region for the `ec2` controller. `EC2_REGION` wins over `AWS_REGION`. |
 | `APPARATUS_PUSH` | `log` | Push adapter: `log` or `fcm`. |
 | `APPARATUS_WEB_DIST` | `web/dist` | Folder with the built web app, served at `/`. |
 | `APPARATUS_TURN_URL` | empty | TURN relay for the screen stream, for example `turn:1.2.3.4:3478?transport=udp`. Empty: STUN only. |
