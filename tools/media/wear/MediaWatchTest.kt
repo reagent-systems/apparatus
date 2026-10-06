@@ -40,8 +40,9 @@ class MediaWatchTest {
             2600L to UiState(state = OrbState.Working, held = true, live = true, inCall = true),
             3500L to UiState(state = OrbState.Idle, held = true, live = false, inCall = false),
         )
-        const val END_MS = 7000L
-        const val FPS = 15
+        /** A long breathing tail: tools/media looks in it for the frame that loops back into the first. */
+        const val END_MS = 10000L
+        const val FPS = 50
     }
 
     // The Android Studio "Wear OS Large Round" AVD: 454 px, hdpi.

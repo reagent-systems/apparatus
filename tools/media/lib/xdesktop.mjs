@@ -102,10 +102,12 @@ export async function startDesktop({ work, width = 1280, height = 800, apps = []
     await stop();
     throw e;
   }
-  /** Start one more X app on this display, as a user opens a window. */
+  /** Start one more X app on this display, as a user opens a window. Resolves with its process. */
   const open = async (argv) => {
-    procs.push(start(argv, env, log));
+    const child = start(argv, env, log);
+    procs.push(child);
     await sleep(1500);
+    return child;
   };
   return { display, stop, log, env, open };
 }

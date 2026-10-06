@@ -29,6 +29,9 @@ rm docs/media/audit*.png docs/media/borders-on*.png   # made by the day scene, n
 
 ## GIFs
 
+The GIFs play at 50 fps (2 cs a frame), each frame its own moment of the app, captured on the page's own clock; the watch GIFs are Paparazzi renders at 50 fps.
+`screen-control.gif` shows the live VM stream: each of its frames is taken once the page's video matches the VM's screen.
+
 <img alt="A spoken request becomes a job with a table and report.csv" src="voice-to-job.gif">
 
 `voice-to-job.gif`: speak; the agent starts a job and says the result.
@@ -74,3 +77,18 @@ Each still has a `-dark` variant, except `watch-strip.png`.
 <img alt="Wear OS: off, listening, speaking, working" src="watch-strip.png">
 
 `watch-strip.png`: the Wear OS app, off, listening, speaking, working.
+
+## Phone
+
+The phone tour: one request from the empty thread to the end, at 390 × 844 points.
+
+| | | |
+|---|---|---|
+| <img width="240" alt="Phone: the empty thread, the orb off" src="phone/phone-1-empty.png"><br>Empty | <img width="240" alt="Phone: listening, what the model heard above the orb" src="phone/phone-2-listening.png"><br>Listening | <img width="240" alt="Phone: the request in the thread, the job running with its steps" src="phone/phone-3-working.png"><br>Working |
+| <img width="240" alt="Phone: the job done, its table and report.csv in the thread" src="phone/phone-4-done.png"><br>Done | <img width="240" alt="Phone: the pane as a bottom sheet on the job's receipt" src="phone/phone-5-receipt.png"><br>Receipt | <img width="240" alt="Phone: the pane on the job's steps" src="phone/phone-6-steps.png"><br>Steps |
+| <img width="240" alt="Phone: the pane on the job's artifacts, report.csv" src="phone/phone-7-artifacts.png"><br>Artifacts | <img width="240" alt="Phone: the agent asks to send an email, with Approve and Deny" src="phone/phone-8-approval.png"><br>Approval | <img width="240" alt="Phone: the email approved, the agent says it will send it" src="phone/phone-9-approved.png"><br>Approved |
+| <img width="240" alt="Phone: a handoff, the reports site sign-in, with Done and Cancel" src="phone/phone-10-handoff.png"><br>Handoff | <img width="240" alt="Phone: the Screen tab on the Android device, with Release" src="phone/phone-11-screen.png"><br>Screen | <img width="240" alt="Phone: Jobs grouped as Needs you, Running and Done" src="phone/phone-12-jobs.png"><br>Jobs |
+| <img width="240" alt="Phone: the rail as a sheet over the thread" src="phone/phone-13-menu.png"><br>Rail | <img width="240" alt="Phone: Settings with Appearance, Borders and Notifications" src="phone/phone-14-settings.png"><br>Settings | <img width="240" alt="Phone: Credits, the balance and each charge" src="phone/phone-15-credits.png"><br>Credits |
+| <img width="240" alt="Phone: a follow-up answered with revenue by region, the orb speaking" src="phone/phone-16-speaking.png"><br>Speaking | <img width="240" alt="Phone: the thread with Borders on" src="phone/phone-17-borders-on.png"><br>Borders on | |
+
+Each phone screen has a `-dark` twin, for example `phone/phone-1-empty-dark.png`.

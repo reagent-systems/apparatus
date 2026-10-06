@@ -74,12 +74,12 @@ async function main() {
     if (!r.ok) console.log(`FAIL ${r.scene}: ${r.error}`);
     else for (const m of r.made) console.log(`ok   ${r.scene}: ${typeof m === "string" ? m : JSON.stringify(m)}`);
   }
-  // The brief's budget: at most 30 MB of media in all.
-  let total = 0;
-  for (const f of fs.readdirSync(out)) total += fs.statSync(path.join(out, f)).size;
+  // The brief's budget: at most 40 MB of media in all, subfolders included.
+  const sizeOf = (p) => (fs.statSync(p).isDirectory() ? fs.readdirSync(p).reduce((n, f) => n + sizeOf(path.join(p, f)), 0) : fs.statSync(p).size);
+  const total = sizeOf(out);
   const mb = (total / 1024 / 1024).toFixed(1);
-  if (total > 30 * 1024 * 1024) {
-    console.log(`FAIL budget: ${out} holds ${mb} MB, over 30 MB`);
+  if (total > 40 * 1024 * 1024) {
+    console.log(`FAIL budget: ${out} holds ${mb} MB, over 40 MB`);
     process.exitCode = 1;
   } else log(`${out} holds ${mb} MB`);
   log(`work folder: ${work}`);

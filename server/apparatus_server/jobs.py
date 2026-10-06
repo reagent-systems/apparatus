@@ -810,6 +810,9 @@ def step_summary(call: FunctionCall) -> str:
     if call.name == "python":
         code = str(args.get("code", ""))
         line = next((ln.strip() for ln in code.splitlines() if ln.strip()), "")
+        # Code that opens with a comment names the step in plain words.
+        if line.startswith("# ") and line[2:].strip():
+            return line[2:].strip()[:STEP_LINE_MAX]
         return f"python: {line[:STEP_LINE_MAX]}"
     if call.name == "computer":
         text = f"computer: {args.get('action', '')}"

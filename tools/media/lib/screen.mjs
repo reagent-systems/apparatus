@@ -29,20 +29,28 @@ const EDGE = "#c9c2b6";
 /** Open the terminal in `cwd` with `home` as its HOME, sized and placed for the screen's width. */
 export async function openTerminal(desk, home, cwd) {
   const k = desk.width / 1280;
-  const shell = ["env", "-i", `HOME=${home}`, "PATH=/usr/local/bin:/usr/bin:/bin", "TERM=xterm-256color", `PS1=${PS1}`, "bash", "--norc", "--noprofile", "-i"];
+  // `desk.termCursor` false: each prompt hides the text cursor (DECTCEM), so no frame shows one.
+  const ps1 = desk.termCursor === false ? `\\[\\e[?25l\\]${PS1}` : PS1;
+  const shell = ["env", "-i", `HOME=${home}`, "PATH=/usr/local/bin:/usr/bin:/bin", "TERM=xterm-256color", `PS1=${ps1}`, "bash", "--norc", "--noprofile", "-i"];
   const q = (a) => `'${a}'`;
-  const xterm = ["-fa", "JetBrains Mono", "-fs", String(Math.round(26 * k)), "-bg", PAPER, "-fg", INK, "-cr", INK, "-b", String(Math.round(22 * k)), "-bw", "1", "-bd", EDGE];
+  // `desk.termFontPx` overrides the scaled size: at small sizes the font's advance grows, and a
+  // 640 px screen needs a size smaller than the scale gives for the terminal to clear the clock.
+  const xterm = ["-fa", "JetBrains Mono", "-fs", String(desk.termFontPx ?? Math.round(26 * k)), "-bg", PAPER, "-fg", INK, "-cr", INK, "-b", String(Math.round(22 * k)), "-bw", "1", "-bd", EDGE];
   const geometry = `36x9+${Math.round(90 * k)}+${Math.round(90 * k)}`;
   await desk.open(["xterm", ...xterm, "-T", "terminal", "-geometry", geometry, "-e", "sh", "-c", `cd ${q(cwd)} && exec ${shell.map(q).join(" ")}`]);
   const fonts = await run("sh", ["-c", "fc-match 'JetBrains Mono'"], { env: desk.env });
   if (!/JetBrains/i.test(fonts)) throw new Error(`the terminal font is not JetBrains Mono: ${fonts.trim()}`);
 }
 
-/** A second window, so the desktop reads as used: an analogue xclock in the same paper and ink, its second hand ticking, clear of the terminal. */
-export async function openClock(desk) {
+/**
+ * A second window, so the desktop reads as used: an analogue xclock in the same paper and ink,
+ * clear of the terminal, its second hand ticking; `seconds` false draws the hour and minute
+ * hands only (xclock's default minute update). Resolves with the xclock process.
+ */
+export async function openClock(desk, { seconds = true } = {}) {
   const k = desk.width / 1280;
   const d = Math.round(250 * k);
-  await desk.open(["xclock", "-analog", "-update", "1", "-bg", PAPER, "-fg", INK, "-hd", INK, "-hl", INK, "-bw", "1", "-bd", EDGE, "-padding", String(Math.round(16 * k)), "-geometry", `${d}x${d}+${desk.width - d - Math.round(40 * k)}+${Math.round(90 * k)}`]);
+  return desk.open(["xclock", "-analog", ...(seconds ? ["-update", "1"] : []), "-bg", PAPER, "-fg", INK, "-hd", INK, "-hl", INK, "-bw", "1", "-bd", EDGE, "-padding", String(Math.round(16 * k)), "-geometry", `${d}x${d}+${desk.width - d - Math.round(40 * k)}+${Math.round(90 * k)}`]);
 }
 
 /** Wait until the page's screen video has decoded frames; resolve with its size. */
@@ -77,13 +85,33 @@ export async function terminalBox(desk) {
   return { x: Number(v.X), y: Number(v.Y), w: Number(v.WIDTH), h: Number(v.HEIGHT) };
 }
 
-/** Type as the user, with this device holding Control: the page's own key events, sent on to the VM by agentd. */
-export async function typeUnderControl(page, text, { delay = 45, enter = true } = {}) {
+/**
+ * Type as the user, with this device holding Control: the page's own key events, sent on to the VM by agentd.
+ * `holdMs` > 0 holds each key down that long, as a hand does, instead of sending its down and up back to back.
+ */
+export async function typeUnderControl(page, text, { delay = 45, enter = true, holdMs = 0 } = {}) {
+  if (holdMs > 0) {
+    for (const ch of text) {
+      await page.keyboard.down(ch);
+      await sleep(holdMs);
+      await page.keyboard.up(ch);
+      await sleep(delay);
+    }
+    if (enter) {
+      await page.keyboard.down("Enter");
+      await sleep(holdMs);
+      await page.keyboard.up("Enter");
+    }
+    return;
+  }
   await page.keyboard.type(text, { delay });
   if (enter) await page.keyboard.press("Enter");
 }
 
-/** `opts.screen` is the X screen's size (default SCREEN). */
+/**
+ * `opts.screen` is the X screen's size (default SCREEN). `opts.clockSeconds` false opens the
+ * clock without a second hand; `desk.clock` is the xclock process.
+ */
 export async function withScreen(ctx, opts, fn) {
   const work = path.join(ctx.work, opts.name, "x");
   fs.rmSync(work, { recursive: true, force: true });
@@ -95,7 +123,7 @@ export async function withScreen(ctx, opts, fn) {
     // The X pointer rests in the bottom-right corner, where its arrow falls
     // off the screen, until a scene moves it on purpose.
     await run("xdotool", ["mousemove", String(screen.width - 1), String(screen.height - 1)], { env: desk.env });
-    await openClock(desk);
+    desk.clock = await openClock(desk, { seconds: opts.clockSeconds ?? true });
     await grab(desk.display, path.join(work, "x-root.png"));
     return await withApp(ctx, { ...opts, desktop: "xdo", display: desk.display, screen }, async (app, extra) => fn(app, { ...extra, desk }));
   } finally {
@@ -117,19 +145,24 @@ export async function showScreen(app, name) {
  * it waits for a key frame. Such frames are dropped: each one is replaced by
  * the last good frame before it, a hold of real frames. A frame is bad when
  * the mean colour of `region` (frame pixels, a patch of the X root window no
- * window covers) is more than `tolerance` off the median across all frames.
- * Returns the indices it replaced.
+ * window covers; or a list of such patches) is more than `tolerance` off its
+ * median across all frames, in any patch. Returns the indices it replaced.
  */
 export async function dropDecodeGlitches(dir, region, { tolerance = 6 } = {}) {
   const files = fs.readdirSync(dir).filter((f) => /^frame-\d+\.png$/.test(f)).sort();
-  const crop = `${region.w}x${region.h}+${region.x}+${region.y}`;
-  const means = [];
+  const regions = [].concat(region);
+  const means = []; // per frame, per patch: [r, g, b]
   for (const f of files) {
-    const out = await run("convert", [path.join(dir, f), "-crop", crop, "+repage", "-resize", "1x1!", "-format", "%[fx:int(255*r)] %[fx:int(255*g)] %[fx:int(255*b)]", "info:"]);
-    means.push(out.trim().split(" ").map(Number));
+    const per = [];
+    for (const r of regions) {
+      const out = await run("convert", [path.join(dir, f), "-crop", `${r.w}x${r.h}+${r.x}+${r.y}`, "+repage", "-resize", "1x1!", "-format", "%[fx:int(255*r)] %[fx:int(255*g)] %[fx:int(255*b)]", "info:"]);
+      per.push(out.trim().split(" ").map(Number));
+    }
+    means.push(per);
   }
-  const median = [0, 1, 2].map((c) => [...means.map((m) => m[c])].sort((a, b) => a - b)[Math.floor(means.length / 2)]);
-  const bad = means.map((m) => Math.max(...m.map((v, c) => Math.abs(v - median[c]))) > tolerance);
+  const medians = regions.map((_, i) => [0, 1, 2].map((c) => means.map((m) => m[i][c]).sort((a, b) => a - b)[Math.floor(means.length / 2)]));
+  const median = medians[0];
+  const bad = means.map((per) => per.some((m, i) => Math.max(...m.map((v, c) => Math.abs(v - medians[i][c]))) > tolerance));
   const replaced = [];
   for (let k = 0; k < files.length; k++) {
     if (!bad[k]) continue;

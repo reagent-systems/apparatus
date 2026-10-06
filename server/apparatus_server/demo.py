@@ -168,8 +168,9 @@ def _story(request: str) -> Story:
 
 
 def _code(story: Story, approve: bool) -> str:
+    # The opening comment is the step's feed row (jobs.step_summary).
     lines = [
-        f"# {story.show.splitlines()[0].removeprefix('## ')}",
+        "# Checking the table",
         "import csv",
         "import os",
         "import agentlib",

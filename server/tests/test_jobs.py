@@ -16,7 +16,7 @@ from apparatus_server.audit import Audit
 from apparatus_server.clients import ClientConn, ClientHub
 from apparatus_server.config import load_settings
 from apparatus_server.demo import _week, demo_model
-from apparatus_server.jobs import JobManager
+from apparatus_server.jobs import JobManager, step_summary
 from apparatus_server.ledger import InsufficientCredits, Ledger
 from apparatus_server.main import build_deps
 from apparatus_server.model import FakeSmartModel, FunctionCall, ModelReply, Usage
@@ -347,6 +347,15 @@ async def test_computer_is_refused_on_the_server_while_a_handoff_is_open(world_f
     assert first.status == JobStatus.DONE
 
 
+def test_a_python_step_that_opens_with_a_comment_reads_as_the_comment():
+    def row(code: str) -> str:
+        return step_summary(FunctionCall("c", "python", {"code": code}))
+
+    assert row("\n# Load the orders\nimport csv") == "Load the orders"
+    assert row("#!/usr/bin/env python\nx = 1") == "python: #!/usr/bin/env python"
+    assert row("#\nx = 1") == "python: #"
+
+
 async def test_tool_steps_reach_the_feed_and_the_job_history(world_factory):
     replies = [
         py("\n\n  import math  \nprint(math.pi)"),
@@ -395,7 +404,7 @@ async def test_demo_model_runs_a_full_job(world_factory):
         "Opening orders.csv",
         "Grouping by region",
         "Writing report.csv",
-        "python: # Weekly orders",
+        "Checking the table",
     ]
     assert job.say == "North leads with 42 orders this week. The table is in report.csv."
 

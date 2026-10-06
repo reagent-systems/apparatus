@@ -13,17 +13,23 @@ import { log, mkdirp, run, sleep } from "./util.mjs";
  * Run `fn(app, extra)` against a fresh server and agentd.
  * `mic` is a list of [startMs, endMs] speech segments, timed from the moment
  * the microphone opens (the orb tap); empty means a silent microphone.
+ * `micMs` is the WAV's length: Chromium loops it, so a switch that stays on
+ * longer than that hears the segments again.
+ * `vtime` (a frame rate) runs the page on page time (lib/vtime.mjs), for GIFs
+ * captured frame by frame; 0 keeps the wall clock.
+ * `stackEnv` adds settings from the environment to the server and agentd
+ * (such as AGENTD_STREAM_FPS, the VM stream's capture rate).
  */
-export async function withApp(ctx, { name, device = "desktop", theme = "light", borders = "off", prefs = {}, mic = MIC_SEGMENTS, desktop = "fake", display = null, screen = null, paceJobsMs = 0, hold = null, platform = null }, fn) {
+export async function withApp(ctx, { name, device = "desktop", theme = "light", borders = "off", prefs = {}, mic = MIC_SEGMENTS, micMs = 60_000, desktop = "fake", display = null, screen = null, paceJobsMs = 0, hold = null, platform = null, vtime = 0, stackEnv = {} }, fn) {
   const work = mkdirp(path.join(ctx.work, name));
-  const wav = await micWav(path.join(work, "mic.wav"), { segments: mic });
-  const stack = await startStack({ work: path.join(work, "stack"), webDist: ctx.webDist, desktop, display, screen });
+  const wav = await micWav(path.join(work, "mic.wav"), { segments: mic, totalMs: micMs });
+  const stack = await startStack({ work: path.join(work, "stack"), webDist: ctx.webDist, desktop, display, screen, env: stackEnv });
   log(`${name}: server ${stack.origin}, agentd pid ${stack.agentd.pid}`);
   let browser = null;
   const noise = [];
   try {
     browser = await launch({ micWav: wav });
-    const app = await openApp(browser, stack, { device, theme, borders, prefs, noise, paceJobsMs, hold, platform });
+    const app = await openApp(browser, stack, { device, theme, borders, prefs, noise, paceJobsMs, hold, platform, vtime });
     app.stack = stack;
     app.work = work;
     return await fn(app, { browser, stack, work, noise });

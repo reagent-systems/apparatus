@@ -14,6 +14,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { speechPcm } from "./audio.mjs";
 import { REPO, sleep } from "./util.mjs";
+import { WALL } from "./vtime.mjs";
 
 /** LIVE_URL as the client has it, read from the source so the two never drift. */
 export function liveUrl() {
@@ -58,6 +59,9 @@ export class LiveStandIn {
     this.waiters = [];
     this.calls = 0;
     this.seed = 7;
+    // The clock its lines are paced on: the wall, or page time (lib/vtime.mjs),
+    // where a wait for the client also lets page time run when the client needs it.
+    this.clock = WALL;
   }
 
   /** Answer the client's Live socket on this page (or context). */
@@ -130,16 +134,20 @@ export class LiveStandIn {
   }
 
   async connected(timeout = 20_000) {
-    const until = Date.now() + timeout;
-    while (Date.now() < until) {
-      if (this.conn) return this.conn;
-      await sleep(50);
-    }
-    throw new Error("the client opened no Live session");
+    if (this.conn) return this.conn;
+    const poll = async () => {
+      const until = Date.now() + timeout;
+      while (Date.now() < until) {
+        if (this.conn) return this.conn;
+        await sleep(50);
+      }
+      throw new Error("the client opened no Live session");
+    };
+    return this.clock.until(poll());
   }
 
   activity(kind, since, timeout) {
-    return this.waitMessage((e) => e.m.realtimeInput && kind in e.m.realtimeInput, { since, timeout, what: `realtimeInput.${kind}` });
+    return this.clock.until(this.waitMessage((e) => e.m.realtimeInput && kind in e.m.realtimeInput, { since, timeout, what: `realtimeInput.${kind}` }));
   }
 
   /**
@@ -167,7 +175,7 @@ export class LiveStandIn {
     const parts = deltas(text, 2);
     const step = Math.max(60, ms / parts.length);
     for (const p of parts) {
-      await sleep(step);
+      await this.clock.sleep(step);
       if (transcribe) this.send({ serverContent: { inputTranscription: { text: p } } });
     }
     this.transcribing = transcribe;
@@ -192,7 +200,7 @@ export class LiveStandIn {
     const bytesPerMs = 48; // 24 kHz, 16-bit mono
     const chunks = Math.ceil(ms / chunkMs);
     const parts = deltas(text, 3);
-    const started = Date.now();
+    const started = this.clock.now();
     let sentParts = 0;
     for (let i = 0; i < chunks; i++) {
       const slice = pcm.subarray(i * chunkMs * bytesPerMs, Math.min(pcm.length, (i + 1) * chunkMs * bytesPerMs));
@@ -200,8 +208,8 @@ export class LiveStandIn {
       const due = Math.min(parts.length, Math.ceil(((i + 1) / chunks) * parts.length));
       while (sentParts < due) this.send({ serverContent: { outputTranscription: { text: parts[sentParts++] } } });
       // Stay about 300 ms ahead of the playhead.
-      const ahead = (i + 1) * chunkMs - (Date.now() - started);
-      if (ahead > 300) await sleep(ahead - 300);
+      const ahead = (i + 1) * chunkMs - (this.clock.now() - started);
+      if (ahead > 300) await this.clock.sleep(ahead - 300);
     }
     // The spoken part ends with a finished output transcription, as Live
     // marks the end of a transcription, so the client finalises the line in
@@ -224,8 +232,8 @@ export class LiveStandIn {
     });
     this.send({ serverContent: { turnComplete: true } });
     this.userMs = 0;
-    const left = ms - (Date.now() - started);
-    if (left > 0) await sleep(left + 150);
+    const left = ms - (this.clock.now() - started);
+    if (left > 0) await this.clock.sleep(left + 150);
     return toolResult;
   }
 
@@ -235,19 +243,19 @@ export class LiveStandIn {
     const id = `call-${++this.calls}`;
     const since = Date.now();
     this.send({ toolCall: { functionCalls: [{ id, name, args }] } });
-    const e = await this.waitMessage(
+    const e = await this.clock.until(this.waitMessage(
       (x) => x.m.toolResponse?.functionResponses?.some((r) => r.id === id),
       { since, timeout, what: `toolResponse for ${name}` },
-    );
+    ));
     return e.m.toolResponse.functionResponses.find((r) => r.id === id).response;
   }
 
   /** The next `<event>` turn the client injects that matches `re`. Returns its text. */
   async event(re, { timeout = 60_000, since = 0 } = {}) {
-    const e = await this.waitMessage(
+    const e = await this.clock.until(this.waitMessage(
       (x) => (x.m.clientContent?.turns ?? []).some((t) => (t.parts ?? []).some((p) => re.test(p.text ?? ""))),
       { since, timeout, what: `an event turn matching ${re}` },
-    );
+    ));
     const text = e.m.clientContent.turns.flatMap((t) => t.parts.map((p) => p.text)).join("");
     return text.replace(/^<event>|<\/event>$/g, "");
   }

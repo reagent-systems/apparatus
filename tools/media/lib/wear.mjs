@@ -39,11 +39,21 @@ export function prepareWear(work) {
   return proj;
 }
 
+/** MediaWatchTest.FPS: the rate Paparazzi renders the call at (50, a 2 cs GIF delay). */
+export function watchFps() {
+  const m = /const val FPS = (\d+)/.exec(fs.readFileSync(path.join(MEDIA, "wear", "MediaWatchTest.kt"), "utf8"));
+  if (!m) throw new Error("wear/MediaWatchTest.kt declares no FPS");
+  return Number(m[1]);
+}
+
 /**
  * Render the call and split it into frames. Resolves with
- * { dir, pattern, count, fps, size }; frame k is at k / fps seconds.
+ * { dir, pattern, count, fps, size }; frame k is at k / fps seconds. The rate
+ * is the test's own (watchFps), so the two never drift; each APNG frame must
+ * last 1 / fps s.
  */
-export async function renderWatchCall(work, { fps = 15 } = {}) {
+export async function renderWatchCall(work) {
+  const fps = watchFps();
   const proj = prepareWear(work);
   log(`wear: rendering with Paparazzi in ${proj} (the first run compiles the app, a few minutes)`);
   const gradleLog = path.join(work, "wear", "gradle.log");
@@ -57,6 +67,9 @@ export async function renderWatchCall(work, { fps = 15 } = {}) {
   const videos = path.join(proj, "app", "src", "test", "snapshots", "videos");
   const apng = fs.readdirSync(videos).find((f) => f.includes("MediaWatchTest") && f.endsWith(".png"));
   if (!apng) throw new Error(`Paparazzi wrote no APNG in ${videos}`);
+  const apngDelays = (await run("ffprobe", ["-v", "error", "-select_streams", "v:0", "-show_entries", "packet=duration_time", "-of", "csv=p=0", path.join(videos, apng)])).trim().split("\n").map(Number);
+  const off = apngDelays.filter((d) => Math.abs(d - 1 / fps) > 1e-4).length;
+  if (off > 0) throw new Error(`the APNG's frames are not 1/${fps} s each: ${off} of ${apngDelays.length} differ`);
   const dir = mkdirp(path.join(work, "wear", "frames"));
   for (const f of fs.readdirSync(dir)) fs.rmSync(path.join(dir, f));
   await run("ffmpeg", ["-hide_banner", "-loglevel", "error", "-y", "-f", "apng", "-i", path.join(videos, apng), "-vsync", "0", path.join(dir, "raw-%04d.png")]);
@@ -105,23 +118,41 @@ export async function roundMask(input, output) {
 }
 
 /**
- * The loop's last frame: the frame after `fromMs` (the hang-up) whose pixels
- * are closest to frame 0, up to `toMs`, so the GIF ends on the breathing
- * phase it starts on.
- * Frames after it are deleted. Returns { count, rmse }.
+ * The loop's end: the GIF keeps frames 0 to k - 1, for the k in (`fromMs`,
+ * `toMs`] (after the hang-up, in the breathing tail) whose frame before it
+ * leads into frame 0 most like one normal step. A normal step is the median
+ * RMSE between neighbouring frames of the tail; the seam is the RMSE from
+ * frame k - 1 back to frame 0. The earliest k whose seam is at most
+ * `accept` steps wins, so the tail is no longer than it needs; failing that,
+ * the k with the smallest seam. Frames from k on are deleted.
+ * Returns { count, rmse, seam, step, ratio }: `rmse` is frame k against frame 0.
  */
-export async function trimToLoop(frames, fromMs, toMs = Infinity) {
+export async function trimToLoop(frames, fromMs, toMs = Infinity, { accept = 1.2 } = {}) {
   const name = (k) => path.join(frames.dir, `frame-${String(k).padStart(4, "0")}.png`);
-  let best = { k: frames.count - 1, rmse: Infinity };
+  const cmp = async (a, b) => {
+    const out = await run("sh", ["-c", `compare -metric RMSE '${name(a)}' '${name(b)}' null: 2>&1 || true`]);
+    return Number.parseFloat(/\(([\d.e-]+)\)/.exec(out)?.[1] ?? "1");
+  };
+  const first = Math.round((fromMs / 1000) * frames.fps);
   const last = Math.min(frames.count - 1, Math.round((toMs / 1000) * frames.fps));
-  for (let k = Math.round((fromMs / 1000) * frames.fps); k <= last; k++) {
-    const out = await run("sh", ["-c", `compare -metric RMSE '${name(k)}' '${name(0)}' null: 2>&1 || true`]);
-    const rmse = Number.parseFloat(/\(([\d.e-]+)\)/.exec(out)?.[1] ?? "1");
-    if (rmse < best.rmse) best = { k, rmse };
-  }
-  // The best frame equals frame 0 closely; the GIF ends on the frame before it.
-  for (let k = best.k; k < frames.count; k++) fs.rmSync(name(k));
-  return { count: best.k, rmse: best.rmse };
+  if (last <= first) throw new Error(`trimToLoop: no frames between ${fromMs} and ${toMs} ms`);
+  const ks = Array.from({ length: last - first + 1 }, (_, i) => first + i);
+  // Eight ImageMagick processes at a time.
+  const all = async (fn) => {
+    const out = [];
+    for (let i = 0; i < ks.length; i += 8) out.push(...(await Promise.all(ks.slice(i, i + 8).map(fn))));
+    return out;
+  };
+  const neighbour = await all((k) => cmp(k - 1, k));
+  const step = [...neighbour].sort((a, b) => a - b)[Math.floor(neighbour.length / 2)];
+  const seams = await all((k) => cmp(k - 1, 0));
+  let pick = ks.findIndex((_, i) => seams[i] <= accept * step);
+  if (pick < 0) pick = seams.indexOf(Math.min(...seams));
+  const k = ks[pick];
+  const rmse = await cmp(k, 0);
+  for (let j = k; j < frames.count; j++) fs.rmSync(name(j));
+  log(`wear: loop of ${k} frames (${(k / frames.fps).toFixed(2)} s); seam ${seams[pick].toFixed(4)} = ${(seams[pick] / step).toFixed(2)}x a normal step of ${step.toFixed(4)}; frame ${k} vs frame 0 ${rmse.toFixed(4)}`);
+  return { count: k, rmse, seam: seams[pick], step, ratio: seams[pick] / step };
 }
 
 /** A round frame on a page colour: the circle of the screen, `bg` outside it, with a soft edge. Opaque. */

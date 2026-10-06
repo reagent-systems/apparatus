@@ -46,7 +46,7 @@ Any message may carry a `voice` string. The device that holds the voice session 
 | `voice.revoked` | `by` | Another device took it. Close the Live session. |
 | `transcript` | `role`, `text` | For the feed on devices without the voice session. |
 | `job.started` | `job_id`, `request` | |
-| `job.progress` | `job_id`, `text`, `percent` | From `agentlib.progress`, and after every tool step with a one-line summary and no `percent` (`python: <first code line>`, `computer: <action> [x,y]`, `show`, `handoff: <reason>`); each job in `ready.jobs` and `GET /jobs` carries the last 50 texts as `progress_history`. |
+| `job.progress` | `job_id`, `text`, `percent` | From `agentlib.progress`, and after every tool step with a one-line summary and no `percent` (`python: <first code line>`, or the comment's text when the code opens with a `# ` comment; `computer: <action> [x,y]`, `show`, `handoff: <reason>`); each job in `ready.jobs` and `GET /jobs` carries the last 50 texts as `progress_history`. |
 | `job.done` | `job_id`, `status`, `say`, `show`, `artifacts`, `voice` | Result contract. |
 | `show` | `content` (markdown), `target` | Content for the large pane. |
 | `handoff.requested` | `handoff_id`, `job_id`, `reason`, `url`, `voice` | Open the live view: send `screen.open` when no stream is open, show Done and Cancel. On a watch: show the notification only. |

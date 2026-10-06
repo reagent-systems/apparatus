@@ -6,6 +6,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import { run } from "./util.mjs";
+import { frameCs } from "./vtime.mjs";
 
 /**
  * `input` is an image pattern (frame-%05d.png) at `fps`. `width` scales with
@@ -18,8 +19,15 @@ import { run } from "./util.mjs";
  * crossfade writes RGBA: every frame is converted to one pixel format, with
  * the filter graph kept as built (-reinit_filter 0), because paletteuse fails
  * when the graph is rebuilt for a new input format mid-stream.
+ *
+ * A GIF delay is whole centiseconds, and browsers play 0 or 1 cs as 10 cs, so
+ * `fps` must give a whole number of centiseconds per frame, at least 2 (50,
+ * 33.3, 25 fps...); every frame of the result is checked to carry exactly
+ * that delay. `legacyRate` lets a wall-time scene keep 12 or 15 fps, whose
+ * delays the muxer rounds unevenly.
  */
-export async function encodeGif({ input, fps, out, width = null, crop = null, dither = "sierra2_4a", bayerScale = 5, maxColors = 256, alpha = false, statsMode = "full" }) {
+export async function encodeGif({ input, fps, out, width = null, crop = null, dither = "sierra2_4a", bayerScale = 5, maxColors = 256, alpha = false, statsMode = "full", legacyRate = false }) {
+  const cs = legacyRate ? null : frameCs(fps);
   const filters = [`format=${alpha ? "rgba" : "rgb24"}`];
   if (crop) filters.push(`crop=${crop.w}:${crop.h}:${crop.x}:${crop.y}`);
   if (width) filters.push(`scale='min(${width},iw)':-2:flags=lanczos`);
@@ -27,12 +35,25 @@ export async function encodeGif({ input, fps, out, width = null, crop = null, di
   filters.push("crop=trunc(iw/2)*2:trunc(ih/2)*2");
   const base = filters.join(",");
   const palette = `${out}.palette.png`;
-  const head = ["-hide_banner", "-loglevel", "error", "-y", "-reinit_filter", "0", "-framerate", String(fps), "-i", input];
+  // A whole number of centiseconds a frame as an exact rational (100/3, not 33.333...).
+  const head = ["-hide_banner", "-loglevel", "error", "-y", "-reinit_filter", "0", "-framerate", cs !== null ? `100/${cs}` : String(fps), "-i", input];
   await run("ffmpeg", [...head, "-vf", `${base},palettegen=stats_mode=${statsMode}:max_colors=${maxColors}${alpha ? "" : ":reserve_transparent=0"}`, palette]);
   const use = dither === "bayer" ? `paletteuse=dither=bayer:bayer_scale=${bayerScale}:diff_mode=rectangle` : `paletteuse=dither=${dither}:diff_mode=rectangle`;
   await run("ffmpeg", [...head, "-i", palette, "-lavfi", `[0:v]${base}[x];[x][1:v]${use}`, "-loop", "0", out]);
   fs.rmSync(palette, { force: true });
-  return gifInfo(out);
+  const info = await gifInfo(out);
+  if (cs !== null) {
+    const delays = await gifDelays(out);
+    const off = delays.filter((d) => d !== cs).length;
+    if (delays.length !== info.frames || off > 0) throw new Error(`${path.basename(out)}: ${off} of ${delays.length} frame delays are not ${cs} cs`);
+    info.delayCs = cs;
+  }
+  return info;
+}
+
+/** Every frame's delay in centiseconds, as the file stores it (ImageMagick's %T). */
+export async function gifDelays(file) {
+  return (await run("identify", ["-format", "%T\n", file])).trim().split("\n").map(Number);
 }
 
 export async function gifInfo(file) {

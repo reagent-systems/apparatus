@@ -5,6 +5,7 @@
 import { chromium } from "playwright-core";
 import { CHROMIUM, USER_ID, ZONE, sleep } from "./util.mjs";
 import { LiveStandIn } from "./live.mjs";
+import { PageTime, WALL, installPageTime } from "./vtime.mjs";
 
 export const DEVICES = {
   desktop: { viewport: { width: 1440, height: 900 }, deviceScaleFactor: 2 },
@@ -42,8 +43,11 @@ export async function launch({ micWav }) {
  * `prefs` more of the client's own keys (the pane width, the rail); all go
  * into the client's storage before the first paint, as a returning user's
  * choices would.
+ * `vtime` (a frame rate) installs page time (lib/vtime.mjs) before the app
+ * loads: `app.vt` then pauses and steps the page's clocks, and `app.clock`
+ * is the clock the stand-in and the waits here use (the wall without it).
  */
-export async function openApp(browser, stack, { device = "desktop", theme = "light", borders = "off", prefs = {}, noise = [], paceJobsMs = 0, hold = null, platform = null } = {}) {
+export async function openApp(browser, stack, { device = "desktop", theme = "light", borders = "off", prefs = {}, noise = [], paceJobsMs = 0, hold = null, platform = null, vtime = 0 } = {}) {
   const preset = DEVICES[device] ?? device;
   const ctx = await browser.newContext({
     ...preset,
@@ -85,12 +89,20 @@ export async function openApp(browser, stack, { device = "desktop", theme = "lig
     else document.addEventListener("DOMContentLoaded", add, { once: true });
   });
   if (platform) await shellBridge(ctx, platform);
+  let vt = null;
+  if (vtime) {
+    await installPageTime(ctx);
+    vt = new PageTime(null, { fps: vtime, log: (...a) => console.log("[media]", ...a) });
+  }
   const live = new LiveStandIn({ log: (...a) => console.log("[media]", ...a) });
+  if (vt) live.clock = vt;
   await live.install(ctx);
-  // `pacer.notBefore` (a Date.now() time) lets a scene hold the next job event a moment longer.
+  // `pacer.notBefore` (a Date.now() time, page time with `vtime`) lets a scene hold the next job event a moment longer.
   const pacer = { gapMs: paceJobsMs, notBefore: 0 };
-  if (paceJobsMs > 0 || hold) await paceJobEvents(ctx, pacer, hold);
+  if (vt) await gateServerEvents(ctx, vt, pacer, hold);
+  else if (paceJobsMs > 0 || hold) await paceJobEvents(ctx, pacer, hold);
   const page = await ctx.newPage();
+  if (vt) vt.page = page;
   // Console noise is collected and reported; a capture with errors is suspect.
   page.on("console", (m) => {
     if (m.type() === "error" || m.type() === "warning") noise.push(`${m.type()}: ${m.text()}`);
@@ -101,7 +113,7 @@ export async function openApp(browser, stack, { device = "desktop", theme = "lig
   await page.waitForFunction(() => document.querySelector('[data-kind="composer"]')?.getAttribute("data-state") !== "connecting", null, { timeout: 20_000 });
   await page.evaluate(() => document.fonts.ready);
   await sleep(300);
-  return { ctx, page, live, device, theme, borders, pacer };
+  return { ctx, page, live, device, theme, borders, pacer, vt, clock: vt ?? WALL };
 }
 
 /**
@@ -201,6 +213,86 @@ async function paceJobEvents(ctx, pacer, hold) {
   });
 }
 
+/**
+ * `paceJobEvents` on page time, for a page with `vtime`: every message from
+ * the session server waits at the browser until page time reaches its turn,
+ * so the page sees it at a page time, not at whatever wall time a slow
+ * capture has reached. A message is due when it arrives (page time stands
+ * still between steps, so it passes at once then); job.progress and job.done
+ * are due at least `pacer.gapMs` of page time apart and not before
+ * `pacer.notBefore`; order is kept. `hold` keeps those jobs mid-run, as
+ * there. Nothing is added, dropped or rewritten.
+ */
+async function gateServerEvents(ctx, clock, pacer, hold) {
+  const holds = hold ? [].concat(hold) : [];
+  await ctx.routeWebSocket(/\/ws\/client/, (ws) => {
+    const server = ws.connectToServer();
+    const queue = []; // { m, due } in arrival order; due never decreases
+    let lastDue = -Infinity;
+    let lastJob = -Infinity;
+    let timer = null;
+    let open = true;
+    const held = new Map(); // job id -> the JobHold whose request it matches
+    const holding = new Set(); // job ids past their hold point
+    const pump = (t = clock.now()) => {
+      if (timer) clearTimeout(timer);
+      timer = null;
+      if (!open) return;
+      while (queue.length && queue[0].due <= t) ws.send(queue.shift().m);
+      // Stepped, the next step releases them (beforeStep); free, a wall timer does.
+      if (queue.length) timer = setTimeout(() => pump(), clock.stepped ? 50 : Math.max(1, queue[0].due - clock.now()));
+    };
+    clock.beforeStep.add(pump);
+    const enqueue = (m, isJob) => {
+      let due = Math.max(clock.now(), lastDue);
+      if (isJob && pacer.gapMs > 0) {
+        due = Math.max(due, lastJob + pacer.gapMs, pacer.notBefore);
+        lastJob = due;
+      }
+      lastDue = due;
+      queue.push({ m, due });
+      pump();
+    };
+    server.onMessage((m) => {
+      let msg = {};
+      try {
+        msg = JSON.parse(String(m));
+      } catch {
+        // not JSON: pass it on as is
+      }
+      const type = msg.type ?? "";
+      const job = msg.job_id ?? null;
+      if (type === "job.started") {
+        const h = holds.find((x) => String(msg.request ?? "") === x.request);
+        if (h) held.set(job, h);
+      }
+      const isJob = type === "job.progress" || type === "job.done";
+      const h = held.get(job) ?? null;
+      const wait = h && isJob && holding.has(job) && !h.released;
+      if (h && isJob && type === "job.progress" && (msg.percent ?? -1) >= h.percent) holding.add(job);
+      if (wait) {
+        void h.whenReleased().then(() => enqueue(m, isJob));
+        return;
+      }
+      enqueue(m, isJob);
+    });
+    ws.onMessage((m) => server.send(m));
+    const done = () => {
+      open = false;
+      clock.beforeStep.delete(pump);
+      if (timer) clearTimeout(timer);
+    };
+    ws.onClose((code, reason) => {
+      done();
+      server.close({ code, reason });
+    });
+    server.onClose((code, reason) => {
+      done();
+      ws.close({ code, reason });
+    });
+  });
+}
+
 /** The composer's orb: the agent's on-switch (role switch, accessible name "Agent"). */
 export function orb(page) {
   return page.locator('[data-kind="composer"] [role="switch"][aria-label="Agent"]').first();
@@ -228,7 +320,7 @@ export async function tapOrb(app, { big = false } = {}) {
     if (!best || best.w < 100) throw new Error("no 128 px orb on the page: the thread is not empty");
     await all.nth(best.i).click();
   } else await orb(app.page).click();
-  await switchReads(app.page, !was);
+  await (app.clock ?? WALL).until(switchReads(app.page, !was));
   if (!was) await app.live.connected();
   return !was;
 }
@@ -318,12 +410,13 @@ export async function assertNoEndButton(page, what) {
  * Later turns start from the first gate turn after this.
  */
 export async function primeSwitch(app) {
+  const clock = app.clock ?? WALL;
   await tapOrb(app);
   await turnOff(app);
-  await sleep(400);
+  await clock.sleep(400);
   app.live.turnCursor = Date.now();
   await parkPointer(app.page);
-  await sleep(800);
+  await clock.sleep(800);
 }
 
 /** The thread's own scroller only (not the pane or the rail), to its end, as the thread does on a new card. */
@@ -372,11 +465,33 @@ export async function fitHeightToRow(page, { min, max, pad = 8, clear = null }) 
   return height;
 }
 
-/** Resolves with the Date.now() time the composer first shows a heard line. */
-export function heardShownAt(page, timeout = 20_000) {
-  return page
-    .waitForFunction(() => (document.querySelector('[data-kind="composer"] [data-slot="heard"]')?.textContent ?? "").trim().length > 0, null, { timeout, polling: 30 })
-    .then(() => Date.now());
+/**
+ * Resolves with the page's Date.now() at the moment the composer first shows
+ * a heard line: page time on a page with `vtime` (the step that drew it),
+ * the wall otherwise. A mutation observer in the page notes the time, so a
+ * slow poll from here does not move it.
+ */
+export async function heardShownAt(page, timeout = 20_000) {
+  await page.evaluate(() => {
+    window.__mediaHeardAt = null;
+    const shows = () => (document.querySelector('[data-kind="composer"] [data-slot="heard"]')?.textContent ?? "").trim().length > 0;
+    const note = () => {
+      if (window.__mediaHeardAt === null && shows()) {
+        window.__mediaHeardAt = Date.now();
+        obs.disconnect();
+      }
+    };
+    const obs = new MutationObserver(note);
+    obs.observe(document.body, { subtree: true, childList: true, characterData: true });
+    note();
+  });
+  const until = Date.now() + timeout;
+  while (Date.now() < until) {
+    const at = await page.evaluate(() => window.__mediaHeardAt);
+    if (at !== null) return at;
+    await sleep(30);
+  }
+  throw new Error("the composer showed no heard line");
 }
 
 /**
