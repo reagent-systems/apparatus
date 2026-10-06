@@ -11,7 +11,7 @@
 
 import { parkPointer, primeSwitch, tapOrb } from "../lib/browser.mjs";
 import { RAIL_COLLAPSED, columnClip } from "../lib/column.mjs";
-import { GIF_HEARD_MS, GIF_MIC, GIF_WPS, LINES, speakResult } from "../lib/day.mjs";
+import { GIF_HEARD_MS, GIF_MIC_HOLD, GIF_WPS, LINES, speakResult } from "../lib/day.mjs";
 import { finish, record } from "../lib/gifscene.mjs";
 import { withApp } from "../lib/scene.mjs";
 import { log, sleep } from "../lib/util.mjs";
@@ -33,7 +33,7 @@ export default {
   kind: "gif",
   makes: "voice-to-job.gif: tap, speak, listen, answer, job card, steps, result with artifact (thread column, 880 px)",
   async run(ctx) {
-    return withApp(ctx, { name: "voice-to-job", device: DEVICE, prefs: RAIL_COLLAPSED, platform: "desktop", mic: GIF_MIC, paceJobsMs: 600 }, async (app) => {
+    return withApp(ctx, { name: "voice-to-job", device: DEVICE, prefs: RAIL_COLLAPSED, platform: "desktop", mic: GIF_MIC_HOLD, paceJobsMs: 600 }, async (app) => {
       const { page, live } = app;
       await primeSwitch(app);
       const rec = await record(app, ctx, { fps: 12, clip: await columnClip(page) });

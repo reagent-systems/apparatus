@@ -32,7 +32,7 @@ export async function withApp(ctx, { name, device = "desktop", theme = "light", 
       fs.writeFileSync(path.join(work, "console.txt"), noise.join("\n") + "\n");
       log(`${name}: ${noise.length} console warnings or errors (see ${path.join(work, "console.txt")})`);
     }
-    hold?.release();
+    for (const h of hold ? [].concat(hold) : []) h.release();
     await browser?.close().catch(() => {});
     await stack.stop();
   }

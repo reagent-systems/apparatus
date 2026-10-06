@@ -38,11 +38,11 @@ export async function openTerminal(desk, home, cwd) {
   if (!/JetBrains/i.test(fonts)) throw new Error(`the terminal font is not JetBrains Mono: ${fonts.trim()}`);
 }
 
-/** A second window, so the desktop reads as used: an analogue xclock in the same paper and ink, its second hand ticking. */
+/** A second window, so the desktop reads as used: an analogue xclock in the same paper and ink, its second hand ticking, clear of the terminal. */
 export async function openClock(desk) {
   const k = desk.width / 1280;
   const d = Math.round(250 * k);
-  await desk.open(["xclock", "-analog", "-update", "1", "-bg", PAPER, "-fg", INK, "-hd", INK, "-hl", INK, "-bw", "1", "-bd", EDGE, "-padding", String(Math.round(16 * k)), "-geometry", `${d}x${d}+${desk.width - d - Math.round(110 * k)}+${Math.round(90 * k)}`]);
+  await desk.open(["xclock", "-analog", "-update", "1", "-bg", PAPER, "-fg", INK, "-hd", INK, "-hl", INK, "-bw", "1", "-bd", EDGE, "-padding", String(Math.round(16 * k)), "-geometry", `${d}x${d}+${desk.width - d - Math.round(40 * k)}+${Math.round(90 * k)}`]);
 }
 
 /** Wait until the page's screen video has decoded frames; resolve with its size. */

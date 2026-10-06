@@ -8,7 +8,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import { primeSwitch, tapOrb } from "../lib/browser.mjs";
-import { GIF_HEARD_MS, GIF_MIC, GIF_WPS, LINES, speakResult } from "../lib/day.mjs";
+import { GIF_HEARD_MS, GIF_MIC_HOLD, GIF_WPS, LINES, speakResult } from "../lib/day.mjs";
 import { PALETTE } from "../lib/compose.mjs";
 import { dropFrames, editTime, encodeChecked, record } from "../lib/gifscene.mjs";
 import { withApp } from "../lib/scene.mjs";
@@ -39,7 +39,7 @@ export default {
   kind: "gif",
   makes: "phone.gif: tap, speak, job, result at 390 px, in a phone bezel",
   async run(ctx) {
-    return withApp(ctx, { name: "phone", device: PHONE_GIF, mic: GIF_MIC, paceJobsMs: 600 }, async (app) => {
+    return withApp(ctx, { name: "phone", device: PHONE_GIF, mic: GIF_MIC_HOLD, paceJobsMs: 600 }, async (app) => {
       const { page, live } = app;
       await primeSwitch(app);
       const rec = await record(app, ctx, { fps: 12 });

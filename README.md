@@ -6,7 +6,7 @@ person must act: a captcha, a login, an approval.
 
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="docs/media/hero-dark.png">
-  <img alt="The desktop app with a job's receipt open and the orb listening, a phone with an approval card, and the Wear OS app" src="docs/media/hero-light.png">
+  <img alt="The desktop app listening, with what the model heard above the orb; a phone on a job's receipt; the Wear OS app listening" src="docs/media/hero-light.png">
 </picture>
 
 <img alt="A spoken request becomes a job with a table and report.csv" src="docs/media/voice-to-job.gif">
@@ -20,12 +20,28 @@ Speak. The agent starts a job and says the result.
   </tr>
   <tr>
     <td>The agent asks before it acts.</td>
-    <td>The same thread on a phone.</td>
+    <td>The same request on a phone.</td>
+  </tr>
+  <tr>
+    <td width="50%"><picture><source media="(prefers-color-scheme: dark)" srcset="docs/media/orb-dark.gif"><img alt="The orb: off, listening with the heard line above it, speaking, working, speaking, off" src="docs/media/orb.gif"></picture></td>
+    <td width="50%"><picture><source media="(prefers-color-scheme: dark)" srcset="docs/media/watch-dark.gif"><img alt="The Wear OS app through a voice session" src="docs/media/watch.gif"></picture></td>
+  </tr>
+  <tr>
+    <td>The orb is the agent's on-switch. Above it, what the model heard.</td>
+    <td>The watch shows the orb and nothing else.</td>
+  </tr>
+  <tr>
+    <td width="50%"><img alt="Light, Dark and Borders under Appearance" src="docs/media/appearance.gif"></td>
+    <td width="50%"><img alt="Control of your computer's screen, a typed command, Release" src="docs/media/screen-control.gif"></td>
+  </tr>
+  <tr>
+    <td>Light, Dark, Borders.</td>
+    <td>Take Control of your computer, then Release it.</td>
   </tr>
 </table>
 
-Captures use demo mode (`APPARATUS_DEMO=1`: scripted jobs) with scripted voice; real jobs take longer.
-Every frame is the real client. [docs/media/README.md](docs/media/README.md) has every still and GIF.
+Captures use demo mode (`APPARATUS_DEMO=1`: scripted jobs) with scripted voice; real jobs take minutes.
+Every frame is the real client; the watch is the Wear OS app, rendered with Paparazzi. [docs/media/README.md](docs/media/README.md) has every still and GIF.
 
 Two Gemini models do two jobs. A Live model talks and routes. A text model works in the
 VM. One API key, on the server only. Users pay a subscription that includes credits.

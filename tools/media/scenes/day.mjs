@@ -13,23 +13,26 @@
 //      approval waits, the last card in the thread.
 //   Then the user starts the next request on the desktop ("Which region grew
 //   the most since last week?"). While the orb listens and the composer shows
-//   what the model heard, the stills of that moment are shot: thread,
-//   borders-on, tablet, phone-thread, the hero's desktop (the pane on A's
-//   Receipt) and the hero's phone. The agent has not answered the approval
-//   event yet: the user talks first.
-//   G  the growth question: done, its own table and compare.csv.
-//   The desktop turns the agent off: approval-card, jobs (the pane on A's
-//   Receipt), palette, audit, credits.
-//   On the phone: the sheet on A's Receipt; then the phone takes the voice
-//   session and listens (phone-listening):
-//   E  "Get the export from the reports site. I'll do the login": a handoff.
-//      handoff-card is shot last on the desktop.
+//   what the model heard, the stills of that moment are shot: the hero's
+//   desktop (1024 px, the pane closed), thread, borders-on, tablet,
+//   phone-thread. The agent has not answered the approval event yet: the
+//   user talks first.
+//   G  the growth question: the agent answers and starts it; it is held
+//      mid-run too.
+//   The phone takes the voice session and listens to "Which region brought
+//   in the most revenue?" over G at work (phone-listening). The agent answers
+//   it with R; R ends, G is let go and ends, the phone turns the agent off.
+//   The desktop: approval-card, jobs (the pane on A's Receipt), palette,
+//   audit, credits. The phone: the sheet on A's Receipt (phone-sheet).
+//   E  "Get the export from the reports site. I'll do the login": a handoff,
+//      asked on the phone; handoff-card is shot last on the desktop.
 //
-// hero-light.png and hero-dark.png compose the desktop, the phone and the
-// Wear OS app (Paparazzi: working, paused and dimmed, because the desktop
-// holds the voice session) on a backdrop; the compositor only places real
-// captures. borders-split.png puts the left half of borders-on.png beside
-// the right half of thread.png, the same frame.
+// hero-light.png and hero-dark.png set three devices side by side on a plain
+// backdrop, with gutters, nothing over another: the desktop window
+// listening, the phone on A's Receipt (phone-sheet), and the Wear OS app
+// (Paparazzi) listening in a round case. The compositor only places real
+// captures. borders-split.png sets borders-on.png and thread.png (the same
+// frame) side by side with a gutter.
 
 import fs from "node:fs";
 import path from "node:path";
@@ -52,7 +55,7 @@ import { LINES, askForJob, freshTurn, speakResult } from "../lib/day.mjs";
 import { clipAround, padWithPage } from "../lib/scene.mjs";
 import { startStack } from "../lib/stack.mjs";
 import { log, mkdirp, run, sleep } from "../lib/util.mjs";
-import { renderWatchCall } from "../lib/wear.mjs";
+import { frameAt, renderWatchCall } from "../lib/wear.mjs";
 
 /** One long spoken segment: a held listening turn needs the microphone to keep hearing speech while the stills are shot. */
 const SPEECH = [[600, 55_600]];
@@ -64,8 +67,13 @@ const DEVICES = {
   phone: { viewport: { width: 390, height: 844 }, deviceScaleFactor: 3, isMobile: true, hasTouch: true },
   tablet: { viewport: { width: 820, height: 1180 }, deviceScaleFactor: 2, isMobile: true, hasTouch: true },
 };
-/** The hero's window: a little taller than 16:10, so the thread holds A's card and the approval. */
-const HERO_VIEWPORT = { width: 1280, height: 920 };
+/**
+ * The hero's window: the narrowest desktop layout (the rail open, the pane
+ * closed), so its type is as large as it can be in a three-device hero.
+ */
+const HERO_VIEWPORT = { width: 1024, height: 700 };
+/** MediaWatchTest.CALL: listening runs from 800 to 1700 ms. */
+const WATCH_LISTENING_MS = 1250;
 
 async function save(page, file, opts = {}) {
   await page.evaluate(() => document.fonts.ready);
@@ -129,81 +137,104 @@ async function listening(app) {
   if ((await orb(app.page).getAttribute("data-state")) !== "listening") throw new Error(`${app.device}: the orb is not listening`);
 }
 
-/** Open the pane on a finished job's Receipt from its card's Output button; the 2 s selection ring goes. */
-async function receiptOf(page, request) {
-  await card(page, "job", request).locator('button[aria-label="Output"]').click();
-  const tab = page.getByRole("tab", { name: "Receipt" }).first();
-  await tab.waitFor({ state: "visible", timeout: 5000 });
-  await tab.click();
-  await sleep(2300);
+/** Wait until a job card shows at least `rows` activity rows (a job held mid-run). */
+async function jobAtWork(page, request, rows = 2) {
+  await page.waitForFunction(
+    ({ request, rows }) => {
+      const c = [...document.querySelectorAll('[data-kind="job"]')].find((el) => el.textContent.includes(request));
+      const slab = c?.querySelector('[data-slot="activity"][data-activity="running"]');
+      return slab && slab.children.length >= 1 && (slab.innerText.match(/\n/g) ?? []).length + 1 >= rows;
+    },
+    { request, rows },
+    { timeout: 8000 },
+  ).catch(() => log(`day: ${request}: no activity rows seen; going on`));
+}
+
+/** The phone at its one window height, the thread at its end. */
+async function phoneAt(phone, height) {
+  await phone.page.setViewportSize({ width: DEVICES.phone.viewport.width, height });
+  await sleep(500);
+  await threadToEnd(phone.page);
 }
 
 /**
- * The composition (CSS px, rendered at 2x): the window, the phone in a bezel
- * and the watch on a backdrop in the DESIGN.md palette, 60 px of air above
- * and below. Dark: the bezels get a lighter rim, so the outlines read.
+ * The hero (CSS px, rendered at 2x): three devices in a row on the page
+ * colour, each with one soft shadow, 44 px gutters, nothing over another.
+ * The desktop window is the largest; the phone is as tall as the window; the
+ * watch (a round screen in a dark case with a crown) sits low beside the
+ * phone. Dark: the bezels get a lighter rim, so the outlines read.
  */
-const HERO = { pad: 48, top: 60, win: 1210, gap: 40 };
-function heroPage({ theme, desktop, phone, watch, deskSize, pane, phoneAspect }) {
+const HERO = { pad: 44, top: 48, win: 900, gap: 44, watch: 196, ring: 14 };
+function heroPage({ theme, desktop, phone, watch, deskSize, phoneAspect }) {
   const c = PALETTE[theme];
-  const glow = theme === "dark" ? "oklch(0.30 0.040 264 / 40%)" : "oklch(0.93 0.030 264 / 70%)";
   const rim = theme === "dark" ? "oklch(0.30 0.006 60)" : c.border;
-  const ring = theme === "dark" ? "0 0 0 2px oklch(0.30 0.006 60)," : "";
+  const ring = theme === "dark" ? "0 0 0 2px oklch(0.32 0.006 60)," : "";
   const shadow = theme === "dark" ? "oklch(0 0 0 / 70%)" : c.shadow;
   const k = HERO.win / deskSize.width;
   const winH = Math.round(deskSize.height * k);
-  const phoneH = Math.round(winH * 0.88);
-  const phoneW = Math.round(phoneH * phoneAspect) + 20;
+  const phoneImgH = winH - 20;
+  const phoneW = Math.round(phoneImgH * phoneAspect) + 20;
   const phoneX = HERO.pad + HERO.win + HERO.gap;
-  const phoneY = HERO.top + Math.round((winH - phoneH - 20) / 2);
-  const width = phoneX + phoneW + HERO.pad;
+  const caseD = HERO.watch + 2 * HERO.ring;
+  const watchX = phoneX + phoneW + HERO.gap;
+  // The watch's centre sits at 60 % of the window's height: a stagger, low beside the phone.
+  const watchY = HERO.top + Math.round(winH * 0.6 - caseD / 2);
+  const width = watchX + caseD + 8 + HERO.pad;
   const height = winH + 2 * HERO.top;
-  // The watch sits over the pane's empty lower part, below the Receipt's last line.
-  const free = { x: HERO.pad + pane.x * k, y: HERO.top + pane.contentBottom * k, w: pane.w * k, h: (pane.bottom - pane.contentBottom) * k };
-  const watchD = Math.round(Math.min(230, free.h - 60));
-  const watchX = Math.round(free.x + free.w / 2 - watchD / 2);
-  const watchY = Math.round(free.y + (free.h - watchD) / 2 + 10);
   const html = `<!doctype html><html><head><meta charset="utf-8"><style>
   html,body{margin:0;height:100%}
-  body{background:${c.page};background-image:radial-gradient(ellipse 70% 60% at 55% 45%, ${glow}, transparent 70%);position:relative;overflow:hidden}
-  .win{position:absolute;left:${HERO.pad}px;top:${HERO.top}px;width:${HERO.win}px;border-radius:14px;overflow:hidden;border:1.5px solid ${rim};box-shadow:0 30px 80px -30px ${shadow}}
+  body{background:${c.page};position:relative;overflow:hidden}
+  .win{position:absolute;left:${HERO.pad}px;top:${HERO.top}px;width:${HERO.win}px;border-radius:12px;overflow:hidden;border:1.5px solid ${rim};box-shadow:0 28px 70px -30px ${shadow}}
   .win img{display:block;width:100%}
-  .phone{position:absolute;left:${phoneX}px;top:${phoneY}px;width:${phoneW - 20}px;padding:10px;border-radius:52px;background:#0d0d0c;box-shadow:${ring}0 30px 70px -24px ${shadow}}
-  .phone img{display:block;width:100%;border-radius:42px}
-  .watch{position:absolute;left:${watchX}px;top:${watchY}px;width:${watchD - 24}px;height:${watchD - 24}px;padding:12px;border-radius:50%;background:#1b1b1a;box-shadow:${ring}0 24px 50px -18px ${shadow},inset 0 0 0 2px #2a2a28}
+  .phone{position:absolute;left:${phoneX}px;top:${HERO.top}px;width:${phoneW - 20}px;padding:10px;border-radius:48px;background:#0d0d0c;box-shadow:${ring}0 28px 64px -26px ${shadow}}
+  .phone img{display:block;width:100%;border-radius:38px}
+  .watch{position:absolute;left:${watchX}px;top:${watchY}px;width:${HERO.watch}px;height:${HERO.watch}px;padding:${HERO.ring}px;border-radius:50%;background:#1b1b1a;box-shadow:${ring}0 24px 50px -20px ${shadow},inset 0 0 0 2px #2c2c2a}
   .watch img{display:block;width:100%;height:100%;border-radius:50%}
+  .crown{position:absolute;left:${watchX + caseD - 3}px;top:${watchY + caseD / 2 - 17}px;width:11px;height:34px;border-radius:4px;background:#2a2a28;box-shadow:${ring}0 6px 14px -8px ${shadow}}
   </style></head><body>
   <div class="win"><img src="${dataUri(desktop)}"></div>
   <div class="phone"><img src="${dataUri(phone)}"></div>
+  <div class="crown"></div>
   <div class="watch"><img src="${dataUri(watch)}"></div>
   </body></html>`;
   return { html, width, height };
 }
 
-/** The pane's box and the bottom of its last line of content, in CSS px. */
-async function paneGeometry(page) {
-  return page.evaluate(() => {
-    const panes = [...document.querySelectorAll('[data-slot="resizable-panel"]')];
-    const pane = panes[panes.length - 1];
-    const r = pane.getBoundingClientRect();
-    let bottom = r.top;
-    for (const el of pane.querySelectorAll("*")) {
-      const b = el.getBoundingClientRect();
-      if (b.height > 0 && el.children.length === 0 && (el.textContent ?? "").trim()) bottom = Math.max(bottom, b.bottom);
-    }
-    return { x: r.left, w: r.width, bottom: r.bottom, contentBottom: bottom };
-  });
-}
-
-/** The left half of `on` beside the right half of `off`: the same frame with Borders on and off. */
-async function splitHalves(on, off, out) {
-  const [w, h] = (await run("identify", ["-format", "%w %h", on])).trim().split(" ").map(Number);
-  const half = Math.round(w / 2);
-  // A 2 px line in the page's muted ink marks the seam.
-  await run("convert", ["(", on, "-crop", `${half}x${h}+0+0`, "+repage", ")", "(", off, "-crop", `${w - half}x${h}+${half}+0`, "+repage", ")", "+append",
-    "-fill", "#8a8378", "-draw", `rectangle ${half - 1},0 ${half},${h - 1}`, out]);
+/**
+ * Borders on (left) and off (right): two whole captures of the same frame
+ * side by side, 24 CSS px of page colour between them and around them, each
+ * in a hairline frame so the borderless capture keeps its edge. Opaque RGB.
+ */
+async function twoUp(on, off, out, theme) {
+  const page = PALETTE[theme].hex;
+  const line = theme === "dark" ? "#34302d" : "#ddd8cf";
+  const gap = 48; // 24 CSS px at 2x
+  const framed = async (src, name) => {
+    const f = path.join(path.dirname(out), `.${name}-${theme}.png`);
+    await run("convert", [src, "-bordercolor", line, "-border", "2", "-alpha", "off", f]);
+    return f;
+  };
+  const a = await framed(on, "on");
+  const b = await framed(off, "off");
+  await run("convert", ["-background", page, a, "(", "-size", `${gap}x1`, `xc:${page}`, ")", b, "-gravity", "center", "+append",
+    "-bordercolor", page, "-border", String(gap), "-alpha", "off", "-strip", "-define", "png:color-type=2", out]);
+  fs.rmSync(a);
+  fs.rmSync(b);
   log(`saved ${out}`);
   return out;
+}
+
+/** Grow every file to the largest width and height among them, the capture centred on its page colour: one canvas for the close cards. */
+async function sameCanvas(files) {
+  const sizes = [];
+  for (const f of files) sizes.push((await run("identify", ["-format", "%w %h", f])).trim().split(" ").map(Number));
+  const W = Math.max(...sizes.map((s) => s[0]));
+  const H = Math.max(...sizes.map((s) => s[1]));
+  for (const f of files) {
+    const bg = (await run("convert", [f, "-format", "%[pixel:p{0,0}]", "info:"])).trim();
+    await run("convert", [f, "-background", bg, "-gravity", "center", "-extent", `${W}x${H}`, "-alpha", "off", f]);
+  }
+  log(`day: ${files.map((f) => path.basename(f)).join(", ")} on one ${W} x ${H} canvas`);
 }
 
 export default {
@@ -217,18 +248,21 @@ export default {
     const out = (base, theme) => path.join(ctx.out, theme === "dark" ? `${base}-dark.png` : `${base}.png`);
     const made = [];
     // The watch first: Paparazzi needs no server, and a failure here should
-    // not cost a whole day. The desktop holds the voice session in the hero,
-    // so the watch is not in a call: working, paused and dimmed.
-    const watch = (await renderWatchCall(path.join(work, "watch"))).heldElsewhere;
+    // not cost a whole day. The hero shows it listening: in a voice session.
+    const call = await renderWatchCall(path.join(work, "watch"));
+    const watch = path.join(parts, "watch-listening.png");
+    fs.copyFileSync(frameAt(call, WATCH_LISTENING_MS), watch);
 
     const wav = await micWav(path.join(work, "mic.wav"), { segments: SPEECH, totalMs: 70_000 });
     const stack = await startStack({ work: path.join(work, "stack"), webDist: ctx.webDist });
     const browser = await launch({ micWav: wav });
     const noise = [];
-    const hold = new JobHold(LINES.compareJob, { percent: 60 });
+    const holdC = new JobHold(LINES.compareJob, { percent: 60 });
+    const holdG = new JobHold(LINES.growthJob, { percent: 60 });
+    const holds = [holdC, holdG];
     try {
       const open = async (device, opts = {}) => {
-        const app = await openApp(browser, stack, { device: DEVICES[device], noise, hold, ...opts });
+        const app = await openApp(browser, stack, { device: DEVICES[device], noise, hold: holds, ...opts });
         app.device = device;
         app.stack = stack;
         return app;
@@ -254,14 +288,11 @@ export default {
       await waitHeard(dp, "since last week");
       await sleep(600);
 
-      // The hero's window: the pane on A's Receipt, the thread at its end.
+      // The hero's window: 1024 px, the pane closed, the thread at its end.
       await dp.setViewportSize(HERO_VIEWPORT);
-      await sleep(500);
-      await receiptOf(dp, LINES.ordersJob);
-      const heroH = await fitHeightToRow(dp, { min: HERO_VIEWPORT.height, max: 960 });
+      const heroH = await fitHeightToRow(dp, { min: HERO_VIEWPORT.height, max: 780 });
       const heroSize = { width: HERO_VIEWPORT.width, height: heroH };
-      const pane = await paneGeometry(dp);
-      log(`day: hero window 1280 x ${heroH}`);
+      log(`day: hero window ${HERO_VIEWPORT.width} x ${heroH}`);
       const heroDesk = {};
       for (const theme of ["dark", "light"]) {
         if (theme !== desk.theme) await setTheme(desk, theme);
@@ -270,7 +301,6 @@ export default {
         await listening(desk);
         heroDesk[theme] = await save(dp, path.join(parts, `hero-desktop-${theme}.png`));
       }
-      await dp.keyboard.press("Control+j"); // close the pane
       await dp.setViewportSize(DEVICES.desk.viewport);
       await sleep(400);
 
@@ -289,7 +319,7 @@ export default {
         await listening(desk);
         pair[theme].on = await save(dp, out("borders-on", theme));
         await toggleBorders(dp);
-        made.push(pair[theme].off, pair[theme].on, await splitHalves(pair[theme].on, pair[theme].off, out("borders-split", theme)));
+        made.push(pair[theme].off, pair[theme].on, await twoUp(pair[theme].on, pair[theme].off, out("borders-split", theme), theme));
       }
 
       // The tablet and the phone: the approval card last, above a dimmed orb.
@@ -300,7 +330,9 @@ export default {
         await assertNoEndButton(tablet.page, "tablet");
         made.push(await save(tablet.page, out("tablet", theme)));
       }
-      await fitHeightToRow(pp, { min: 780, max: 920 });
+      // One window height for every phone still, so the gallery row is even.
+      const phoneH = await fitHeightToRow(pp, { min: 780, max: 920 });
+      log(`day: phone window 390 x ${phoneH}`);
       for (const theme of ["light", "dark"]) {
         if (theme !== phone.theme) await setTheme(phone, theme);
         await threadToEnd(pp);
@@ -308,12 +340,32 @@ export default {
         made.push(await save(pp, out("phone-thread", theme)));
       }
 
-      // G: the turn ends, the agent answers it with a job.
+      // G: the turn ends, the agent answers it with a job, held mid-run.
       await listening(desk);
       await desk.live.endTurn();
       const g = (await desk.live.agent(LINES.growthAck, { tool: { name: "start_job", args: { request: LINES.growthJob } } })).job_id;
-      await speakResult(desk, g);
-      await turnOff(desk);
+      await jobAtWork(pp, LINES.growthJob);
+      await sleep(1200);
+
+      // The phone takes the voice session and listens over G at work.
+      await tapOrb(phone);
+      await phone.live.hear(LINES.revenueAsk, { ms: HEARD });
+      await waitHeard(pp, "most revenue");
+      await sleep(600);
+      for (const theme of ["light", "dark"]) {
+        if (theme !== phone.theme) await setTheme(phone, theme);
+        await phoneAt(phone, phoneH);
+        await assertNoEndButton(pp, "phone listening");
+        await listening(phone);
+        made.push(await save(pp, out("phone-listening", theme)));
+      }
+      await setTheme(phone, "light");
+      await phone.live.endTurn();
+      const r = (await phone.live.agent(LINES.revenueAck, { tool: { name: "start_job", args: { request: LINES.revenueJob } } })).job_id;
+      await speakResult(phone, r);
+      holdG.release();
+      await speakResult(phone, g);
+      await turnOff(phone);
       await sleep(800);
 
       // Desktop stills with the agent off.
@@ -360,7 +412,8 @@ export default {
       }
       await setTheme(desk, "light");
 
-      // Phone: the sheet on A's Receipt.
+      // Phone: the sheet on A's Receipt, at the same window height.
+      await phoneAt(phone, phoneH);
       for (const theme of ["light", "dark"]) {
         if (theme !== phone.theme) await setTheme(phone, theme);
         await card(pp, "job", LINES.ordersJob).scrollIntoViewIfNeeded();
@@ -375,19 +428,10 @@ export default {
       }
       await setTheme(phone, "light");
 
-      // E on the phone: the phone takes the voice session and listens.
+      // E on the phone: a handoff.
       await tapOrb(phone);
       await phone.live.hear(LINES.exportAsk, { ms: HEARD });
       await waitHeard(pp, "the login");
-      await sleep(600);
-      await fitHeightToRow(pp, { min: 780, max: 920 });
-      for (const theme of ["light", "dark"]) {
-        if (theme !== phone.theme) await setTheme(phone, theme);
-        await threadToEnd(pp);
-        await assertNoEndButton(pp, "phone listening");
-        await listening(phone);
-        made.push(await save(pp, out("phone-listening", theme)));
-      }
       await phone.live.endTurn();
       await phone.live.agent(LINES.exportAck, { tool: { name: "start_job", args: { request: LINES.exportJob } } });
       await phone.live.event(/^<event>handoff: /);
@@ -402,16 +446,16 @@ export default {
         await handoff.scrollIntoViewIfNeeded();
         await parkPointer(dp);
         await sleep(400);
-        // The pane is open on the Screen during a handoff, so the thread is
-        // narrow: 12 px of page beside the card, then the page colour as air.
-        const f = await save(dp, out("handoff-card", theme), { clip: await clipAround(handoff, 12, 8) });
-        await padWithPage(f, 48, 40);
+        const f = await save(dp, out("handoff-card", theme), { clip: await clipAround(handoff, 32, 8) });
+        await padWithPage(f, 48);
         made.push(f);
+        // The two close cards share one canvas, so the gallery row keeps one type size and height.
+        await sameCanvas([out("approval-card", theme), f]);
       }
       for (const theme of ["light", "dark"]) {
-        const phoneShot = out("phone-thread", theme);
+        const phoneShot = out("phone-sheet", theme);
         const [pw, ph] = (await run("identify", ["-format", "%w %h", phoneShot])).trim().split(" ").map(Number);
-        const hero = heroPage({ theme, desktop: heroDesk[theme], phone: phoneShot, watch, deskSize: heroSize, pane, phoneAspect: pw / ph });
+        const hero = heroPage({ theme, desktop: heroDesk[theme], phone: phoneShot, watch, deskSize: heroSize, phoneAspect: pw / ph });
         made.push(await renderHtml(hero.html, path.join(ctx.out, `hero-${theme}.png`), { width: hero.width, height: hero.height, scale: 2 }));
       }
       return made;
@@ -420,7 +464,7 @@ export default {
         fs.writeFileSync(path.join(work, "console.txt"), noise.join("\n") + "\n");
         log(`day: ${noise.length} console warnings or errors (see ${path.join(work, "console.txt")})`);
       }
-      hold.release();
+      for (const h of holds) h.release();
       await browser.close().catch(() => {});
       await stack.stop();
     }

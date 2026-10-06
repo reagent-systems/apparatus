@@ -151,15 +151,17 @@ export class JobHold {
  * through unchanged except that job.progress and job.done reach the page at
  * least `pacer.gapMs` apart, and not before `pacer.notBefore`, in their
  * original order, so each step can be read.
- * `hold` (a JobHold) keeps one job mid-run. Nothing is added, dropped or
+ * `hold` (a JobHold, or a list of them) keeps those jobs mid-run. Nothing is added, dropped or
  * rewritten.
  */
 async function paceJobEvents(ctx, pacer, hold) {
+  // `hold` is one JobHold or a list of them, each for its own request.
+  const holds = hold ? [].concat(hold) : [];
   await ctx.routeWebSocket(/\/ws\/client/, (ws) => {
     const server = ws.connectToServer();
     let chain = Promise.resolve();
     let lastJob = 0;
-    const held = new Set(); // job ids that match the hold
+    const held = new Map(); // job id -> the JobHold whose request it matches
     const holding = new Set(); // job ids past their hold point
     server.onMessage((m) => {
       let msg = {};
@@ -170,10 +172,14 @@ async function paceJobEvents(ctx, pacer, hold) {
       }
       const type = msg.type ?? "";
       const job = msg.job_id ?? null;
-      if (hold && type === "job.started" && String(msg.request ?? "") === hold.request) held.add(job);
+      if (type === "job.started") {
+        const h = holds.find((x) => String(msg.request ?? "") === x.request);
+        if (h) held.set(job, h);
+      }
       const isJob = type === "job.progress" || type === "job.done";
-      const wait = hold && isJob && holding.has(job) && !hold.released;
-      if (hold && isJob && held.has(job) && type === "job.progress" && (msg.percent ?? -1) >= hold.percent) holding.add(job);
+      const h = held.get(job) ?? null;
+      const wait = h && isJob && holding.has(job) && !h.released;
+      if (h && isJob && type === "job.progress" && (msg.percent ?? -1) >= h.percent) holding.add(job);
       const send = async () => {
         if (pacer.gapMs > 0 && isJob) {
           const w = Math.max(lastJob + pacer.gapMs, pacer.notBefore) - Date.now();
@@ -184,7 +190,7 @@ async function paceJobEvents(ctx, pacer, hold) {
       };
       if (wait) {
         // This job's chain waits for the release; the others go on.
-        void hold.whenReleased().then(() => (chain = chain.then(send)));
+        void h.whenReleased().then(() => (chain = chain.then(send)));
         return;
       }
       chain = chain.then(send);

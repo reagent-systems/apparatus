@@ -29,6 +29,12 @@ export const MIC_SEGMENTS = [[MIC.leadMs, MIC.leadMs + MIC.sayMs]];
  * speaks at a brisk 3.4 words a second.
  */
 export const GIF_MIC = [[250, 2850]];
+/**
+ * The request GIFs (voice-to-job, phone): the same request, voiced 0.5 s
+ * longer, so the final heard line, the selling point, holds about 2 s above
+ * the orb before the turn ends.
+ */
+export const GIF_MIC_HOLD = [[250, 3350]];
 export const GIF_HEARD_MS = 1500;
 export const GIF_WPS = 3.4;
 /** What the model heard streams in over the voiced part of the segment. */

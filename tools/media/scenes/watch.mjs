@@ -4,8 +4,10 @@
 // GIF ends on the frame before the breathing frame closest to the first, so
 // the loop has no cut and no blend. No text and no buttons: the app has none.
 // The round screen sits on the README's page colour (light, and dark for
-// GitHub's dark mode), so every frame is opaque and only what changes is
-// rewritten.
+// GitHub's dark mode) through an antialiased mask, so every frame is opaque,
+// the edge is smooth, and only what changes is rewritten. The moving dots
+// change most of the disc in every frame, so bayer dither or a smaller
+// palette saves little (a bayer encode came out larger).
 
 import fs from "node:fs";
 import path from "node:path";
@@ -20,7 +22,7 @@ const HANG_UP_MS = 3500;
 export default {
   name: "watch",
   kind: "gif",
-  makes: "watch.gif, watch-dark.gif: the Wear OS screen through a call (Paparazzi, needs the Android SDK and Gradle)",
+  makes: "watch.gif, watch-dark.gif: the Wear OS screen through a voice session (Paparazzi, needs the Android SDK and Gradle)",
   async run(ctx) {
     const frames = await renderWatchCall(path.join(ctx.work, "watch"));
     // The loop ends between 4 and 5 s, on the breathing frame closest to frame 0.

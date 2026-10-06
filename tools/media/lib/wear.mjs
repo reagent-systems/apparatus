@@ -82,11 +82,25 @@ export function frameAt(frames, ms) {
   return path.join(frames.dir, `frame-${String(k).padStart(4, "0")}.png`);
 }
 
-/** Cut the round screen out of a square frame: transparent outside the circle. */
+/**
+ * An antialiased round mask the size of a `size` px square frame: the circle
+ * drawn at 4x and scaled down, so its edge has soft steps, not a 1-bit stair.
+ * Cached per size in `dir`.
+ */
+async function circleMask(size, dir) {
+  const file = path.join(dir, `mask-${size}.png`);
+  if (fs.existsSync(file)) return file;
+  const big = size * 4;
+  const r = big / 2;
+  await run("convert", ["-size", `${big}x${big}`, "xc:black", "-fill", "white", "-draw", `circle ${r - 0.5},${r - 0.5} ${r - 0.5},2`, "-resize", `${size}x${size}`, "-colorspace", "gray", file]);
+  return file;
+}
+
+/** Cut the round screen out of a square frame: transparent outside the circle, with a soft edge. */
 export async function roundMask(input, output) {
-  const size = (await run("identify", ["-format", "%w", input])).trim();
-  const r = Number(size) / 2;
-  await run("convert", [input, "(", "-size", `${size}x${size}`, "xc:none", "-fill", "white", "-draw", `circle ${r - 0.5},${r - 0.5} ${r - 0.5},0.5`, ")", "-compose", "CopyOpacity", "-composite", output]);
+  const size = Number((await run("identify", ["-format", "%w", input])).trim());
+  const mask = await circleMask(size, path.dirname(output));
+  await run("convert", [input, mask, "-alpha", "off", "-compose", "CopyOpacity", "-composite", output]);
   return output;
 }
 
@@ -110,10 +124,10 @@ export async function trimToLoop(frames, fromMs, toMs = Infinity) {
   return { count: best.k, rmse: best.rmse };
 }
 
-/** A round frame on a page colour: the circle of the screen, `bg` outside it. Opaque. */
+/** A round frame on a page colour: the circle of the screen, `bg` outside it, with a soft edge. Opaque. */
 export async function roundOn(input, output, bg) {
-  const size = (await run("identify", ["-format", "%w", input])).trim();
-  const r = Number(size) / 2;
-  await run("convert", ["-size", `${size}x${size}`, `xc:${bg}`, "(", input, "(", "-size", `${size}x${size}`, "xc:none", "-fill", "white", "-draw", `circle ${r - 0.5},${r - 0.5} ${r - 0.5},0.5`, ")", "-compose", "CopyOpacity", "-composite", ")", "-compose", "over", "-composite", `PNG24:${output}`]);
+  const size = Number((await run("identify", ["-format", "%w", input])).trim());
+  const mask = await circleMask(size, path.dirname(output));
+  await run("convert", ["-size", `${size}x${size}`, `xc:${bg}`, input, mask, "-composite", "-alpha", "off", `PNG24:${output}`]);
   return output;
 }
