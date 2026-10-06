@@ -20,6 +20,7 @@ behavior change. The weekly cycle (WEEKLY.md step 5) refreshes it.
 | Wear OS app (`clients/wearos`) | 🚧 | `gradle assembleDebug` built `app-debug.apk` (25.8 MB) on Linux with SDK 34; no device run, release build untested |
 | CI: verify, nightly, release, client builds | ✅ parse · ❌ run | `workflows_parse` gate; no run on GitHub yet |
 | GCP: Terraform, VM image, Cloud Run deploy | 🚧 | Written under `deploy/gcp`, `vm/`; never applied |
+| AWS: Terraform, EC2 controller, Fargate deploy | 🚧 | Written under `deploy/aws`. `server/tests/test_vm.py` in the 126 Python tests. `terraform validate` passed on Terraform 1.9.8. `terraform plan` stopped: `No valid credential sources found`. No apply |
 | Voice shell on the paid tier (build order 1) | ❌ | Needs a key and a microphone |
 | Voice gate on recorded cases (build order 2) | ❌ | Logic unit-tested; no audio fixtures |
 | Screen stream for the handoff (roadmap item 5) | 🚧 | Streamer, relay, control and widget exist and pass in loopback (rows above). No real VM, no TURN relay and no browser has run it |

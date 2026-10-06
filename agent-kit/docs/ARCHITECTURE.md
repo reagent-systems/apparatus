@@ -13,7 +13,7 @@ code has 8 parts.
 | Web client | `web/` | Audio capture and playback, the voice gate, the Live session, the thread and the voice composer, the rail and the Jobs desk, the pane, the orb, the VM screen. React 19, Vite, Tailwind CSS 4, shadcn/ui, built to `docs/DESIGN.md`; the audio, gate and WebRTC code is plain TypeScript. |
 | Native shells | `clients/desktop`, `clients/mobile` | Tauri 2 and Capacitor 6 around the web app, each with a `bridge.js` for keychain, push and notifications. |
 | Watch apps | `clients/watchos`, `clients/wearos` | Native apps on the same protocol. The screen is the thinking orb alone; a tap starts or ends a full duplex call with the voice gate on the watch. Handoff and approval arrive as notifications; no handoff screen. |
-| Deployment | `config/`, `deploy/`, `vm/`, `verify/`, `.github/` | The one config file, GCP Terraform, VM image scripts, the health gate, CI. |
+| Deployment | `config/`, `deploy/`, `vm/`, `verify/`, `.github/` | The one config file, GCP and AWS Terraform, VM image scripts, the health gate, CI. |
 
 ## Data flow
 
@@ -57,7 +57,7 @@ One screen the user watches or takes:
 | `model.py` | `SmartModel` adapter: Gemini with explicit prefix caching, or a scripted fake. |
 | `tokens.py` | Ephemeral Live tokens: `auth_tokens.create` with locked setup, or a fake. |
 | `jobs.py` | Jobs, the loop, budgets, metering, context compaction, checkpoints, handoffs, approvals, credit notices. |
-| `vm.py` | `VmLink` (awaitable calls over the agentd socket), `VmRegistry`, `LocalVmController`, `GceVmController`, `IdleStopper`. |
+| `vm.py` | `VmLink` (awaitable calls over the agentd socket), `VmRegistry`, `LocalVmController`, `GceVmController`, `Ec2VmController`, `IdleStopper`. |
 | `clients.py` | Devices per user, the single voice holder, broadcast, `send_to` one device, push tokens. |
 | `streams.py` | `StreamRegistry` (stream id → user and device; `Control {active, by}` per user), TURN credentials, `ice_servers`. The server never carries video. |
 | `sessions.py` | Rolling conversation summary and resumption handle per user. |
@@ -154,3 +154,4 @@ One call, start to end:
 | agentlib ↔ agentd | Unix socket. Requests only. Blocking calls pause the kernel's deadline and raise an event; the server decides. |
 | Server ↔ Gemini (smart) | `generate_content` with the stable prefix cached. Tool results cross wrapped as external data. |
 | Server ↔ GCP | Compute API for start and stop, Secret Manager through Cloud Run, FCM with the service account. The VM's service account has no roles. |
+| Server ↔ AWS | EC2 start and stop, Secrets Manager into the Fargate task, EFS for the file store. The VM instance role has no policies. |

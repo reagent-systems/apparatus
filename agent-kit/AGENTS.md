@@ -48,7 +48,7 @@ for the native shells; `verify/verify.sh` skips those gates loudly when they are
    nothing (`ledger.py`, `jobs.py`).
 9. **The audit log is append-only on the server.** Nothing in the VM has a path to it.
 10. **The VM dials out and listens to nothing.** No inbound ports, metadata server blocked
-    for the agent, service account with no roles (`vm/setup.sh`, `deploy/gcp/main.tf`).
+    for the agent, VM identity with no permissions (`vm/setup.sh`, `deploy/gcp/main.tf`, `deploy/aws/main.tf`).
 
 ## Landmine map
 

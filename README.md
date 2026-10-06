@@ -53,7 +53,7 @@ VM. One API key, on the server only. Users pay a subscription that includes cred
 | Protocol | `protocol/` | The wire contract the three links share. |
 | Web client | `web/` | React 19, Vite, Tailwind CSS 4, shadcn/ui. Audio, the voice gate, the feed, the pane, the orb, the VM screen widget with Control and Release. |
 | Native shells | `clients/` | Tauri 2 (Windows, macOS, Linux), Capacitor 6 (iOS, Android), SwiftUI (watchOS), Compose (Wear OS). |
-| Deployment | `deploy/gcp`, `vm/` | Terraform for GCP, VM image scripts, a local docker-compose. |
+| Deployment | `deploy/gcp`, `deploy/aws`, `vm/` | Terraform for GCP and AWS, VM image scripts, a local docker-compose. |
 | Config | `config/apparatus.toml` | Every model name, threshold, budget and price. |
 | Process | `agent-kit/` | How this repo is worked on. Start at `agent-kit/ROUTING.md`. |
 
@@ -94,9 +94,13 @@ has the table of platforms, shells, commands and artifacts.
 
 ## Deploy
 
-`deploy/gcp/README.md`. Cloud Run for the server, one Compute Engine VM per user, Firestore,
+`deploy/gcp/README.md` is the GCP stack: Cloud Run, one Compute Engine VM per user, Firestore,
 Identity Platform, Secret Manager, FCM, a TURN relay. `deploy.yml` deploys with Workload
 Identity Federation when the repository variables are set.
+
+`deploy/aws/README.md` is the AWS stack: Fargate, one EC2 VM per user, Secrets Manager, a TURN
+relay, and the `ec2` VM controller. Login stays Firebase. `deploy-aws.yml` rolls the image when
+`AWS_DEPLOY_ROLE_ARN` is set.
 
 ## Where things stand
 

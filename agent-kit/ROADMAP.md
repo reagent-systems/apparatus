@@ -64,6 +64,13 @@ it with credits, with every secret kept away from the model.
 - **Scope guard:** Separate users for the desktop session and the kernels, an X auth cookie the kernel user cannot read. No change to the tool contract.
 - **Status:** ready
 
+### 8. AWS deployment
+- **Promise:** `deploy/aws` applies on an AWS account: a Fargate session server, a private user-VM launch template with no instance permissions and no inbound ports, secrets, and a TURN relay. `APPARATUS_VM_CONTROLLER=ec2` starts and stops that user's instance.
+- **Evidence:** `server/tests/test_vm.py`; `terraform validate` in `deploy/aws`. An apply needs an AWS account.
+- **Use case:** Run while away.
+- **Scope guard:** No Cognito. No DynamoDB store. No change to the GCP stack. Firebase stays the login. Push stays `log` until FCM has a token source other than the GCE metadata server.
+- **Status:** in progress
+
 ## Later — candidates, not yet specced
 
 - Egress proxy that enforces approvals (version 2 of the design) — approvals stop being a convention.
@@ -92,6 +99,7 @@ it with credits, with every secret kept away from the model.
 
 ## Queue changes
 
+- 2026-10-06 — The human asked for an AWS deploy beside GCP. Item 8 is that work. Items 1 to 7 stay in order. The apply waits on an AWS account.
 - 2026-10-05 — The human asked for a redesign of the web app against 5 reference products; it ran outside the numbered queue and serves Ask and hear, Approve a send and Log in once. `docs/DESIGN.md` is its spec. Shipped in part (see Shipped); the open checks ride on items 1 and 5. The queue order is unchanged.
 - 2026-10-04 — Added item 7 (Kernel X isolation) from the review round: the handoff rule is enforced for the computer tool and the server, not yet at the X socket.
 

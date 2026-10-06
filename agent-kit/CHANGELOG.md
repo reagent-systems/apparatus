@@ -13,6 +13,7 @@ Format: [Keep a Changelog](https://keepachangelog.com/) · Versioning: [SemVer](
 - Native shells: Tauri 2 for Windows, macOS and Linux; Capacitor 6 for iOS and Android; SwiftUI app for watchOS; Compose app for Wear OS.
 - CI: one verify gate, nightly, release that builds every client and publishes one GitHub Release, Cloud Run deploy with Workload Identity Federation.
 - GCP: Terraform for VPC, NAT, firewall, user-VM template with snapshots, Cloud Run, Secret Manager, Firestore, TURN relay; VM image scripts.
+- AWS: Terraform for VPC, NAT, a user-VM launch template with no inbound ports and an instance role with no policies, Fargate, ECR, Secrets Manager, EFS, a TURN relay; an `ec2` VM controller; image and provision scripts.
 - Web client on React 19, Vite, Tailwind CSS 4 and shadcn/ui: the 3-column desktop layout (job sidebar, pane, feed), the tablet and phone layouts from the sketches, a Screen / Output toggle in the pane. The audio, gate, Live and WebRTC code stays plain TypeScript.
 - The orb: a `thinking-orbs` canvas driven by the voice state (idle, connecting, listening, speaking, working); dimmed on a device that does not hold the voice session; still under reduced motion.
 - The VM screen widget: live video of the desktop over WebRTC, Control and Release, Done and Cancel during a handoff; pointer, wheel, key and touch input on the `input` data channel.

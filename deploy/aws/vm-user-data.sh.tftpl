@@ -1,0 +1,13 @@
+#!/bin/bash
+# Per-boot facts for a user VM. The enroll secret is deployment-wide.
+# The user id and the VM id come from instance tags, which startup.sh reads.
+set -euo pipefail
+install -d -m 0750 -o root -g agentd /etc/apparatus
+umask 077
+printf 'AGENTD_SERVER_URL=%s\n' '${server_url}' > /etc/apparatus/deploy.env
+printf '%s' '${enroll_secret}' > /etc/apparatus/enroll.secret
+chown root:agentd /etc/apparatus/deploy.env /etc/apparatus/enroll.secret
+chmod 0640 /etc/apparatus/deploy.env /etc/apparatus/enroll.secret
+if [ -f /opt/apparatus/vm/startup.sh ]; then
+  bash /opt/apparatus/vm/startup.sh
+fi

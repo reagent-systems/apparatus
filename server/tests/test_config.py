@@ -38,3 +38,14 @@ def test_env_values_never_come_from_toml(tmp_path):
     p.write_text('[models]\nvoice = "x"\n')
     s = load_settings({"APPARATUS_CONFIG": str(p), "GEMINI_API_KEY": "k", "APPARATUS_PORT": "9000"})
     assert s.gemini_api_key == "k" and s.port == 9000 and s.models.voice == "x"
+
+
+def test_ec2_region_prefers_the_explicit_variable(tmp_path):
+    p = tmp_path / "c.toml"
+    p.write_text("")
+    both = load_settings(
+        {"APPARATUS_CONFIG": str(p), "EC2_REGION": "eu-west-1", "AWS_REGION": "us-east-1"}
+    )
+    fallback = load_settings({"APPARATUS_CONFIG": str(p), "AWS_REGION": "us-east-1"})
+    assert both.aws_region == "eu-west-1"
+    assert fallback.aws_region == "us-east-1"

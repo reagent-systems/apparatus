@@ -99,7 +99,7 @@ def build_deps(
     sessions = Sessions(store, summarizer, max_chars=settings.live.summary_max_chars)
     push = push or make_push(settings.push, settings.firebase_project_id)
     vm_controller = vm_controller or make_vm_controller(
-        settings.vm_controller, settings.gce_project, settings.gce_zone
+        settings.vm_controller, settings.gce_project, settings.gce_zone, settings.aws_region
     )
     jobs = JobManager(
         settings, store, ledger, audit, vms, clients, model, push, vm_controller, sessions

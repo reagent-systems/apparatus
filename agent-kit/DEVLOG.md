@@ -41,6 +41,16 @@ Evidence: <commit / tag / gate run / screenshot>
 
 <!-- Entries below, newest first. -->
 
+## 2026-10-06 — An AWS path sits beside the GCP deploy
+
+The author asked for an AWS branch and a deploy. I added Terraform
+under `deploy/aws` and an `ec2` controller for one instance per user. The VM
+still has no inbound ports and an instance role with no policies.
+`terraform validate` passed. `terraform plan` stopped with no AWS credentials.
+The AWS login timed out. Nothing was applied.
+
+Evidence: `verify/verify.sh` passed (194 web tests, 126 Python tests; desktop, Xcode and Android gates skipped). `terraform validate` in `deploy/aws`. Plan error: `No valid credential sources found`.
+
 ## 2026-10-06 — The README got a hero image, GIFs and a gallery
 
 The author asked for pictures and animated GIFs for the repo. `tools/media` captured them from

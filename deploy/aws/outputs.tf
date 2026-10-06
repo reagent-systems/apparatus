@@ -1,0 +1,11 @@
+output "server_url" { value = "${local.scheme}://${local.public_host}" }
+output "alb_dns_name" { value = aws_lb.server.dns_name }
+output "turn_ip" { value = aws_eip.turn.public_ip }
+output "ecr_repository_url" { value = aws_ecr_repository.server.repository_url }
+output "launch_template_name" { value = aws_launch_template.vm.name }
+output "vm_subnet_id" { value = aws_subnet.vm.id }
+output "build_bucket" { value = aws_s3_bucket.build.bucket }
+output "builder_subnet_id" { value = aws_subnet.public_a.id }
+output "builder_security_group_id" { value = aws_security_group.builder.id }
+output "ecs_cluster" { value = aws_ecs_cluster.main.name }
+output "ecs_service" { value = one(aws_ecs_service.server[*].name) }
