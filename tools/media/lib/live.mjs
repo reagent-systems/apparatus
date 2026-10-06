@@ -26,9 +26,9 @@ export function liveUrl() {
 const WORDS_PER_SECOND = 3;
 
 /** Milliseconds a line takes to say at a calm pace. */
-export function speakMs(text) {
+export function speakMs(text, wps = WORDS_PER_SECOND) {
   const words = text.trim().split(/\s+/).length;
-  return Math.round((words / WORDS_PER_SECOND) * 1000) + 250;
+  return Math.round((words / wps) * 1000) + 250;
 }
 
 /** Split a line into transcription deltas the way Live streams them: a few words at a time. */
@@ -143,36 +143,41 @@ export class LiveStandIn {
   }
 
   /**
-   * The user says `text`. What the model heard arrives as inputTranscription
-   * deltas while the turn is open, then a finished marker.
-   *   via "mic":  the fake microphone speaks; wait for the gate's activityStart.
-   *   via "hold": hold `orb` (a Playwright locator) for the line, as a user would.
-   *   via "none": no turn; transcription only (history behind a still).
+   * The user says `text`. The fake microphone plays a speech segment; the
+   * client's gate opens a turn on it (activityStart) and closes it after the
+   * silence that follows (activityEnd). While the turn is open, what the model
+   * heard arrives as inputTranscription deltas spread over `ms`; a finished
+   * marker follows the turn's end, as Live sends it. The agent must be on.
    */
-  async user(text, { via = "mic", ms = speakMs(text), orb = null, page = null, timeout = 20_000 } = {}) {
-    // Each turn consumes the first activityStart after the previous turn's end.
+  async user(text, opts = {}) {
+    await this.hear(text, opts);
+    await this.endTurn(opts);
+  }
+
+  /**
+   * The first half of a user turn: wait for the gate's activityStart, then
+   * stream what the model heard over `ms`. The turn stays open while the
+   * microphone file plays its segment; `endTurn` closes it.
+   */
+  async hear(text, { ms = speakMs(text), timeout = 20_000, transcribe = true } = {}) {
+    // Each turn takes the first activityStart after the previous turn's end.
     const since = this.turnCursor ?? 0;
-    let release = null;
-    if (via === "hold") {
-      if (!orb || !page) throw new Error("user(via: hold) needs orb and page");
-      const box = await orb.boundingBox();
-      await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
-      await page.mouse.down();
-      release = async () => page.mouse.up();
-    }
-    let startAt = since;
-    if (via !== "none") startAt = (await this.activity("activityStart", since, timeout)).at;
+    this.turnStart = (await this.activity("activityStart", since, timeout)).at;
     await this.connected();
     const parts = deltas(text, 2);
     const step = Math.max(60, ms / parts.length);
     for (const p of parts) {
       await sleep(step);
-      this.send({ serverContent: { inputTranscription: { text: p } } });
+      if (transcribe) this.send({ serverContent: { inputTranscription: { text: p } } });
     }
-    if (release) await release();
-    if (via !== "none") this.turnCursor = (await this.activity("activityEnd", startAt, timeout + ms)).at + 1;
-    this.send({ serverContent: { inputTranscription: { text: "", finished: true } } });
+    this.transcribing = transcribe;
     this.userMs = ms;
+  }
+
+  /** The gate's activityEnd, then the finished marker of the input transcription, as Live sends it. */
+  async endTurn({ timeout = 90_000 } = {}) {
+    this.turnCursor = (await this.activity("activityEnd", this.turnStart, timeout)).at + 1;
+    if (this.transcribing) this.send({ serverContent: { inputTranscription: { text: "", finished: true } } });
   }
 
   /**
@@ -181,7 +186,7 @@ export class LiveStandIn {
    * generationComplete, usage and turnComplete. Resolves when the audio has
    * played out on the client.
    */
-  async agent(text, { ms = speakMs(text), chunkMs = 120 } = {}) {
+  async agent(text, { ms = speakMs(text), chunkMs = 120, tool = null } = {}) {
     await this.connected();
     const pcm = speechPcm(ms, { seed: this.seed++ });
     const bytesPerMs = 48; // 24 kHz, 16-bit mono
@@ -198,6 +203,15 @@ export class LiveStandIn {
       const ahead = (i + 1) * chunkMs - (Date.now() - started);
       if (ahead > 300) await sleep(ahead - 300);
     }
+    // The spoken part ends with a finished output transcription, as Live
+    // marks the end of a transcription, so the client finalises the line in
+    // place before any card the tool call brings.
+    this.send({ serverContent: { outputTranscription: { text: "", finished: true } } });
+    // A tool call inside the turn: Live sends it after the spoken part and
+    // before turnComplete (voice.py: "Say one short sentence first", then
+    // start_job). The turn completes once the client has answered the call.
+    let toolResult = null;
+    if (tool) toolResult = await this.tool(tool.name, tool.args);
     this.send({ serverContent: { generationComplete: true } });
     this.send({
       usageMetadata: {
@@ -212,6 +226,7 @@ export class LiveStandIn {
     this.userMs = 0;
     const left = ms - (Date.now() - started);
     if (left > 0) await sleep(left + 150);
+    return toolResult;
   }
 
   /** A toolCall; resolves with the client's toolResponse (the session server's answer). */

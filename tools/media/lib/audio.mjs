@@ -8,19 +8,24 @@ import { run } from "./util.mjs";
 
 /**
  * A WAV for Chromium's fake microphone (--use-file-for-fake-audio-capture),
- * made by ffmpeg: `leadMs` of silence, then each [startMs, endMs] segment of
- * speech-like sound, then silence to `totalMs`. Chromium loops the file, so
- * `totalMs` must outlast the scene.
+ * made by ffmpeg: silence, with speech-like sound in each [startMs, endMs]
+ * segment, `totalMs` long. Chromium plays the file from its start each time
+ * the page opens the microphone (each tap that turns the agent on) and loops
+ * it, so `totalMs` must outlast one switch-on.
  */
 export async function micWav(file, { segments, totalMs = 60_000, rate = 48_000 }) {
   const total = (totalMs / 1000).toFixed(3);
   const gate = segments.length === 0 ? "0" : segments.map(([a, b]) => `between(t,${(a / 1000).toFixed(3)},${(b / 1000).toFixed(3)})`).join("+");
-  // f0 near 150 Hz with a slow drift, three harmonics, 4.3 Hz syllables that
-  // never dip long enough to end a turn, and a little breath noise.
-  const f0 = "(150+18*sin(2*PI*0.7*t))";
-  const carrier = `(sin(2*PI*${f0}*t)+0.55*sin(4*PI*${f0}*t)+0.3*sin(6*PI*${f0}*t)+0.08*(random(0)*2-1))`;
-  const env = "(0.35+0.65*pow(abs(sin(2*PI*2.15*t)),0.6))";
-  const expr = `0.22*min(1,${gate})*${env}*${carrier}`;
+  // Tuned against the client's capture path (echo cancellation, noise
+  // suppression and gain control on): f0 drifting 105 to 190 Hz, four
+  // harmonics, syllables at about 4 Hz that dip to 15 % but never to silence,
+  // and breath noise. A steady tone or a fixed pitch lets noise suppression
+  // eat the signal after a second, which splits the turn; this shape stays
+  // above the gate's energy threshold for the whole segment.
+  const f0 = "(140+35*sin(2*PI*0.9*t)+15*sin(2*PI*2.3*t))";
+  const carrier = `(sin(2*PI*${f0}*t)+0.6*sin(4*PI*${f0}*t)+0.4*sin(6*PI*${f0}*t)+0.2*sin(8*PI*${f0}*t)+0.25*(random(0)*2-1))`;
+  const env = "(0.15+0.85*pow(abs(sin(PI*3.9*t)),0.7))";
+  const expr = `0.12*min(1,${gate})*${env}*${carrier}`;
   await run("ffmpeg", ["-hide_banner", "-loglevel", "error", "-y", "-f", "lavfi", "-i", `aevalsrc=exprs='${expr}':s=${rate}:d=${total}`, "-ac", "1", "-c:a", "pcm_s16le", file]);
   if (!fs.existsSync(file)) throw new Error(`ffmpeg wrote no ${file}`);
   return file;

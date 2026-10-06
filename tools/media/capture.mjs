@@ -1,5 +1,6 @@
 #!/usr/bin/env node
-// node tools/media/capture.mjs [scene…] --out <dir> [--work <dir>] [--build] [--themes light,dark] [--list]
+// node tools/media/capture.mjs [scene…] --out <dir> [--work <dir>] [--build] [--web-dist <dir>]
+//                               [--themes light,dark] [--keep-frames] [--list]
 //
 // Each scene is one module in scenes/ and makes one asset (a still scene also
 // makes its dark variant). Every scene starts its own session server in demo
@@ -17,6 +18,7 @@ function parse(argv) {
     if (a === "--out") opts.out = argv[++i];
     else if (a === "--work") opts.work = argv[++i];
     else if (a === "--build") opts.build = true;
+    else if (a === "--web-dist") opts.webDist = argv[++i];
     else if (a === "--themes") opts.themes = argv[++i].split(",");
     else if (a === "--list") opts.list = true;
     else if (a === "--keep-frames") opts.keep = true;
@@ -48,7 +50,7 @@ async function main() {
   for (const n of names) if (!scenes.has(n)) throw new Error(`unknown scene ${n}; --list shows them`);
   const out = mkdirp(path.resolve(opts.out));
   const work = mkdirp(path.resolve(opts.work ?? fs.mkdtempSync(path.join(os.tmpdir(), "apparatus-media-"))));
-  const webDist = path.join(REPO, "web/dist");
+  const webDist = path.resolve(opts.webDist ?? path.join(REPO, "web/dist"));
   if (opts.build) {
     log("building the web client");
     await run("npm", ["--prefix", path.join(REPO, "web"), "run", "build"], { quiet: false });
@@ -72,6 +74,14 @@ async function main() {
     if (!r.ok) console.log(`FAIL ${r.scene}: ${r.error}`);
     else for (const m of r.made) console.log(`ok   ${r.scene}: ${typeof m === "string" ? m : JSON.stringify(m)}`);
   }
+  // The brief's budget: at most 30 MB of media in all.
+  let total = 0;
+  for (const f of fs.readdirSync(out)) total += fs.statSync(path.join(out, f)).size;
+  const mb = (total / 1024 / 1024).toFixed(1);
+  if (total > 30 * 1024 * 1024) {
+    console.log(`FAIL budget: ${out} holds ${mb} MB, over 30 MB`);
+    process.exitCode = 1;
+  } else log(`${out} holds ${mb} MB`);
   log(`work folder: ${work}`);
   if (report.some((r) => !r.ok)) process.exitCode = 1;
 }

@@ -7,7 +7,7 @@ import fs from "node:fs";
 import net from "node:net";
 import os from "node:os";
 import path from "node:path";
-import { REPO, sleep } from "./util.mjs";
+import { REPO, USER_ID, sleep } from "./util.mjs";
 
 export async function freePort() {
   return new Promise((resolve, reject) => {
@@ -34,28 +34,31 @@ function launch(name, argv, env, logFile) {
   return child;
 }
 
+function signalGroup(pid, sig) {
+  try {
+    process.kill(-pid, sig);
+    return true;
+  } catch {
+    try {
+      process.kill(pid, sig);
+      return true;
+    } catch {
+      return false;
+    }
+  }
+}
+
+/** SIGINT (asyncio servers exit cleanly on it), then SIGTERM, then SIGKILL, to the child's own process group. */
 async function stopChild(child, name) {
   if (!child || child.exitCode !== null || child.signalCode !== null) return;
   const pid = child.pid;
-  const done = new Promise((r) => child.once("exit", r));
-  try {
-    process.kill(-pid, "SIGTERM");
-  } catch {
-    try {
-      process.kill(pid, "SIGTERM");
-    } catch {
-      return;
-    }
+  const done = new Promise((r) => child.once("exit", () => r("exit")));
+  for (const sig of ["SIGINT", "SIGTERM"]) {
+    if (!signalGroup(pid, sig)) return;
+    if ((await Promise.race([done, sleep(3000).then(() => "timeout")])) === "exit") return;
   }
-  const timer = sleep(5000).then(() => "timeout");
-  if ((await Promise.race([done, timer])) === "timeout") {
-    try {
-      process.kill(-pid, "SIGKILL");
-    } catch {
-      // already gone
-    }
-    console.error(`[media] ${name} (pid ${pid}) needed SIGKILL`);
-  }
+  signalGroup(pid, "SIGKILL");
+  console.error(`[media] ${name} (pid ${pid}) needed SIGKILL`);
 }
 
 const live = new Set();
@@ -84,13 +87,15 @@ function hookExit() {
 /**
  * Start the server (demo mode) and agentd. `work` is a scratch folder for the
  * logs, the agentd home and its socket. `desktop` is "fake" or "xdo"; "xdo"
- * needs `display` (an X server that is already running).
+ * needs `display` (an X server that is already running) and `screen`, its size.
  */
-export async function startStack({ work, webDist, desktop = "fake", display = null, env = {} }) {
+export async function startStack({ work, webDist, desktop = "fake", display = null, screen = null, env = {} }) {
   hookExit();
   fs.mkdirSync(work, { recursive: true });
   const port = await freePort();
   const home = path.join(work, "agent-home");
+  // A fresh home: task folders an earlier run left behind are not this day's.
+  fs.rmSync(home, { recursive: true, force: true });
   fs.mkdirSync(home, { recursive: true });
   // A unix socket path must stay under 108 bytes, so it lives in a short temp folder.
   const sockDir = fs.mkdtempSync(path.join(os.tmpdir(), "am-"));
@@ -120,8 +125,11 @@ export async function startStack({ work, webDist, desktop = "fake", display = nu
   const origin = `http://127.0.0.1:${port}`;
   const stack = { port, origin, work, server, agentd: null, serverLog, agentdLog, home, socket };
   stack.stop = async () => {
-    await stopChild(stack.agentd, "agentd");
+    // agentd sets its stop flag on SIGINT but checks it only when its server
+    // link drops, so: flag agentd, stop the server, then wait for agentd.
+    if (stack.agentd && stack.agentd.exitCode === null && stack.agentd.signalCode === null) signalGroup(stack.agentd.pid, "SIGINT");
     await stopChild(stack.server, "server");
+    await stopChild(stack.agentd, "agentd");
     live.delete(stack.agentd);
     live.delete(stack.server);
     fs.rmSync(sockDir, { recursive: true, force: true });
@@ -133,10 +141,14 @@ export async function startStack({ work, webDist, desktop = "fake", display = nu
       AGENTD_SOCKET: socket,
       AGENTD_DESKTOP: desktop,
       AGENTD_SERVER_URL: `ws://127.0.0.1:${port}/ws/agentd`,
-      AGENTD_USER_ID: "dev",
+      AGENTD_USER_ID: USER_ID,
       AGENTD_VM_ID: "local",
     };
     if (display) agentEnv.DISPLAY = display;
+    if (screen) {
+      agentEnv.AGENTD_STREAM_WIDTH = String(screen.width);
+      agentEnv.AGENTD_STREAM_HEIGHT = String(screen.height);
+    }
     stack.agentd = launch("agentd", ["uv", "run", "--quiet", "agentd"], { ...agentEnv, ...env }, agentdLog);
     live.add(stack.agentd);
     await waitFor(async () => alive(stack.agentd, "agentd") && ((await health(origin))?.vms ?? 0) >= 1, 60_000, `agentd connect (log: ${agentdLog})`);

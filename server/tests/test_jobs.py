@@ -3,6 +3,7 @@
 import asyncio
 import json
 from dataclasses import replace
+from datetime import date
 
 import pytest
 
@@ -14,7 +15,7 @@ from apparatus_protocol import S2C, JobStatus
 from apparatus_server.audit import Audit
 from apparatus_server.clients import ClientConn, ClientHub
 from apparatus_server.config import load_settings
-from apparatus_server.demo import demo_model
+from apparatus_server.demo import _week, demo_model
 from apparatus_server.jobs import JobManager
 from apparatus_server.ledger import InsufficientCredits, Ledger
 from apparatus_server.main import build_deps
@@ -384,21 +385,39 @@ async def test_demo_model_runs_a_full_job(world_factory):
     job = await w.jobs.start(USER, "make me the weekly report")
     await w.wait_done(job)
     assert job.status == JobStatus.DONE
-    assert job.artifacts == [f"/home/agent/tasks/{job.task_id}/report.csv"]
+    assert job.artifacts == ["/home/agent/reports/report.csv"]
     assert (
-        (w.core.cfg.home / "tasks" / job.task_id / "report.csv")
-        .read_text()
-        .startswith("Region,Orders,Revenue")
+        (w.core.cfg.home / "reports" / "report.csv").read_text().startswith("Region,Orders,Revenue")
     )
     assert job.show and "| North | 42 |" in job.show
-    assert w.messages(S2C.SHOW)[0]["content"] == job.show
-    assert any(p.get("percent") == 40 for p in w.messages(S2C.JOB_PROGRESS))
+    assert any(p.get("percent") == 50 for p in w.messages(S2C.JOB_PROGRESS))
     assert job.progress_history == [
-        "Reading the source",
-        "python: # Read the source and write report.csv",
-        "show",
+        "Opening orders.csv",
+        "Grouping by region",
+        "Writing report.csv",
+        "python: # Weekly orders",
     ]
-    assert job.say.count(".") == 2
+    assert job.say == "North leads with 42 orders this week. The table is in report.csv."
+
+
+@pytest.mark.parametrize(
+    ("request_text", "file", "say_part"),
+    [
+        ("compare this week's orders with last week's", "compare.csv", "North grew the most"),
+        ("which region brought in the most revenue", "revenue.csv", "$1,260"),
+        ("which region had the most orders", "report.csv", "the most orders this week, 42"),
+    ],
+)
+async def test_demo_model_gives_each_story_its_own_result(
+    world_factory, request_text, file, say_part
+):
+    w = await world_factory(demo_model())
+    job = await w.jobs.start(USER, request_text)
+    await w.wait_done(job)
+    assert job.status == JobStatus.DONE
+    assert job.artifacts == [f"/home/agent/reports/{file}"]
+    assert (w.core.cfg.home / "reports" / file).exists()
+    assert say_part in job.say
 
 
 @pytest.mark.parametrize("approved", [True, False])
@@ -406,11 +425,14 @@ async def test_demo_model_asks_for_approval(world_factory, approved):
     w = await world_factory(demo_model())
     job = await w.jobs.start(USER, "approve the note to Dana")
     req = await w.wait_message(S2C.APPROVAL_REQUESTED)
-    assert req["action"] == "send" and req["details"]["to"] == "dana@example.com"
+    assert req["action"] == "Send email" and req["details"]["to"] == "dana@larkspur.example"
+    assert req["details"]["attachment"] == "report.csv"
+    assert job.progress_history == []
     w.jobs.answer_approval(USER, req["approval_id"], approved)
     await w.wait_done(job)
     assert job.status == JobStatus.DONE
-    assert ("sent" if approved else "held") in job.say
+    assert ("I sent Dana" if approved else "did not send") in job.say
+    assert ("Sending the email" in job.progress_history) is approved
 
 
 async def test_demo_model_hands_off_for_a_login(world_factory):
@@ -422,6 +444,11 @@ async def test_demo_model_hands_off_for_a_login(world_factory):
     await w.wait_done(job)
     assert job.status == JobStatus.DONE
     assert job.progress_history[0] == "handoff: Sign in to the reports site"
+    assert job.artifacts == ["/home/agent/reports/export.csv"]
+
+
+def test_demo_week_ends_yesterday():
+    assert _week(date(2026, 10, 6)) == "29 Sep - 5 Oct"
 
 
 def test_apparatus_demo_selects_the_demo_model(settings):

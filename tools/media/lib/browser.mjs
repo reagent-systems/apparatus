@@ -3,15 +3,22 @@
 // served by the session server.
 
 import { chromium } from "playwright-core";
-import { CHROMIUM, sleep } from "./util.mjs";
+import { CHROMIUM, USER_ID, ZONE, sleep } from "./util.mjs";
 import { LiveStandIn } from "./live.mjs";
 
 export const DEVICES = {
   desktop: { viewport: { width: 1440, height: 900 }, deviceScaleFactor: 2 },
-  gif: { viewport: { width: 1200, height: 760 }, deviceScaleFactor: 1 },
+  // Desktop GIFs: the 1024 px desktop layout drawn at 1200 px, so the text
+  // is 17 % larger in the GIF than a 1200 px window at 1x would draw it.
+  gif: { viewport: { width: 1024, height: 680 }, deviceScaleFactor: 1200 / 1024 },
   tablet: { viewport: { width: 820, height: 1180 }, deviceScaleFactor: 2, isMobile: true, hasTouch: true },
   phone: { viewport: { width: 390, height: 844 }, deviceScaleFactor: 3, isMobile: true, hasTouch: true },
-  phoneGif: { viewport: { width: 390, height: 844 }, deviceScaleFactor: 2, isMobile: true, hasTouch: true },
+  // CDP screencasts a mobile-emulated page at 1x whatever its scale factor,
+  // so the phone GIFs use a 390 px window at 2x with touch, not isMobile.
+  // The client picks its phone layout from the width (useBreakpoint).
+  phoneGif: { viewport: { width: 390, height: 844 }, deviceScaleFactor: 2, hasTouch: true },
+  // The orb close-up: the phone layout at 3x, so the 56 px orb draws at 168 px.
+  orbGif: { viewport: { width: 390, height: 844 }, deviceScaleFactor: 3, hasTouch: true },
 };
 
 export async function launch({ micWav }) {
@@ -30,34 +37,57 @@ export async function launch({ micWav }) {
 }
 
 /**
- * A page on the real client. `theme` is light or dark, `borders` on or off;
- * both go into the client's own storage keys before the first paint, as a
- * returning user's choice would.
+ * A page on the real client. `theme` is light or dark, `borders` off (the
+ * client's default) or on,
+ * `prefs` more of the client's own keys (the pane width, the rail); all go
+ * into the client's storage before the first paint, as a returning user's
+ * choices would.
  */
-export async function openApp(browser, stack, { device = "desktop", theme = "light", borders = "on", noise = [], paceJobsMs = 0 } = {}) {
+export async function openApp(browser, stack, { device = "desktop", theme = "light", borders = "off", prefs = {}, noise = [], paceJobsMs = 0, hold = null, platform = null } = {}) {
   const preset = DEVICES[device] ?? device;
   const ctx = await browser.newContext({
     ...preset,
     colorScheme: theme,
     reducedMotion: "no-preference",
     permissions: ["microphone"],
+    timezoneId: ZONE,
   });
   await ctx.addInitScript(
-    ({ theme, borders }) => {
+    ({ theme, borders, prefs, userId }) => {
       try {
-        localStorage.setItem("apparatus.auth", "dev");
+        // Once per tab: later loads keep what the client itself stored.
+        if (sessionStorage.getItem("media.seeded")) return;
+        localStorage.setItem("apparatus.auth", userId);
         localStorage.setItem("apparatus.theme", theme);
-        if (borders === "off") localStorage.setItem("apparatus.borders", "off");
+        // Borderless is the default and is never stored; "on" is the opt-in.
+        if (borders === "on") localStorage.setItem("apparatus.borders", "on");
         else localStorage.removeItem("apparatus.borders");
+        for (const [k, v] of Object.entries(prefs)) localStorage.setItem(k, v);
+        sessionStorage.setItem("media.seeded", "1");
       } catch {
         // storage blocked: the defaults apply
       }
     },
-    { theme, borders },
+    { theme, borders, prefs, userId: USER_ID },
   );
+  // Overlay scrollbars stay hidden in captures, as --hide-scrollbars hides the
+  // native ones: the thread's ScrollArea shows its thumb for 600 ms after each
+  // scroll to a new card, which would flash in the GIFs. Nothing else changes.
+  await ctx.addInitScript(() => {
+    const css = '[data-slot="scroll-area-scrollbar"]{visibility:hidden !important}';
+    const add = () => {
+      const s = document.createElement("style");
+      s.dataset.media = "scrollbars";
+      s.textContent = css;
+      document.head.appendChild(s);
+    };
+    if (document.head) add();
+    else document.addEventListener("DOMContentLoaded", add, { once: true });
+  });
+  if (platform) await shellBridge(ctx, platform);
   const live = new LiveStandIn({ log: (...a) => console.log("[media]", ...a) });
   await live.install(ctx);
-  if (paceJobsMs > 0) await paceJobEvents(ctx, paceJobsMs);
+  if (paceJobsMs > 0 || hold) await paceJobEvents(ctx, paceJobsMs, hold);
   const page = await ctx.newPage();
   // Console noise is collected and reported; a capture with errors is suspect.
   page.on("console", (m) => {
@@ -73,32 +103,88 @@ export async function openApp(browser, stack, { device = "desktop", theme = "lig
 }
 
 /**
+ * The shell seam (web/src/bridge.ts): a native shell replaces dist/bridge.js
+ * with a module that sets `window.apparatusBridge`. The Tauri shell's reports
+ * platform "desktop"; its keychain calls need Tauri, so this one keeps the
+ * web bridge's storage. The client then sends `hello.device` "desktop" and
+ * labels the device "Desktop", as in the desktop app.
+ */
+async function shellBridge(ctx, platform) {
+  const body = `"use strict";(function(){var s=null;try{s=localStorage}catch(e){}
+window.apparatusBridge={platform:${JSON.stringify(platform)},secureStore:{
+get:async function(k){try{return s?s.getItem(k):null}catch(e){return null}},
+set:async function(k,v){try{s&&s.setItem(k,v)}catch(e){}},
+delete:async function(k){try{s&&s.removeItem(k)}catch(e){}}}};})();`;
+  await ctx.route(/\/bridge\.js$/, (route) => route.fulfill({ status: 200, contentType: "text/javascript", body }));
+}
+
+/**
+ * A job hold for stills that show a job mid-run. The demo model ends a job in
+ * about a second; a real one takes minutes. `JobHold` names a request; the
+ * page gets that job's events in order until one reports `percent` or more,
+ * and the rest wait at the browser until `release()`. Nothing is added,
+ * dropped or rewritten; other jobs pass unchanged.
+ */
+export class JobHold {
+  constructor(request, { percent = 40 } = {}) {
+    this.request = request;
+    this.percent = percent;
+    this.released = false;
+    this.waiters = [];
+  }
+
+  release() {
+    this.released = true;
+    for (const w of this.waiters.splice(0)) w();
+  }
+
+  whenReleased() {
+    return this.released ? Promise.resolve() : new Promise((r) => this.waiters.push(r));
+  }
+}
+
+/**
  * The demo model answers at once, so a demo job ends in about a second; a
  * real model takes seconds per step. For GIFs the session socket is passed
  * through unchanged except that job.progress and job.done reach the page at
  * least `gapMs` apart, in their original order, so each step can be read.
- * Nothing is added, dropped or rewritten.
+ * `hold` (a JobHold) keeps one job mid-run. Nothing is added, dropped or
+ * rewritten.
  */
-async function paceJobEvents(ctx, gapMs) {
+async function paceJobEvents(ctx, gapMs, hold) {
   await ctx.routeWebSocket(/\/ws\/client/, (ws) => {
     const server = ws.connectToServer();
     let chain = Promise.resolve();
     let lastJob = 0;
+    const held = new Set(); // job ids that match the hold
+    const holding = new Set(); // job ids past their hold point
     server.onMessage((m) => {
-      let type = "";
+      let msg = {};
       try {
-        type = JSON.parse(String(m)).type ?? "";
+        msg = JSON.parse(String(m));
       } catch {
         // not JSON: pass it on as is
       }
-      chain = chain.then(async () => {
-        if (type === "job.progress" || type === "job.done") {
-          const wait = lastJob + gapMs - Date.now();
-          if (wait > 0) await sleep(wait);
+      const type = msg.type ?? "";
+      const job = msg.job_id ?? null;
+      if (hold && type === "job.started" && String(msg.request ?? "") === hold.request) held.add(job);
+      const isJob = type === "job.progress" || type === "job.done";
+      const wait = hold && isJob && holding.has(job) && !hold.released;
+      if (hold && isJob && held.has(job) && type === "job.progress" && (msg.percent ?? -1) >= hold.percent) holding.add(job);
+      const send = async () => {
+        if (gapMs > 0 && isJob) {
+          const w = lastJob + gapMs - Date.now();
+          if (w > 0) await sleep(w);
           lastJob = Date.now();
         }
         ws.send(m);
-      });
+      };
+      if (wait) {
+        // This job's chain waits for the release; the others go on.
+        void hold.whenReleased().then(() => (chain = chain.then(send)));
+        return;
+      }
+      chain = chain.then(send);
     });
     ws.onMessage((m) => server.send(m));
     ws.onClose((code, reason) => server.close({ code, reason }));
@@ -106,23 +192,71 @@ async function paceJobEvents(ctx, gapMs) {
   });
 }
 
-/** The composer's orb (the one voice control). */
+/** The composer's orb: the agent's on-switch (role switch, accessible name "Agent"). */
 export function orb(page) {
-  return page.locator('[data-kind="composer"] button[aria-label="Talk"]').first();
+  return page.locator('[data-kind="composer"] [role="switch"][aria-label="Agent"]').first();
 }
 
-/** Tap the orb: claim the voice session and open the Live session. */
-export async function tapOrb(app) {
-  await orb(app.page).click();
-  await app.live.connected();
+async function switchReads(page, on, timeout = 10_000) {
+  await page.waitForFunction(
+    (want) => document.querySelector('[data-kind="composer"] [role="switch"][aria-label="Agent"]')?.getAttribute("aria-checked") === want,
+    String(on),
+    { timeout },
+  );
 }
 
-/** Scroll every scroller to its end, as the thread does on a new card. */
+/** Tap the orb once, as a user would: on turns off, off turns on. */
+export async function tapOrb(app, { big = false } = {}) {
+  const was = (await orb(app.page).getAttribute("aria-checked")) === "true";
+  // `big`: the 128 px orb of the empty thread, the same switch as the composer's.
+  if (big) {
+    const all = app.page.locator('[role="switch"][aria-label="Agent"]');
+    let best = null;
+    for (let i = 0; i < (await all.count()); i++) {
+      const b = await all.nth(i).boundingBox();
+      if (b && (!best || b.width > best.w)) best = { i, w: b.width };
+    }
+    if (!best || best.w < 100) throw new Error("no 128 px orb on the page: the thread is not empty");
+    await all.nth(best.i).click();
+  } else await orb(app.page).click();
+  await switchReads(app.page, !was);
+  if (!was) await app.live.connected();
+  return !was;
+}
+
+/** Turn the agent on (a tap when it reads off). Opens the microphone, so the mic file plays from its start. */
+export async function turnOn(app) {
+  if ((await orb(app.page).getAttribute("aria-checked")) !== "true") await tapOrb(app);
+}
+
+/** Turn the agent off (a tap when it reads on). */
+export async function turnOff(app) {
+  if ((await orb(app.page).getAttribute("aria-checked")) === "true") await tapOrb(app);
+}
+
+/**
+ * Scroll every scroller to its end, as the thread does on a new card, with
+ * the pointer parked off every scroller, then wait until the scroll areas
+ * have hidden their scrollbars again (they show while hovered or scrolled).
+ */
 export async function toEnd(page) {
+  await parkPointer(page);
   await page.evaluate(() => {
     for (const el of document.querySelectorAll("[data-radix-scroll-area-viewport]")) el.scrollTop = el.scrollHeight;
   });
+  await page
+    .waitForFunction(() => ![...document.querySelectorAll("[data-slot=\"scroll-area-scrollbar\"]")].some((b) => b.getAttribute("data-state") === "visible"), null, { timeout: 4000 })
+    .catch(() => {});
   await sleep(300);
+}
+
+/** Scroll every scroller to its top: a list read from its newest entry and its filter chips. */
+export async function toTop(page) {
+  await parkPointer(page);
+  await page.evaluate(() => {
+    for (const el of document.querySelectorAll("[data-radix-scroll-area-viewport]")) el.scrollTop = 0;
+  });
+  await sleep(700);
 }
 
 /** Park the pointer off the page so no hover state shows. */
@@ -135,4 +269,89 @@ export async function parkPointer(page) {
 export async function waitIdle(page, ms = 600) {
   await page.evaluate(() => document.fonts.ready);
   await sleep(ms);
+}
+
+/**
+ * Scroll the thread so a card's top (16 px under the viewport's top) starts
+ * the frame, as near the top of the day as the thread allows without the
+ * end-of-thread button: the client shows it once the end is more than 240 px
+ * away (AWAY_PX in ScrollToEnd.tsx), and it would sit over the cards.
+ */
+export async function scrollToCardTop(page, away = 230) {
+  await page.evaluate((away) => {
+    const vp = document.querySelector('[data-kind="composer"]')?.closest("[data-radix-scroll-area-viewport]") ?? [...document.querySelectorAll("[data-radix-scroll-area-viewport]")].find((v) => v.querySelector('[data-kind="speech"], [data-kind="job"]'));
+    if (!vp) return;
+    const max = vp.scrollHeight - vp.clientHeight;
+    const base = vp.getBoundingClientRect().top - vp.scrollTop;
+    const tops = [...vp.querySelectorAll('[data-kind="speech"], [data-kind="job"], [data-kind="approval"], [data-kind="handoff"]')]
+      .map((el) => el.closest(".flex.w-full.flex-col")?.getBoundingClientRect().top ?? el.getBoundingClientRect().top)
+      .map((t) => t - base - 16)
+      .filter((t) => t >= 0 && max - t <= away)
+      .sort((a, b) => a - b);
+    vp.scrollTop = tops.length ? tops[0] : max;
+  }, away);
+  await parkPointer(page);
+  await sleep(700);
+}
+
+/** The end-of-thread button must not be in a still. */
+export async function assertNoEndButton(page, what) {
+  if (await page.locator('button[aria-label="End"]:visible').count()) throw new Error(`${what}: the end-of-thread button shows`);
+}
+
+
+/**
+ * One tap on and one tap off before a recording. On a fresh load the client
+ * reads the voice session as held by another device (the server omits
+ * `voice_holder` when nobody holds it and the client takes the missing field
+ * for a holder; tools/media/README.md lists it), so the orb shows paused and
+ * dimmed until the first tap. After one on-off cycle it shows the agent off.
+ * Later turns start from the first gate turn after this.
+ */
+export async function primeSwitch(app) {
+  await tapOrb(app);
+  await turnOff(app);
+  await sleep(400);
+  app.live.turnCursor = Date.now();
+  await parkPointer(app.page);
+  await sleep(800);
+}
+
+/** The thread's own scroller only (not the pane or the rail), to its end, as the thread does on a new card. */
+export async function threadToEnd(page) {
+  await parkPointer(page);
+  await page.evaluate(() => {
+    const vp = document.querySelector('[data-kind="thread"] [data-radix-scroll-area-viewport]');
+    if (vp) vp.scrollTop = vp.scrollHeight;
+  });
+  await sleep(500);
+}
+
+/**
+ * The window height in [min, max] that, with the thread at its end, puts a
+ * row's top `pad` CSS px under the thread's top edge, so no card is cut
+ * there. At the end of the thread a taller window moves every row down by
+ * the same amount (the composer sits outside the thread's scroller).
+ * Resolves with the height it set.
+ */
+export async function fitHeightToRow(page, { min, max, pad = 16 }) {
+  const width = page.viewportSize().width;
+  await page.setViewportSize({ width, height: min });
+  await sleep(600);
+  await threadToEnd(page);
+  const tops = await page.evaluate(() => {
+    const vp = document.querySelector('[data-kind="thread"] [data-radix-scroll-area-viewport]');
+    const col = vp?.querySelector(".max-w-\\[760px\\]");
+    if (!vp || !col) return [];
+    const v = vp.getBoundingClientRect().top;
+    return [...col.children].map((c) => c.getBoundingClientRect().top - v);
+  });
+  const grow = tops.map((t) => Math.round(pad - t)).filter((d) => d >= 0 && d <= max - min).sort((a, b) => a - b);
+  const height = min + (grow[0] ?? 0);
+  if (height !== min) {
+    await page.setViewportSize({ width, height });
+    await sleep(600);
+    await threadToEnd(page);
+  }
+  return height;
 }

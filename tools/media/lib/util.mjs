@@ -36,3 +36,25 @@ export function mkdirp(dir) {
 export function log(...args) {
   console.log("[media]", ...args);
 }
+
+/**
+ * The person whose day the captures show. Dev auth takes the token as the
+ * user id; the rail avatar shows its initials ("MO"), agentd runs as the same user.
+ */
+export const USER_ID = "maya.ortiz";
+
+/**
+ * A fixed-offset zone (Etc/GMT-N is UTC+N) where it is now mid-morning, so
+ * the times on screen read like a working day whenever the harness runs.
+ * The browser context and the X desktop's clock both use it.
+ */
+export function workdayZone(hour = 10, now = new Date()) {
+  const utc = now.getUTCHours() + now.getUTCMinutes() / 60;
+  let off = Math.round(hour - utc);
+  while (off > 14) off -= 24;
+  while (off < -12) off += 24;
+  return off === 0 ? "Etc/GMT" : `Etc/GMT${off > 0 ? "-" : "+"}${Math.abs(off)}`;
+}
+
+/** Computed once per run, so every scene shows the same morning. */
+export const ZONE = workdayZone();
