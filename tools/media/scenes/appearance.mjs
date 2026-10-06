@@ -1,60 +1,68 @@
-// appearance.gif: Settings, Appearance on the tablet layout (780 px: the icon
-// rail and the thread). The settings popover is open for the whole GIF:
-// Light (borderless, the client's default), then Dark, then Borders on, then
-// Borders off, then Light again, about 2 s each, so the last frame matches
-// the first. The thread holds one
-// finished job, short enough that the popover covers only empty page and the
-// empty composer. The crop runs from just above the job card to the bottom.
+// appearance.gif: Settings, Appearance on the desktop layout, the whole
+// window (1024 x 720): the full rail, the thread with one finished job and
+// the composer, and the settings popover open from the rail footer for the
+// whole GIF. The pointer moves to each choice (its hover fill shows) and
+// clicks: Light (borderless, the client's default), Dark, Borders on, Borders
+// off, Light again, so the last frame matches the first. Light and Dark hold
+// 1.5 s; the Borders states hold 2 s, because in dark the card fill and the
+// outlines are the only difference. The frames of each repaint (the 150 ms
+// colour transition) are cut, not blended.
 
-import { assertNoEndButton, parkPointer, primeSwitch, turnOff } from "../lib/browser.mjs";
+import { assertNoEndButton, parkPointer, primeSwitch, threadToEnd, turnOff } from "../lib/browser.mjs";
 import { LINES, askForJob, speakResult } from "../lib/day.mjs";
 import { finish, record } from "../lib/gifscene.mjs";
 import { openSettings, withApp } from "../lib/scene.mjs";
 import { sleep } from "../lib/util.mjs";
 
-const DEVICE = { viewport: { width: 780, height: 1000 }, deviceScaleFactor: 1.5, hasTouch: false };
-const HOLD = 1900;
+const DEVICE = { viewport: { width: 1024, height: 720 }, deviceScaleFactor: 1.15 };
+/** The repaint after a click: these frames are cut. */
+const REPAINT_MS = 260;
 
 export default {
   name: "appearance",
   kind: "gif",
-  makes: "appearance.gif: Light, Dark, Borders on and off in Settings (tablet layout)",
+  makes: "appearance.gif: Light, Dark, Borders on and off in Settings (desktop layout, the whole window)",
   async run(ctx) {
-    return withApp(ctx, { name: "appearance", device: DEVICE }, async (app) => {
+    return withApp(ctx, { name: "appearance", device: DEVICE, platform: "desktop" }, async (app) => {
       const { page } = app;
       await primeSwitch(app);
       const a = await askForJob(app, { ask: LINES.ordersAsk, ack: LINES.ordersAck, request: LINES.ordersJob });
       await speakResult(app, a);
       await turnOff(app);
       await sleep(600);
+      await threadToEnd(page);
       await assertNoEndButton(page, "appearance");
-      const job = await page.locator('[data-kind="job"]').first().boundingBox();
-      const vp = page.viewportSize();
-      const top = Math.max(0, Math.round(job.y - 8));
-      const clip = { x: 0, y: top, width: vp.width, height: vp.height - top };
       await openSettings(app);
       await parkPointer(page);
       await sleep(600);
-      const rec = await record(app, ctx, { fps: 12, clip });
+      const rec = await record(app, ctx, { fps: 12 });
       await sleep(300);
       rec.mark("start");
-      await sleep(HOLD);
-      const pick = async (loc) => {
-        await loc.hover();
-        await sleep(200);
-        await loc.click();
-        await sleep(150);
-        await parkPointer(page);
-        await sleep(HOLD);
+      await sleep(1500);
+      const cuts = [];
+      // The pointer travels from where it last was to the choice, so its hover fill shows on the way.
+      const pick = async (loc, hold) => {
+        const box = await loc.boundingBox();
+        await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2, { steps: 8 });
+        await sleep(350);
+        const t = Date.now();
+        await page.mouse.down();
+        await sleep(90);
+        await page.mouse.up();
+        cuts.push([t + 40, t + REPAINT_MS]);
+        await sleep(hold);
       };
       const radio = (name) => page.getByRole("radio", { name, exact: true }).first();
       const borders = page.getByRole("switch", { name: "Borders", exact: true }).first();
-      await pick(radio("Dark"));
-      await pick(borders);
-      await pick(borders);
-      await pick(radio("Light"));
+      await pick(radio("Dark"), 1500);
+      await pick(borders, 2000);
+      await pick(borders, 2000);
+      await pick(radio("Light"), 1200);
+      // The pointer rests where it started, so the last frame matches the first.
+      await parkPointer(page);
+      await sleep(400);
       rec.mark("end");
-      return [await finish(rec, ctx, "appearance.gif", { width: null })];
+      return [await finish(rec, ctx, "appearance.gif", { width: null, cuts })];
     });
   },
 };

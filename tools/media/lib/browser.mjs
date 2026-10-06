@@ -87,7 +87,9 @@ export async function openApp(browser, stack, { device = "desktop", theme = "lig
   if (platform) await shellBridge(ctx, platform);
   const live = new LiveStandIn({ log: (...a) => console.log("[media]", ...a) });
   await live.install(ctx);
-  if (paceJobsMs > 0 || hold) await paceJobEvents(ctx, paceJobsMs, hold);
+  // `pacer.notBefore` (a Date.now() time) lets a scene hold the next job event a moment longer.
+  const pacer = { gapMs: paceJobsMs, notBefore: 0 };
+  if (paceJobsMs > 0 || hold) await paceJobEvents(ctx, pacer, hold);
   const page = await ctx.newPage();
   // Console noise is collected and reported; a capture with errors is suspect.
   page.on("console", (m) => {
@@ -99,7 +101,7 @@ export async function openApp(browser, stack, { device = "desktop", theme = "lig
   await page.waitForFunction(() => document.querySelector('[data-kind="composer"]')?.getAttribute("data-state") !== "connecting", null, { timeout: 20_000 });
   await page.evaluate(() => document.fonts.ready);
   await sleep(300);
-  return { ctx, page, live, device, theme, borders };
+  return { ctx, page, live, device, theme, borders, pacer };
 }
 
 /**
@@ -147,11 +149,12 @@ export class JobHold {
  * The demo model answers at once, so a demo job ends in about a second; a
  * real model takes seconds per step. For GIFs the session socket is passed
  * through unchanged except that job.progress and job.done reach the page at
- * least `gapMs` apart, in their original order, so each step can be read.
+ * least `pacer.gapMs` apart, and not before `pacer.notBefore`, in their
+ * original order, so each step can be read.
  * `hold` (a JobHold) keeps one job mid-run. Nothing is added, dropped or
  * rewritten.
  */
-async function paceJobEvents(ctx, gapMs, hold) {
+async function paceJobEvents(ctx, pacer, hold) {
   await ctx.routeWebSocket(/\/ws\/client/, (ws) => {
     const server = ws.connectToServer();
     let chain = Promise.resolve();
@@ -172,8 +175,8 @@ async function paceJobEvents(ctx, gapMs, hold) {
       const wait = hold && isJob && holding.has(job) && !hold.released;
       if (hold && isJob && held.has(job) && type === "job.progress" && (msg.percent ?? -1) >= hold.percent) holding.add(job);
       const send = async () => {
-        if (gapMs > 0 && isJob) {
-          const w = lastJob + gapMs - Date.now();
+        if (pacer.gapMs > 0 && isJob) {
+          const w = Math.max(lastJob + pacer.gapMs, pacer.notBefore) - Date.now();
           if (w > 0) await sleep(w);
           lastJob = Date.now();
         }

@@ -1,15 +1,16 @@
 // phone.gif: the voice-to-job story at 390 px, in the hero's phone bezel, on
-// the README's page colour. The first frame is the poster: the finished
-// thread, held 1 s; then the empty thread, the tap, the request, the job and
-// its steps, and the result, which ends on the poster frame, so the loop has
-// no cut. Every frame is opaque, so the encoder rewrites only what changed.
+// the README's page colour, at 12 fps like the desktop GIFs. The first frame
+// is the poster: the finished thread, held 1 s, then a fade through the page
+// colour into the empty thread; the tap, the request, the job and its steps,
+// and the result, which ends on the poster frame, so the loop has no cut.
+// Every frame is opaque, so the encoder rewrites only what changed.
 
 import fs from "node:fs";
 import path from "node:path";
-import { parkPointer, primeSwitch, tapOrb } from "../lib/browser.mjs";
+import { primeSwitch, tapOrb } from "../lib/browser.mjs";
 import { GIF_HEARD_MS, GIF_MIC, GIF_WPS, LINES, speakResult } from "../lib/day.mjs";
 import { PALETTE } from "../lib/compose.mjs";
-import { dropFrames, encodeChecked, posterHold, record } from "../lib/gifscene.mjs";
+import { dropFrames, editTime, encodeChecked, record } from "../lib/gifscene.mjs";
 import { withApp } from "../lib/scene.mjs";
 import { run, sleep } from "../lib/util.mjs";
 
@@ -41,17 +42,18 @@ export default {
     return withApp(ctx, { name: "phone", device: PHONE_GIF, mic: GIF_MIC, paceJobsMs: 600 }, async (app) => {
       const { page, live } = app;
       await primeSwitch(app);
-      const rec = await record(app, ctx, { fps: 10 });
-      await sleep(1200);
+      const rec = await record(app, ctx, { fps: 12 });
+      await sleep(600);
+      // The story opens 0.3 s before the tap: the idle orb, then the switch.
+      rec.marks.start = Date.now() - 300;
       await tapOrb(app, { big: true });
-      rec.marks.start = (await live.activity("activityStart", live.turnCursor, 20_000)).at - 900;
       await live.user(LINES.ordersAsk, { ms: GIF_HEARD_MS });
       const { job_id } = await live.agent(LINES.ordersAck, { tool: { name: "start_job", args: { request: LINES.ordersJob } }, ms: 850 });
       await speakResult(app, job_id, { wps: GIF_WPS });
       await sleep(1000);
       rec.mark("end");
       const frames = await rec.stop({ from: "start", to: "end" });
-      frames.count = posterHold(rec.dir, frames.count, frames.fps);
+      frames.count = await editTime(rec.dir, frames, { posterMs: 1000, posterFade: 4 });
       for (let k = 0; k < frames.count; k++) await bezel(path.join(rec.dir, `frame-${String(k).padStart(5, "0")}.png`), frames.scale, PALETTE.light.hex);
       const gif = await encodeChecked({ input: frames.pattern, fps: frames.fps, out: path.join(ctx.out, "phone.gif"), width: null, dither: "bayer" });
       dropFrames(rec, ctx);

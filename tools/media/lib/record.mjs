@@ -103,6 +103,6 @@ export class Recorder {
       while (j + 1 < this.frames.length && this.frames[j + 1].t <= tick) j++;
       fs.copyFileSync(this.frames[j].file, path.join(this.dir, `frame-${String(k++).padStart(5, "0")}.png`));
     }
-    return { pattern: path.join(this.dir, "frame-%05d.png"), count: k, fps: this.fps, raw: this.frames.length, scale: this.scale() };
+    return { pattern: path.join(this.dir, "frame-%05d.png"), count: k, fps: this.fps, raw: this.frames.length, scale: this.scale(), start };
   }
 }

@@ -2,7 +2,8 @@
 
 import fs from "node:fs";
 import path from "node:path";
-import { crossfadeLoop, encodeGif, fadeThroughLoop } from "./gif.mjs";
+import { cleanBlends, fadeThroughFrames, listFrames, resequence } from "./frames.mjs";
+import { crossfadeLoop, encodeGif } from "./gif.mjs";
 import { Recorder } from "./record.mjs";
 import { log, run } from "./util.mjs";
 
@@ -20,30 +21,61 @@ export async function record(app, ctx, { fps = 12, clip = null } = {}) {
 
 /**
  * `crop` (frame pixels) or `cssCrop` (CSS pixels) and `width` as in encodeGif; `loopFade` frames of
- * crossfade make the loop seamless. `posterMs` opens the GIF on the story's
- * last real frame, held that long: the first frame reads as a poster and the
- * loop's end leads into a start that shows the same frame.
+ * crossfade make the loop seamless. Edits in time, all of whole real frames:
+ * - `cuts`: [fromMs, toMs] pairs (Date.now() times) whose frames are dropped,
+ *   such as the half-repainted frames of a theme switch: a cut, not a blend.
+ * - `endHoldMs`: the last frame held that long.
+ * - `posterMs`: the GIF opens on the story's last frame, held that long, so
+ *   the loop's end leads into a start that shows the same frame;
+ *   `posterFade` frames then fade it through the page colour into the
+ *   story's first frame, so a full thread never snaps to an empty one.
+ * - `fadeThrough`: the end fades through the page colour into frame 0.
  * Frames are kept with --keep-frames.
  * A GIF over budget is reported, not hidden: the scene fails.
  */
-export async function finish(rec, ctx, file, { width = GIF_MAX_WIDTH, crop = null, cssCrop = null, dither = "sierra2_4a", loopFade = 0, fadeThrough = 0, posterMs = 0, padTo = 0, padTop = 0 } = {}) {
+export async function finish(rec, ctx, file, { width = GIF_MAX_WIDTH, crop = null, cssCrop = null, dither = "sierra2_4a", bayerScale = 5, loopFade = 0, fadeThrough = 0, posterMs = 0, posterFade = 0, endHoldMs = 0, cuts = [], padTo = 0, padTop = 0 } = {}) {
   const frames = await rec.stop({ from: "start", to: "end" });
   if (padTo > 0) await padFrames(rec.dir, Math.round(padTo * frames.scale));
   if (padTop > 0) await padFramesTop(rec.dir, Math.round(padTop * frames.scale));
-  if (posterMs > 0) frames.count = posterHold(rec.dir, frames.count, Math.round((posterMs / 1000) * frames.fps));
-  if (fadeThrough > 0) frames.count = await fadeThroughLoop(rec.dir, await pageColour(rec.dir), { n: fadeThrough });
+  frames.count = await editTime(rec.dir, frames, { cuts, endHoldMs, posterMs, posterFade, fadeThrough });
   if (cssCrop) {
     const k = frames.scale;
     crop = { x: Math.round(cssCrop.x * k), y: Math.round(cssCrop.y * k), w: Math.round(cssCrop.w * k), h: Math.round(cssCrop.h * k) };
   }
   if (loopFade > 0) await crossfadeLoop(rec.dir, { n: loopFade });
-  const gif = await encodeChecked({ input: frames.pattern, fps: frames.fps, out: path.join(ctx.out, file), width, crop, dither, raw: frames.raw });
+  const gif = await encodeChecked({ input: frames.pattern, fps: frames.fps, out: path.join(ctx.out, file), width, crop, dither, bayerScale, raw: frames.raw });
   dropFrames(rec, ctx);
   return gif;
 }
 
-export async function encodeChecked({ input, fps, out, width, crop = null, dither = "sierra2_4a", raw = null, alpha = false }) {
-  const gif = await encodeGif({ input, fps, out, width: Math.min(width ?? GIF_MAX_WIDTH, GIF_MAX_WIDTH), crop, dither, alpha });
+/** The time edits of `finish` on a stopped recording's frames. Returns the new count. */
+export async function editTime(dir, frames, { cuts = [], endHoldMs = 0, posterMs = 0, posterFade = 0, fadeThrough = 0 } = {}) {
+  let list = listFrames(dir);
+  const step = 1000 / frames.fps;
+  if (cuts.length) {
+    const drop = new Set();
+    for (const [a, b] of cuts) {
+      for (let k = Math.floor((a - frames.start) / step); k <= Math.ceil((b - frames.start) / step); k++) drop.add(k);
+    }
+    list = list.filter((_, k) => !drop.has(k));
+    log(`cut ${drop.size} frames`);
+  }
+  const last = list[list.length - 1];
+  if (endHoldMs > 0) list.push(...Array(Math.round(endHoldMs / step)).fill(last));
+  const bg = posterFade > 0 || fadeThrough > 0 ? await pageColour(dir) : null;
+  if (posterMs > 0) {
+    const head = Array(Math.round(posterMs / step)).fill(last);
+    if (posterFade > 0) head.push(...(await fadeThroughFrames(dir, last, list[0], bg, posterFade)));
+    list = [...head, ...list];
+  }
+  if (fadeThrough > 0) list.push(...(await fadeThroughFrames(dir, list[list.length - 1], list[0], bg, fadeThrough)));
+  const n = resequence(dir, list);
+  cleanBlends(dir);
+  return n;
+}
+
+export async function encodeChecked({ input, fps, out, width, crop = null, dither = "sierra2_4a", bayerScale = 5, raw = null, alpha = false }) {
+  const gif = await encodeGif({ input, fps, out, width: Math.min(width ?? GIF_MAX_WIDTH, GIF_MAX_WIDTH), crop, dither, bayerScale, alpha });
   const secs = (gif.frames / gif.fps).toFixed(1);
   log(`${path.basename(out)}: ${gif.width}x${gif.height}, ${gif.frames} frames at ${gif.fps} fps (${secs} s), ${gif.bytes} bytes${raw ? ` (${raw} screencast frames)` : ""}`);
   if (gif.bytes > GIF_MAX_BYTES) throw new Error(`${path.basename(out)} is ${gif.bytes} bytes, over the ${GIF_MAX_BYTES} budget`);

@@ -10,7 +10,8 @@ import { run } from "./util.mjs";
 /**
  * `input` is an image pattern (frame-%05d.png) at `fps`. `width` scales with
  * Lanczos when the frames are wider. `crop` is {x, y, w, h} in frame pixels.
- * `dither` is "sierra2_4a" or "bayer". `alpha` keeps transparency (the round
+ * `dither` is "sierra2_4a" or "bayer" (`bayerScale` 0 to 5; lower is a
+ * finer pattern, larger files). `alpha` keeps transparency (the round
  * watch frames). Loops forever.
  *
  * Chromium's screenshots come as RGB or RGBA PNGs within one recording, and a
@@ -18,7 +19,7 @@ import { run } from "./util.mjs";
  * the filter graph kept as built (-reinit_filter 0), because paletteuse fails
  * when the graph is rebuilt for a new input format mid-stream.
  */
-export async function encodeGif({ input, fps, out, width = null, crop = null, dither = "sierra2_4a", maxColors = 256, alpha = false, statsMode = "full" }) {
+export async function encodeGif({ input, fps, out, width = null, crop = null, dither = "sierra2_4a", bayerScale = 5, maxColors = 256, alpha = false, statsMode = "full" }) {
   const filters = [`format=${alpha ? "rgba" : "rgb24"}`];
   if (crop) filters.push(`crop=${crop.w}:${crop.h}:${crop.x}:${crop.y}`);
   if (width) filters.push(`scale='min(${width},iw)':-2:flags=lanczos`);
@@ -28,7 +29,7 @@ export async function encodeGif({ input, fps, out, width = null, crop = null, di
   const palette = `${out}.palette.png`;
   const head = ["-hide_banner", "-loglevel", "error", "-y", "-reinit_filter", "0", "-framerate", String(fps), "-i", input];
   await run("ffmpeg", [...head, "-vf", `${base},palettegen=stats_mode=${statsMode}:max_colors=${maxColors}${alpha ? "" : ":reserve_transparent=0"}`, palette]);
-  const use = dither === "bayer" ? "paletteuse=dither=bayer:bayer_scale=5:diff_mode=rectangle" : `paletteuse=dither=${dither}:diff_mode=rectangle`;
+  const use = dither === "bayer" ? `paletteuse=dither=bayer:bayer_scale=${bayerScale}:diff_mode=rectangle` : `paletteuse=dither=${dither}:diff_mode=rectangle`;
   await run("ffmpeg", [...head, "-i", palette, "-lavfi", `[0:v]${base}[x];[x][1:v]${use}`, "-loop", "0", out]);
   fs.rmSync(palette, { force: true });
   return gifInfo(out);

@@ -1,19 +1,21 @@
-// approval.gif: the thread column. The first frame is the poster: a job needs
-// you, its approval card waits with the amber bar, Approve and Deny. The user
-// presses Approve (the pressed state shows for about 3 frames), the bar goes
-// and the card reads "Approved", the job's card returns with its steps, the
-// job ends with its table and report.csv, and the agent speaks its say line.
-// The loop closes through the page colour (lib/gif.mjs fadeThroughLoop): the
-// end fades out, the poster fades in; two layouts never show at once.
+// approval.gif: the thread column, drawn at 2x and scaled to 880 px. The
+// first frame is the poster: a job needs you, its approval card waits with
+// the amber bar, Approve and Deny. The pointer rests on Approve (its hover
+// fill), the user presses it and holds the press for about 5 frames, the bar
+// goes and the card reads "Approved" for 0.7 s before the job's next event
+// reaches the page (pacer.notBefore), then the job's card returns with its
+// steps, the job ends with its table and report.csv, and the agent speaks its
+// say line. The end holds 1.2 s, then the loop closes through the page colour
+// (lib/frames.mjs fadeThroughFrames): two layouts never show at once.
 
 import { parkPointer } from "../lib/browser.mjs";
-import { COLUMN_GIF, RAIL_COLLAPSED, columnClip } from "../lib/column.mjs";
+import { RAIL_COLLAPSED, columnClip } from "../lib/column.mjs";
 import { GIF_HEARD_MS, GIF_MIC, GIF_WPS, LINES, askForJob, speakResult } from "../lib/day.mjs";
 import { finish, record } from "../lib/gifscene.mjs";
 import { withApp } from "../lib/scene.mjs";
 import { sleep } from "../lib/util.mjs";
 
-const DEVICE = { ...COLUMN_GIF, viewport: { width: 1024, height: 960 } };
+const DEVICE = { viewport: { width: 1024, height: 960 }, deviceScaleFactor: 2 };
 
 export default {
   name: "approval",
@@ -34,16 +36,18 @@ export default {
       await sleep(1300); // the card waits with its amber bar
       const approve = page.getByRole("button", { name: "Approve", exact: true }).first();
       await approve.hover();
-      await sleep(500);
+      await sleep(700); // the hover fill
       await page.mouse.down();
-      await sleep(250); // active:scale-[.97]: about 3 frames
+      await sleep(450); // active:scale-[.97]: about 5 frames
+      // The job's next event waits 0.7 s at the browser, so "Approved" reads before the card moves.
+      app.pacer.notBefore = Date.now() + 700;
       await page.mouse.up();
       await sleep(150);
       await parkPointer(page);
       await speakResult(app, jobId, { wps: GIF_WPS });
-      await sleep(1000);
+      await sleep(300);
       rec.mark("end");
-      return [await finish(rec, ctx, "approval.gif", { width: null, fadeThrough: 4 })];
+      return [await finish(rec, ctx, "approval.gif", { width: 880, endHoldMs: 1200, fadeThrough: 4 })];
     });
   },
 };

@@ -56,5 +56,8 @@ export function workdayZone(hour = 10, now = new Date()) {
   return off === 0 ? "Etc/GMT" : `Etc/GMT${off > 0 ? "-" : "+"}${Math.abs(off)}`;
 }
 
-/** Computed once per run, so every scene shows the same morning. */
-export const ZONE = workdayZone();
+/**
+ * Computed once per run, so every scene shows the same morning. MEDIA_ZONE
+ * pins it (an IANA zone such as Etc/GMT-3), so separate runs share a clock.
+ */
+export const ZONE = process.env.MEDIA_ZONE || workdayZone();

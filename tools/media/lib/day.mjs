@@ -22,9 +22,14 @@ import { sleep } from "./util.mjs";
 /** The fake microphone: silence, then one spoken line from leadMs to leadMs + sayMs after the microphone opens. */
 export const MIC = { leadMs: 600, sayMs: 2600 };
 export const MIC_SEGMENTS = [[MIC.leadMs, MIC.leadMs + MIC.sayMs]];
-/** The GIFs: a 2 s request, heard over its first 1.7 s, and the agent at a brisk 3.4 words a second. */
-export const GIF_MIC = [[MIC.leadMs, MIC.leadMs + 2000]];
-export const GIF_HEARD_MS = 1700;
+/**
+ * The GIFs: the request starts 0.25 s after the microphone opens and lasts
+ * 2.6 s; what the model heard is complete after 1.5 s, so the final heard
+ * line stays on screen for about 1.5 s before the turn ends. The agent
+ * speaks at a brisk 3.4 words a second.
+ */
+export const GIF_MIC = [[250, 2850]];
+export const GIF_HEARD_MS = 1500;
 export const GIF_WPS = 3.4;
 /** What the model heard streams in over the voiced part of the segment. */
 export const HEARD_MS = MIC.sayMs - 300;
