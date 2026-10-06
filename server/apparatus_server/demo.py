@@ -33,6 +33,8 @@ class Story:
     steps: tuple[str, ...]
     show: str
     say: str
+    # The CSV's rows: plain numbers, no currency signs or thousands separators.
+    data: list[tuple[Any, ...]]
 
 
 def _table(
@@ -75,6 +77,7 @@ def _orders(short: bool) -> Story:
             ],
         ),
         say,
+        [(r, o, v) for r, _, o, v in ROWS],
     )
 
 
@@ -102,6 +105,7 @@ def _compare() -> Story:
             ],
         ),
         "Orders rose from 96 to 105 this week. North grew the most, up 6.",
+        [(r, a, b, b - a) for r, a, b, _ in ROWS],
     )
 
 
@@ -121,6 +125,7 @@ def _revenue() -> Story:
             [f"The three regions brought in ${total:,}.", "The table is in revenue.csv."],
         ),
         "North brought in the most revenue, $1,260 this week. South follows with $1,050.",
+        [(r, v, round(100 * v / total)) for r, _, _, v in ROWS],
     )
 
 
@@ -139,6 +144,7 @@ def _export() -> Story:
             ["105 orders this week.", "The export is in export.csv."],
         ),
         "The export is in export.csv. It holds 105 orders.",
+        [(r, o, v) for r, _, o, v in ROWS],
     )
 
 
@@ -183,7 +189,7 @@ def _code(story: Story, approve: bool) -> str:
             lines += [
                 'os.makedirs(os.path.expanduser("~/reports"), exist_ok=True)',
                 f'with open(os.path.expanduser("~/reports/{story.file}"), "w", newline="") as f:',
-                f"    csv.writer(f).writerows([{story.header!r}, *{story.rows!r}])",
+                f'    csv.writer(f, lineterminator="\\n").writerows([{story.header!r}, *{story.data!r}])',
             ]
     lines.append(f"print(open(os.path.expanduser('~/reports/{story.file}')).read())")
     return "\n".join(lines) + "\n"

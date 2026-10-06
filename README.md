@@ -4,6 +4,29 @@ A voice agent that works on its own cloud computer and talks to you on any devic
 speak. The agent does the work on a persistent Linux desktop VM. It asks you only when a
 person must act: a captcha, a login, an approval.
 
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/media/hero-dark.png">
+  <img alt="The desktop app with a job's receipt open and the orb listening, a phone with an approval card, and the Wear OS app" src="docs/media/hero-light.png">
+</picture>
+
+<img alt="A spoken request becomes a job with a table and report.csv" src="docs/media/voice-to-job.gif">
+
+Speak. The agent starts a job and says the result.
+
+<table>
+  <tr>
+    <td width="50%"><img alt="Approve on an email the agent drafted; the job ends" src="docs/media/approval.gif"></td>
+    <td width="50%"><img alt="The same request on a phone" src="docs/media/phone.gif"></td>
+  </tr>
+  <tr>
+    <td>The agent asks before it acts.</td>
+    <td>The same thread on a phone.</td>
+  </tr>
+</table>
+
+Captures use demo mode (`APPARATUS_DEMO=1`: scripted jobs) with scripted voice; real jobs take longer.
+Every frame is the real client. [docs/media/README.md](docs/media/README.md) has every still and GIF.
+
 Two Gemini models do two jobs. A Live model talks and routes. A text model works in the
 VM. One API key, on the server only. Users pay a subscription that includes credits.
 

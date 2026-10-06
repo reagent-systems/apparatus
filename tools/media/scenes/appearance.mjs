@@ -12,7 +12,7 @@ import { finish, record } from "../lib/gifscene.mjs";
 import { openSettings, withApp } from "../lib/scene.mjs";
 import { sleep } from "../lib/util.mjs";
 
-const DEVICE = { viewport: { width: 780, height: 1000 }, deviceScaleFactor: 1.2, hasTouch: false };
+const DEVICE = { viewport: { width: 780, height: 1000 }, deviceScaleFactor: 1.5, hasTouch: false };
 const HOLD = 1900;
 
 export default {
@@ -30,7 +30,7 @@ export default {
       await assertNoEndButton(page, "appearance");
       const job = await page.locator('[data-kind="job"]').first().boundingBox();
       const vp = page.viewportSize();
-      const top = Math.max(0, Math.round(job.y - 28));
+      const top = Math.max(0, Math.round(job.y - 8));
       const clip = { x: 0, y: top, width: vp.width, height: vp.height - top };
       await openSettings(app);
       await parkPointer(page);

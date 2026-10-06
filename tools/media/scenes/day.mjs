@@ -300,7 +300,7 @@ export default {
         await assertNoEndButton(tablet.page, "tablet");
         made.push(await save(tablet.page, out("tablet", theme)));
       }
-      await fitHeightToRow(pp, { min: 844, max: 900, pad: 12 });
+      await fitHeightToRow(pp, { min: 780, max: 920 });
       for (const theme of ["light", "dark"]) {
         if (theme !== phone.theme) await setTheme(phone, theme);
         await threadToEnd(pp);
@@ -380,6 +380,7 @@ export default {
       await phone.live.hear(LINES.exportAsk, { ms: HEARD });
       await waitHeard(pp, "the login");
       await sleep(600);
+      await fitHeightToRow(pp, { min: 780, max: 920 });
       for (const theme of ["light", "dark"]) {
         if (theme !== phone.theme) await setTheme(phone, theme);
         await threadToEnd(pp);

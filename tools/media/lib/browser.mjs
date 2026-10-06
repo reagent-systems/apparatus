@@ -328,25 +328,32 @@ export async function threadToEnd(page) {
 }
 
 /**
- * The window height in [min, max] that, with the thread at its end, puts a
- * row's top `pad` CSS px under the thread's top edge, so no card is cut
- * there. At the end of the thread a taller window moves every row down by
- * the same amount (the composer sits outside the thread's scroller).
- * Resolves with the height it set.
+ * The window height in [min, max] that, with the thread at its end, starts a
+ * row `pad` CSS px under the clear edge (the thread's top, or the bottom of
+ * `clear`, an element over the thread such as the phone's top bar) while the
+ * row before it ends at or above that edge, so no card is cut there. At the
+ * end of the thread a taller window moves every row down by the same amount
+ * (the composer sits outside the thread's scroller). Resolves with the height.
  */
-export async function fitHeightToRow(page, { min, max, pad = 16 }) {
+export async function fitHeightToRow(page, { min, max, pad = 8, clear = null }) {
   const width = page.viewportSize().width;
   await page.setViewportSize({ width, height: min });
   await sleep(600);
   await threadToEnd(page);
-  const tops = await page.evaluate(() => {
+  const { rows, edge } = await page.evaluate((clear) => {
     const vp = document.querySelector('[data-kind="thread"] [data-radix-scroll-area-viewport]');
     const col = vp?.querySelector(".max-w-\\[760px\\]");
-    if (!vp || !col) return [];
-    const v = vp.getBoundingClientRect().top;
-    return [...col.children].map((c) => c.getBoundingClientRect().top - v);
-  });
-  const grow = tops.map((t) => Math.round(pad - t)).filter((d) => d >= 0 && d <= max - min).sort((a, b) => a - b);
+    if (!vp || !col) return { rows: [], edge: 0 };
+    const bar = clear ? [...document.querySelectorAll(clear)].find((e) => e.getBoundingClientRect().height > 0) : null;
+    const edge = bar ? bar.getBoundingClientRect().bottom : vp.getBoundingClientRect().top;
+    return { rows: [...col.children].map((c) => [c.getBoundingClientRect().top, c.getBoundingClientRect().bottom]), edge };
+  }, clear);
+  const grow = [];
+  for (let i = 1; i < rows.length; i++) {
+    const d = Math.round(edge + pad - rows[i][0]);
+    if (d >= 0 && d <= max - min && rows[i - 1][1] + d <= edge) grow.push(d);
+  }
+  grow.sort((a, b) => a - b);
   const height = min + (grow[0] ?? 0);
   if (height !== min) {
     await page.setViewportSize({ width, height });

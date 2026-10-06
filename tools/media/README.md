@@ -12,14 +12,18 @@ Capture settings that differ from a plain local run:
   Tauri shell's `bridge.js` does, so the device reads "Desktop". The client has no device names.
 - The browser and the VM clock run in a fixed-offset zone where it is mid-morning (`ZONE` in `lib/util.mjs`).
 - Overlay scrollbars are hidden, as `--hide-scrollbars` hides the native ones.
+- Every capture shows the client's default look, Borders off, except `borders-on` and `borders-split`.
 - Stills that show a job at work hold that job's later events at the browser (`JobHold`); GIFs
-  space job events 0.8 to 0.9 s apart. Nothing is added, dropped or rewritten.
+  space job events 0.5 to 0.6 s apart. Nothing is added, dropped or rewritten.
+- The GIFs' agent speaks at 3.4 words a second; the stills' at 3.
+- Some stills pick a window height (desktop 800 to 960 px, phone 780 to 920 px) that puts a
+  row's top edge at the top of the thread, so no card is cut there (`fitHeightToRow`).
 
 ## What it makes
 
 | Scene | Output |
 |---|---|
-| `day` | One day on one server, three devices at once. `hero-light.png`, `hero-dark.png`: the desktop listening with the pane on a Receipt, the phone on the approval card, and the Wear OS orb (working, paused and dimmed: the desktop holds the voice session) on one backdrop. `thread`: a done job, a job at work, the approval last, the orb listening. `borders-off`: the same frame with Borders off; `borders-split`: the two halves side by side. `tablet`, `phone-thread`: the approval last above a dimmed orb. `phone-listening`: the phone holding the voice session. `phone-sheet`: the pane as a sheet on a Receipt. `jobs`: the Jobs view, the pane on a Receipt. `approval-card`, `handoff-card`: the cards that need you, close. `palette`: the command palette over the window. `audit`, `credits` |
+| `day` | One day on one server, three devices at once. `hero-light.png`, `hero-dark.png`: the desktop listening with the pane on a Receipt, the phone on the approval card, and the Wear OS orb (working, paused and dimmed: the desktop holds the voice session) on one backdrop. `thread`: a job at work, the approval last, the orb listening. `borders-on`: the same frame with Borders on (the opt-in; every other capture shows the default, borderless); `borders-split`: Borders on at left, off at right, one frame. `tablet`, `phone-thread`: the approval last above a dimmed orb. `phone-listening`: the phone holding the voice session. `phone-sheet`: the pane as a sheet on a Receipt. `jobs`: the Jobs view, the pane on a Receipt. `approval-card`, `handoff-card`: the cards that need you, close. `palette`: the command palette over the window. `audit`, `credits` |
 | `voice-to-job` | `voice-to-job.gif`: the thread column; the finished thread as the poster, then a tap, a spoken request, a job, its steps, the result |
 | `approval` | `approval.gif`: the thread column; Approve on a job that needs you; the job runs and ends |
 | `orb` | `orb.gif`, `orb-dark.gif`: the orb close: idle, listening, speaking, working, speaking, idle |

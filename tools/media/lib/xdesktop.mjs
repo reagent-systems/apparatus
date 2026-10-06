@@ -28,6 +28,25 @@ async function monoFont(dir) {
   return conf;
 }
 
+/**
+ * The root window's colour and the arrow pointer, as a desktop session sets
+ * them (xsetroot's job; python-xlib does it here). RetainPermanent keeps both
+ * after the client exits.
+ */
+async function styleRoot(env) {
+  const [r, g, b] = [1, 3, 5].map((i) => Number.parseInt(ROOT.slice(i, i + 2), 16));
+  const py = `from Xlib import display, X
+d = display.Display(); s = d.screen(); root = s.root
+d.set_close_down_mode(X.RetainPermanent)
+px = s.default_colormap.alloc_color(${r * 257}, ${g * 257}, ${b * 257}).pixel
+font = d.open_font("cursor")
+arrow = font.create_glyph_cursor(font, 68, 69, (0, 0, 0), (65535, 65535, 65535))
+root.change_attributes(background_pixel=px, cursor=arrow)
+root.clear_area()
+d.sync()`;
+  await run("uv", ["run", "--quiet", "--no-project", "--with", "python-xlib", "python", "-c", py], { env });
+}
+
 export async function missingTools() {
   const missing = [];
   for (const t of NEEDS) {
@@ -73,13 +92,10 @@ export async function startDesktop({ work, width = 1280, height = 800, apps = []
     await sleep(300);
   };
   try {
-    procs.push(start(["Xvfb", display, "-screen", "0", `${width}x${height}x24`, "-nolisten", "tcp"], {}, log));
+    procs.push(start(["Xvfb", display, "-screen", "0", `${width}x${height}x24`, "-nolisten", "tcp", "-noreset"], {}, log));
     for (let i = 0; i < 40 && !fs.existsSync(`/tmp/.X11-unix/X${n}`); i++) await sleep(100);
     if (!fs.existsSync(`/tmp/.X11-unix/X${n}`)) throw new Error(`Xvfb ${display} did not start (log: ${log})`);
-    const bg = path.join(work, "root.png");
-    await run("convert", ["-size", "16x16", `xc:${ROOT}`, bg]);
-    // `display -window root` tiles the image on the root window and exits.
-    await run("display", ["-window", "root", bg], { env }).catch(() => {});
+    await styleRoot(env);
     for (const argv of apps) procs.push(start(argv, env, log));
     await sleep(1200);
   } catch (e) {

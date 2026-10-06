@@ -26,6 +26,7 @@ Format: [Keep a Changelog](https://keepachangelog.com/) · Versioning: [SemVer](
 - Progress steps: the server sends `job.progress` after every tool step, and each job in `ready.jobs` and `GET /jobs` carries the last 50 texts as `progress_history`.
 - Demo mode for development: `APPARATUS_DEMO=1` replaces the smart model with a scripted job, an approval or a handoff.
 - Borders, a per-device setting on the screen clients: a switch under Appearance and a row in the command palette. Off hides every border, divider and outline ring and puts every surface on the page background; controls and states keep their fill, and floating layers keep their shadow. Off, borderless, is the default; on brings back the lines and stepped surfaces.
+- Media for the README in `docs/media/`: 27 stills (a hero for light and dark among them) and 9 GIFs, with a gallery in `docs/media/README.md`. `tools/media` makes them from the real client in demo mode with scripted voice.
 ### Changed
 - `signal` carries `stream_id` on every link; `handoff_id` is gone from it. One handoff opens a stream like any other screen.
 - `ready` carries `jobs`, `control` and `streams`; `vm.state` carries `streams` and `user_control`.

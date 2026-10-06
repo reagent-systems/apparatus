@@ -41,6 +41,18 @@ Evidence: <commit / tag / gate run / screenshot>
 
 <!-- Entries below, newest first. -->
 
+## 2026-10-06 — The README got a hero image, GIFs and a gallery
+
+The author asked for pictures and animated GIFs for the repo. `tools/media` captured them from
+the real web client, a demo-mode server and a scripted stand-in for the Live socket. The watch
+frames are the Wear OS app, rendered by Paparazzi. The Screen stream is a real X session through
+agentd, but a bare one, not the VM image's XFCE desktop. Judges reviewed 3 rounds and cut the
+audit stills: they show raw ids. I published 36 files, 13.4 MB, in `docs/media/`. Several judge
+redos are still open: the hero, every GIF and 4 still pairs. The captures also showed 2 product
+defects: a fresh client dims its orb, and a job's say line shows twice in a row.
+
+Evidence: `docs/media/README.md`; `verify/verify.sh` passed: 194 web tests, 117 Python tests; the Xcode and Android gates skipped.
+
 ## 2026-10-06 — Borderless is the default
 
 The author asked for borderless as the default. A device with no stored choice now boots with

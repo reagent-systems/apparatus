@@ -387,8 +387,8 @@ async def test_demo_model_runs_a_full_job(world_factory):
     assert job.status == JobStatus.DONE
     assert job.artifacts == ["/home/agent/reports/report.csv"]
     assert (
-        (w.core.cfg.home / "reports" / "report.csv").read_text().startswith("Region,Orders,Revenue")
-    )
+        w.core.cfg.home / "reports" / "report.csv"
+    ).read_text() == "Region,Orders,Revenue\nNorth,42,1260\nSouth,35,1050\nWest,28,840\n"
     assert job.show and "| North | 42 |" in job.show
     assert any(p.get("percent") == 50 for p in w.messages(S2C.JOB_PROGRESS))
     assert job.progress_history == [

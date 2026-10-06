@@ -20,9 +20,9 @@ const PS1 = "$ ";
 /** The X screen; agentd streams and maps input at this size (AGENTD_STREAM_WIDTH, AGENTD_STREAM_HEIGHT). */
 export const SCREEN = { width: 1280, height: 720 };
 /** DESIGN.md's paper and ink; a 1 px border in its --border colour (no window manager draws one). */
-const XTERM = ["-fa", "JetBrains Mono", "-fs", "21", "-bg", "#fbfaf7", "-fg", "#211d19", "-cr", "#211d19", "-b", "22", "-bw", "1", "-bd", "#c9c2b6"];
+const XTERM = ["-fa", "JetBrains Mono", "-fs", "27", "-bg", "#fbfaf7", "-fg", "#211d19", "-cr", "#211d19", "-b", "22", "-bw", "1", "-bd", "#c9c2b6"];
 /** The terminal's place on the X screen (columns x rows + X pixels). */
-export const TERM_GEOMETRY = "40x9+150+120";
+export const TERM_GEOMETRY = "34x8+130+100";
 
 /** Open the terminal in `cwd` with `home` as its HOME. */
 export async function openTerminal(desk, home, cwd) {
