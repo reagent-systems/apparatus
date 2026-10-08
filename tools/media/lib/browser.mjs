@@ -117,7 +117,7 @@ export async function openApp(browser, stack, { device = "desktop", theme = "lig
 }
 
 /**
- * The shell seam (web/src/bridge.ts): a native shell replaces dist/bridge.js
+ * The shell seam (apps/web/src/bridge.ts): a native shell replaces dist/bridge.js
  * with a module that sets `window.apparatusBridge`. The Tauri shell's reports
  * platform "desktop"; its keychain calls need Tauri, so this one keeps the
  * web bridge's storage. The client then sends `hello.device` "desktop" and

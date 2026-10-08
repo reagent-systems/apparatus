@@ -1,0 +1,122 @@
+{
+  "voice-to-job": {
+    "width": 880,
+    "height": 750,
+    "mp4": {
+      "file": "/media/voice-to-job.6bc7bc6c48.mp4",
+      "bytes": 125198
+    },
+    "webm": {
+      "file": "/media/voice-to-job.f4c5f32920.webm",
+      "bytes": 167651
+    },
+    "poster": {
+      "file": "/media/voice-to-job.931fedb701.webp",
+      "bytes": 17414
+    },
+    "posterSmall": {
+      "file": "/media/voice-to-job-480.1ee8409c73.webp",
+      "bytes": 6522
+    }
+  },
+  "voice-to-job-dark": {
+    "width": 880,
+    "height": 750,
+    "mp4": {
+      "file": "/media/voice-to-job-dark.d083a5bcd3.mp4",
+      "bytes": 122195
+    },
+    "webm": {
+      "file": "/media/voice-to-job-dark.e34e338e09.webm",
+      "bytes": 160535
+    },
+    "poster": {
+      "file": "/media/voice-to-job-dark.0de1252cbb.webp",
+      "bytes": 17522
+    },
+    "posterSmall": {
+      "file": "/media/voice-to-job-dark-480.811a936d74.webp",
+      "bytes": 6588
+    }
+  },
+  "screen-control": {
+    "width": 956,
+    "height": 726,
+    "mp4": {
+      "file": "/media/screen-control.f2db6edfc5.mp4",
+      "bytes": 52984
+    },
+    "webm": {
+      "file": "/media/screen-control.2e44407655.webm",
+      "bytes": 55990
+    },
+    "poster": {
+      "file": "/media/screen-control.04494ee110.webp",
+      "bytes": 15404
+    },
+    "posterSmall": {
+      "file": "/media/screen-control-480.868b6b6914.webp",
+      "bytes": 5900
+    }
+  },
+  "screen-control-dark": {
+    "width": 956,
+    "height": 726,
+    "mp4": {
+      "file": "/media/screen-control-dark.075a669b38.mp4",
+      "bytes": 46288
+    },
+    "webm": {
+      "file": "/media/screen-control-dark.14d3638282.webm",
+      "bytes": 52233
+    },
+    "poster": {
+      "file": "/media/screen-control-dark.6c2d991f83.webp",
+      "bytes": 15356
+    },
+    "posterSmall": {
+      "file": "/media/screen-control-dark-480.2ef435ceb1.webp",
+      "bytes": 6058
+    }
+  },
+  "watch": {
+    "width": 454,
+    "height": 454,
+    "mp4": {
+      "file": "/media/watch.6b7159b154.mp4",
+      "bytes": 188426
+    },
+    "webm": {
+      "file": "/media/watch.03f8f557d5.webm",
+      "bytes": 203135
+    },
+    "poster": {
+      "file": "/media/watch.65b58d61cf.webp",
+      "bytes": 14346
+    },
+    "posterSmall": {
+      "file": "/media/watch-480.994348a4fe.webp",
+      "bytes": 13722
+    }
+  },
+  "watch-dark": {
+    "width": 454,
+    "height": 454,
+    "mp4": {
+      "file": "/media/watch-dark.2db8845414.mp4",
+      "bytes": 191916
+    },
+    "webm": {
+      "file": "/media/watch-dark.c86a1d84c8.webm",
+      "bytes": 199269
+    },
+    "poster": {
+      "file": "/media/watch-dark.b47e3d848a.webp",
+      "bytes": 12052
+    },
+    "posterSmall": {
+      "file": "/media/watch-dark-480.ecf12a5906.webp",
+      "bytes": 11260
+    }
+  }
+}

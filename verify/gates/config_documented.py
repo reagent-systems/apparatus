@@ -7,7 +7,7 @@ import tomllib
 from dataclasses import fields
 from pathlib import Path
 
-sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "server"))
+sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "apps" / "server"))
 from apparatus_server import config as cfg  # noqa: E402
 
 root = Path(__file__).resolve().parents[2]
@@ -33,7 +33,7 @@ if missing_doc:
     print("\n".join(f"  {k}" for k in missing_doc))
 if missing_toml:
     ok = False
-    print("config fields out of sync between config/apparatus.toml and server/apparatus_server/config.py:")
+    print("config fields out of sync between config/apparatus.toml and apps/server/apparatus_server/config.py:")
     print("\n".join(f"  {k}" for k in missing_toml))
 if ok:
     print("config documented: ok")

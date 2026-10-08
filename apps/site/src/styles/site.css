@@ -1,0 +1,105 @@
+@import "tailwindcss";
+@import "@apparatus/design/fonts.css";
+@import "@apparatus/design/tokens.css";
+
+/* The site is the app's look at page scale: paper and ink, one ink-blue
+   accent, weights 400 and 500, borders off. Tokens and fonts come from @apparatus/design.
+   The faces carry unicode ranges, so a browser fetches only the latin files:
+   Inter at once (preloaded in Base.astro), JetBrains Mono when code first shows. */
+
+@theme {
+  --text-display: clamp(2.5rem, 1.6rem + 3.6vw, 4.75rem);
+  --text-display--line-height: 1.04;
+  --text-display--letter-spacing: -0.035em;
+  --text-title: clamp(1.875rem, 1.4rem + 1.9vw, 3rem);
+  --text-title--line-height: 1.1;
+  --text-title--letter-spacing: -0.025em;
+  --text-lede: clamp(1.125rem, 1.05rem + 0.35vw, 1.3125rem);
+  --text-lede--line-height: 1.55;
+}
+
+@layer base {
+  html {
+    color-scheme: light;
+    scroll-behavior: smooth;
+    scroll-padding-top: 5rem;
+    -webkit-text-size-adjust: 100%;
+  }
+  html.dark {
+    color-scheme: dark;
+  }
+  body {
+    @apply bg-background text-foreground font-sans antialiased;
+    font-feature-settings: "cv11", "ss01";
+    text-rendering: optimizeLegibility;
+  }
+  ::selection {
+    background: var(--accent);
+    color: var(--accent-foreground);
+  }
+  :focus-visible {
+    outline: 2px solid var(--ring);
+    outline-offset: 3px;
+  }
+  /* The skip link's target takes focus without a ring around the whole page. */
+  main:focus:not(:focus-visible) {
+    outline: none;
+  }
+  @media (prefers-reduced-motion: reduce) {
+    html {
+      scroll-behavior: auto;
+    }
+    *,
+    *::before,
+    *::after {
+      transition-duration: 0.01ms !important;
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+    }
+  }
+}
+
+@layer components {
+  /* A media frame: a moving or captured screen on a quiet fill, with the app's
+     radius. Only loops and the diagram get one; text and still cards sit on the page. */
+  .frame {
+    @apply overflow-hidden rounded-2xl bg-secondary;
+  }
+  .eyebrow {
+    @apply text-[0.8125rem] font-medium tracking-[0.08em] text-muted-foreground uppercase;
+  }
+  .link {
+    @apply text-primary underline decoration-primary/30 underline-offset-4 transition-colors duration-150 ease-ui hover:decoration-primary;
+  }
+}
+
+/* The hero stills: the devices' soft shadow spreads past every edge of the
+   capture, so an edge would show as a line under the devices (and, in dark, as
+   a faint panel). The mask fades each edge's margin, which holds only shadow,
+   into the page. The devices sit inside 6 % top, 93 % bottom and 2.7 % / 97.4 %
+   sideways in the wide still; the phone crop's content ends at 93.6 % right. */
+.hero-fade {
+  --fade-x: linear-gradient(to right, transparent, #000 2.4%, #000 97.6%, transparent);
+  --fade-y: linear-gradient(to bottom, transparent, #000 5%, #000 93%, transparent);
+  -webkit-mask-image: var(--fade-y), var(--fade-x);
+  -webkit-mask-composite: source-in;
+  mask-image: var(--fade-y), var(--fade-x);
+  mask-composite: intersect;
+}
+@media (max-width: 639px) {
+  .hero-fade {
+    --fade-x: linear-gradient(to right, transparent, #000 1.5%, #000 95%, transparent);
+  }
+}
+
+/* The live orb's canvas replaces the static frame once it has drawn (lib/orb.ts). */
+[data-live] > picture {
+  display: none;
+}
+
+/* The theme swap is instant: no transition paints the old colours over the new. */
+html.theme-switching *,
+html.theme-switching *::before,
+html.theme-switching *::after {
+  transition: none !important;
+}

@@ -5,8 +5,8 @@ on:
   workflow_dispatch: {}
   pull_request:
     paths:
-      - "clients/watchos/**"
-      - "clients/shared/gate-vectors.json"
+      - "apps/watchos/**"
+      - "packages/gate-vectors/gate-vectors.json"
       - ".github/workflows/clients-watchos.yml"
 
 permissions:
@@ -22,11 +22,11 @@ jobs:
     timeout-minutes: 45
     defaults:
       run:
-        working-directory: clients/watchos
+        working-directory: apps/watchos
     env:
       # Step `if:` cannot read `secrets`; this flag can.
       HAVE_SIGNING: ${{ secrets.APPLE_CERTIFICATE_P12_BASE64 != '' && secrets.APPLE_CERTIFICATE_PASSWORD != '' && secrets.WATCHOS_PROVISIONING_PROFILE_BASE64 != '' && secrets.APPLE_TEAM_ID != '' }}
-      LOG_DIR: ${{ github.workspace }}/clients/watchos/build/logs
+      LOG_DIR: ${{ github.workspace }}/apps/watchos/build/logs
     steps:
       - uses: actions/checkout@v4
 
@@ -82,7 +82,7 @@ jobs:
             test | tee "$LOG_DIR/test-app.log"
 
       - name: Test ThinkingOrbsKit (golden vectors)
-        working-directory: clients/watchos/Vendor/ThinkingOrbsKit
+        working-directory: apps/watchos/Vendor/ThinkingOrbsKit
         run: |
           set -o pipefail
           SCHEME="$(xcodebuild -list -json | python3 -c '
@@ -93,7 +93,7 @@ jobs:
           xcodebuild \
             -scheme "$SCHEME" \
             -destination "id=$WATCH_SIM" \
-            -derivedDataPath "$GITHUB_WORKSPACE/clients/watchos/build/KitDerivedData" \
+            -derivedDataPath "$GITHUB_WORKSPACE/apps/watchos/build/KitDerivedData" \
             CODE_SIGNING_ALLOWED=NO \
             test | tee "$LOG_DIR/test-kit.log"
 
@@ -174,8 +174,8 @@ jobs:
         with:
           name: watchos
           path: |
-            clients/watchos/build/export/*.ipa
-            clients/watchos/build/export/ApparatusWatch.xcarchive.zip
+            apps/watchos/build/export/*.ipa
+            apps/watchos/build/export/ApparatusWatch.xcarchive.zip
           if-no-files-found: error
 
       - name: Upload build logs
@@ -183,7 +183,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: watchos-build-logs
-          path: clients/watchos/build/logs/
+          path: apps/watchos/build/logs/
           if-no-files-found: ignore
 
       - name: Remove signing keychain

@@ -1,0 +1,71 @@
+---
+import interLatin from "@fontsource-variable/inter/files/inter-latin-wght-normal.woff2?url";
+import "../styles/site.css";
+
+interface Props {
+  title: string;
+  description: string;
+}
+const { title, description } = Astro.props;
+// Astro.site is set only when the build knows its origin (astro.config.mjs).
+const canonical = Astro.site ? new URL(Astro.url.pathname, Astro.site).href : undefined;
+// Open Graph needs an absolute image URL; without an origin the build leaves the image out.
+const ogImage = Astro.site ? new URL("/og.png", Astro.site).href : undefined;
+---
+
+<!doctype html>
+<html lang="en" data-borders="off">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>{title}</title>
+    <meta name="description" content={description} />
+    {canonical && <link rel="canonical" href={canonical} />}
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+    <link rel="preload" href={interLatin} as="font" type="font/woff2" crossorigin />
+    <meta name="theme-color" content="#fbfaf7" media="(prefers-color-scheme: light)" />
+    <meta name="theme-color" content="#1b1917" media="(prefers-color-scheme: dark)" />
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="apparatus" />
+    <meta property="og:title" content={title} />
+    <meta property="og:description" content={description} />
+    {canonical && <meta property="og:url" content={canonical} />}
+    {
+      ogImage && (
+        <>
+          <meta property="og:image" content={ogImage} />
+          <meta property="og:image:width" content="1200" />
+          <meta property="og:image:height" content="630" />
+          <meta name="twitter:card" content="summary_large_image" />
+        </>
+      )
+    }
+    <!-- Before first paint: the stored theme, else the system; and a stored Pause motion. -->
+    <script is:inline>
+      (() => {
+        let stored = null;
+        let motion = null;
+        try {
+          stored = localStorage.getItem("theme");
+          motion = localStorage.getItem("motion");
+        } catch {}
+        const dark = stored ? stored === "dark" : matchMedia("(prefers-color-scheme: dark)").matches;
+        document.documentElement.classList.toggle("dark", dark);
+        // A picked theme also colours the browser chrome (lib/client.ts keeps this in step).
+        if (stored) for (const m of document.querySelectorAll('meta[name="theme-color"]')) m.content = dark ? "#1b1917" : "#fbfaf7";
+        if (motion === "paused") document.documentElement.dataset.motion = "paused";
+      })();
+    </script>
+  </head>
+  <body class="min-h-dvh">
+    <a
+      href="#main"
+      class="sr-only z-50 rounded-full bg-primary px-4 py-2 text-sm text-primary-foreground focus:not-sr-only focus:fixed focus:top-3 focus:left-3 focus:px-4 focus:py-2"
+      >Skip to content</a
+    >
+    <slot />
+    <script>
+      import "../lib/client.ts";
+    </script>
+  </body>
+</html>

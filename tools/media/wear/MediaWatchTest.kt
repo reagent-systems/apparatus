@@ -2,7 +2,7 @@ package systems.reagent.apparatus.wear.ui
 
 // The watch GIF and the watch strip for the README, rendered by Paparazzi
 // from the real Wear OS screen (App.kt `Screen`). tools/media copies this file
-// into a scratch copy of clients/wearos; it is not part of the app's tests.
+// into a scratch copy of apps/wearos; it is not part of the app's tests.
 //
 // One render over time: the app's Screen with the UiState of a short call.
 // The state follows the Compose frame clock, which Paparazzi drives with

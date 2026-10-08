@@ -1,0 +1,22 @@
+# The build context is the repository root (apps/server/Dockerfile, infra/vm/Dockerfile).
+# Host installs and build output never enter an image; each stage installs its own.
+.git
+.env
+.vercel
+**/.terraform
+**/*.tfstate
+**/*.tfstate.*
+gha-creds-*.json
+.venv
+.turbo
+**/.turbo
+**/node_modules
+**/dist
+**/__pycache__
+apps/desktop/src-tauri/target
+apps/desktop/src-tauri/gen
+apps/mobile/android/.gradle
+apps/mobile/android/app/build
+apps/wearos/.gradle
+apps/wearos/build
+apps/wearos/app/build

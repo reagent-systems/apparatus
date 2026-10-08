@@ -1,0 +1,23 @@
+---
+// The orb's static frame (lib/orb-svg.ts), as an image file. It fills the
+// orb's box until the canvas in lib/orb.ts draws, and stays when no script
+// runs. One <picture>: the dark source follows the system, and lib/client.ts
+// points it at the page's theme when the viewer picks one, so each visitor
+// fetches one ink.
+import type { OrbAnimation } from "@apparatus/orb/paint";
+import { orbSvg } from "../lib/orb-svg.ts";
+
+interface Props {
+  animation: OrbAnimation;
+  /** The hero's orb is in the first screen: load it at once. */
+  eager?: boolean;
+}
+const { animation, eager = false } = Astro.props;
+const light = orbSvg(animation, "light").path;
+const dark = orbSvg(animation, "dark").path;
+---
+
+<picture class="absolute inset-0">
+  <source srcset={dark} media="(prefers-color-scheme: dark)" data-dark-media="all" type="image/svg+xml" />
+  <img src={light} alt="" width="64" height="64" loading={eager ? "eager" : "lazy"} decoding="async" class="block size-full" />
+</picture>

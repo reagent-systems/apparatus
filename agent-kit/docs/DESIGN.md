@@ -1,6 +1,6 @@
 # DESIGN.md — the apparatus web app
 
-The binding visual and interaction spec for `web/src`. Stack: React 19, Vite 8, Tailwind CSS 4, shadcn/ui (new-york, zinc base), lucide-react, `thinking-orbs`. The Tauri and Capacitor shells show this same app. The two native watch apps are not this app; section 11 gives their screen and their one gesture.
+The binding visual and interaction spec for `apps/web/src`. Stack: React 19, Vite 8, Tailwind CSS 4, shadcn/ui (new-york, zinc base), lucide-react, `thinking-orbs`. The Tauri and Capacitor shells show this same app. The two native watch apps are not this app; section 11 gives their screen and their one gesture.
 
 The product rules stay: no explanatory text, taglines, helper text or toasts; state shows through the orb, color, progress and content; copy is short; secrets never appear; no setting changes an endpoint. Every visible string is content or one of the one-word labels in `docs/STYLE.md`, which governs every word on screen. The app is voice only: nothing on screen takes typed input.
 
@@ -191,7 +191,7 @@ Picture-in-picture: on desktop, when the pane is closed and a stream is open, a 
 
 Paper and ink: warm paper neutrals (hue 60–85, chroma 0.004–0.010), one ink-blue accent (hue 264), the orb as the ink drop. Status colors: wait (amber), ok (green), failed (= destructive), run (= primary).
 
-### Tokens (`web/src/index.css`, complete)
+### Tokens (`packages/design/src/tokens.css` and `fonts.css`, imported by `apps/web/src/index.css`; complete)
 
 ```css
 @import "tailwindcss";
@@ -304,7 +304,7 @@ Paper and ink: warm paper neutrals (hue 60–85, chroma 0.004–0.010), one ink-
 }
 
 @theme inline {
-  /* the shadcn --color-* and --radius-* mappings stay as in index.css today */
+  /* the shadcn --color-* and --radius-* mappings stay as in tokens.css today */
   --font-sans: "Inter Variable", ui-sans-serif, system-ui, sans-serif;
   --font-mono: "JetBrains Mono Variable", ui-monospace, SFMono-Regular, Menlo, monospace;
   --color-status-wait: var(--status-wait);
@@ -388,7 +388,7 @@ Add with `npx shadcn@latest add command dialog popover badge table resizable col
 
 Dependencies to add: `@fontsource-variable/inter`, `@fontsource-variable/jetbrains-mono`, plus `react-resizable-panels` and `cmdk` through the CLI.
 
-Custom components, all under `web/src/components`:
+Custom components, all under `apps/web/src/components`:
 
 - `layout/AppShell.tsx` (rewrite: rail, thread, pane in a `ResizablePanelGroup`; Sheet variants for tablet and phone), `layout/Titlebar.tsx`, `layout/StatusBar.tsx`, `layout/CommandPalette.tsx`.
 - `rail/Rail.tsx`, `rail/RailNav.tsx`, `rail/RailJobRow.tsx`, `rail/RailFooter.tsx` (avatar, device name, settings popover).
@@ -397,7 +397,7 @@ Custom components, all under `web/src/components`:
 - `orb/Orb.tsx` (`size: 48 | 56 | 128`, the switch, no disc, the circular hit region, the ink from the resolved theme), `orb/use-orb-control.ts` (the tap: one click handler for a click, a touch, Enter and Space), `orb/OrbMini.tsx` (split out of `Orb.tsx`, the ink from the resolved theme), `orb/OrbCanvas.tsx` with `orb/orb-paint.ts` and `orb/orb-clock.ts` (the orb drawn at its real size, tested in `test/orb-paint.test.ts` and `test/orb-clock.test.ts`).
 - `status/StatusGlyph.tsx`, `status/ProgressRing.tsx`, `status/CountChip.tsx`.
 - `pane/Inspector.tsx` (evolves `Pane`), `pane/JobInspector.tsx` (Receipt / Steps / Artifacts tabs), `pane/ShowOutput.tsx` (keep).
-- `vm/ScreenFrame.tsx` (evolves `VmScreen`), `vm/ScreenPip.tsx`.
+- `components/vm/ScreenFrame.tsx` (evolves `VmScreen`), `components/vm/ScreenPip.tsx`.
 - `views/JobsView.tsx`, `views/JobRow.tsx`, `views/AuditView.tsx` (table + filter), `views/CreditsView.tsx`.
 - `theme/ThemeProvider.tsx` (theme and borders), `theme/theme.ts` and `theme/borders.ts` (pure).
 
@@ -429,11 +429,11 @@ State and logic changes:
 
 ## 11. The watch apps
 
-`clients/watchos` (SwiftUI, watchOS 10) and `clients/wearos` (Compose for Wear OS) share one design. They do not show the web app.
+`apps/watchos` (SwiftUI, watchOS 10) and `apps/wearos` (Compose for Wear OS) share one design. They do not show the web app.
 
-**The screen.** Black, the thinking orb centred, its diameter 80% of the screen's shorter side. No text, no feed, no transcript, no buttons, no chips, no icons, no status line, and no time drawn by the app. The orb is the `thinking-orbs` engine (npm 0.3.2, MIT, by Jakub Antalik) in a native port: the 64 preset in the library's dark theme, light dots on black, scaled to the diameter. The web's 128 px orb is the same preset at scale 2. watchOS draws it with the vendored Swift kit (`clients/watchos/Vendor/ThinkingOrbsKit`); Wear OS draws it with a Kotlin port (`clients/wearos/.../ui/orb`).
+**The screen.** Black, the thinking orb centred, its diameter 80% of the screen's shorter side. No text, no feed, no transcript, no buttons, no chips, no icons, no status line, and no time drawn by the app. The orb is the `thinking-orbs` engine (npm 0.3.2, MIT, by Jakub Antalik) in a native port: the 64 preset in the library's dark theme, light dots on black, scaled to the diameter. The web's 128 px orb is the same preset at scale 2. watchOS draws it with the vendored Swift kit (`apps/watchos/Vendor/ThinkingOrbsKit`); Wear OS draws it with a Kotlin port (`apps/wearos/.../ui/orb`).
 
-**The mapping.** Both apps port `orbRender` from `web/src/orb-state.ts` (`OrbRender.swift`, `OrbRender.kt`) and add the low-power display:
+**The mapping.** Both apps port `orbRender` from `apps/web/src/orb-state.ts` (`OrbRender.swift`, `OrbRender.kt`) and add the low-power display:
 
 | Voice state | Orb |
 |---|---|

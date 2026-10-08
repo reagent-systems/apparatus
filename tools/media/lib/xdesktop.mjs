@@ -1,9 +1,9 @@
 // A real X desktop for the VM screen: Xvfb and plain X apps, the pieces
-// vm/setup.sh installs. No window manager: the one terminal draws its own
+// infra/vm/setup.sh installs. No window manager: the one terminal draws its own
 // 1 px border, and the keyboard follows the pointer (X's default focus).
 // agentd runs with AGENTD_DESKTOP=xdo and streams it with ffmpeg x11grab
-// (agentd/agentd/stream.py). The X apps get the client's own JetBrains Mono
-// (web/node_modules/@fontsource-variable/jetbrains-mono, OFL), converted
+// (apps/agentd/agentd/stream.py). The X apps get the client's own JetBrains Mono
+// (node_modules/@fontsource-variable/jetbrains-mono, OFL), converted
 // to TTF for fontconfig.
 
 import { spawn } from "node:child_process";
@@ -18,8 +18,8 @@ export const ROOT = "#dfdad1";
 /** JetBrains Mono as a TTF in `dir`, and a fontconfig file that adds `dir` to the system fonts. */
 async function monoFont(dir) {
   fs.mkdirSync(dir, { recursive: true });
-  const src = path.join(REPO, "web/node_modules/@fontsource-variable/jetbrains-mono/files/jetbrains-mono-latin-wght-normal.woff2");
-  if (!fs.existsSync(src)) throw new Error(`${src} is missing: run npm --prefix web install`);
+  const src = path.join(REPO, "node_modules/@fontsource-variable/jetbrains-mono/files/jetbrains-mono-latin-wght-normal.woff2");
+  if (!fs.existsSync(src)) throw new Error(`${src} is missing: run npm install`);
   const ttf = path.join(dir, "JetBrainsMono.ttf");
   await run("uv", ["run", "--quiet", "--no-project", "--with", "fonttools", "--with", "brotli", "python", "-c",
     "import sys\nfrom fontTools.ttLib import TTFont\nf = TTFont(sys.argv[1])\nf.flavor = None\nf.save(sys.argv[2])", src, ttf]);

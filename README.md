@@ -48,20 +48,27 @@ VM. One API key, on the server only. Users pay a subscription that includes cred
 
 | Part | Folder | What it is |
 |---|---|---|
-| Session server | `server/` | Python. Client and VM sockets, Live tokens, the agent loop, jobs, credits, audit. |
-| agentd + agentlib | `agentd/` | Python. Runs on the VM. One kernel per task, tools, desktop lock, handoff pause. |
-| Protocol | `protocol/` | The wire contract the three links share. |
-| Web client | `web/` | React 19, Vite, Tailwind CSS 4, shadcn/ui. Audio, the voice gate, the feed, the pane, the orb, the VM screen widget with Control and Release. |
-| Native shells | `clients/` | Tauri 2 (Windows, macOS, Linux), Capacitor 6 (iOS, Android), SwiftUI (watchOS), Compose (Wear OS). |
-| Deployment | `deploy/gcp`, `vm/` | Terraform for GCP, VM image scripts, a local docker-compose. |
+| Session server | `apps/server/` | Python. Client and VM sockets, Live tokens, the agent loop, jobs, credits, audit. |
+| agentd + agentlib | `apps/agentd/` | Python. Runs on the VM. One kernel per task, tools, desktop lock, handoff pause. |
+| Protocol | `packages/protocol/` | The wire contract the three links share. |
+| Web client | `apps/web/` | React 19, Vite, Tailwind CSS 4, shadcn/ui. Audio, the voice gate, the feed, the pane, the orb, the VM screen widget with Control and Release. |
+| Shared look and orb | `packages/design/`, `packages/orb/` | The colour tokens and fonts; the orb renderer. TypeScript and CSS source the web apps import. |
+| Website | `apps/site/` | Astro, Tailwind CSS 4, the live orb. One static page with the real captures; Vercel deploys it. |
+| Native shells | `apps/desktop/`, `apps/mobile/`, `apps/watchos/`, `apps/wearos/` | Tauri 2 (Windows, macOS, Linux), Capacitor 6 (iOS, Android), SwiftUI (watchOS), Compose (Wear OS). |
+| Gate vectors | `packages/gate-vectors/` | The web voice gate's output for synthetic input; both watch apps replay it. |
+| Media | `tools/media/` | Playwright scenes that make the README stills and GIFs in `docs/media`. |
+| Deployment | `infra/gcp/`, `infra/vm/`, `infra/local/` | Terraform for GCP, VM image scripts, a local docker-compose. |
 | Config | `config/apparatus.toml` | Every model name, threshold, budget and price. |
 | Process | `agent-kit/` | How this repo is worked on. Start at `agent-kit/ROUTING.md`. |
+
+The TypeScript side is one npm workspace with Turborepo: the root `package.json` and one
+`package-lock.json`. The Python side is one uv workspace: the root `pyproject.toml` and `uv.lock`.
 
 ## Run it locally
 
 ```sh
 cp .env.example .env            # add GEMINI_API_KEY for real voice; empty runs the fakes
-uv sync && (cd web && npm install && npm run build)
+uv sync && npm install && npm run build -w apps/web
 uv run apparatus-server          # http://localhost:8080, dev auth: the user id is "dev"
 APPARATUS_DEMO=1 uv run apparatus-server   # instead: scripted jobs without a model key
 AGENTD_HOME=/tmp/agent-home uv run agentd   # in a second shell: a local VM stand-in
@@ -70,12 +77,18 @@ AGENTD_HOME=/tmp/agent-home uv run agentd   # in a second shell: a local VM stan
 For work on the web client, run the Vite dev server instead of `npm run build`:
 
 ```sh
-cd web && npm run dev          # http://localhost:5173; proxies /token, /credits, /audit, /jobs, /config, /prompts and /ws to :8080
+npm run dev:web                # http://localhost:5173; proxies /token, /credits, /audit, /jobs, /config, /prompts and /ws to :8080
 ```
 
-The VM screen needs `ffmpeg`, `xdotool` and an X display on the agentd side; `vm/setup.sh` and `deploy/local/docker-compose.yml` install them. Without them the stream fails to start and agentd logs it.
+The VM screen needs `ffmpeg`, `xdotool` and an X display on the agentd side; `infra/vm/setup.sh` and `infra/local/docker-compose.yml` install them. Without them the stream fails to start and agentd logs it.
 
-Or with a virtual desktop in a container: `docker compose -f deploy/local/docker-compose.yml up --build`.
+Or with a virtual desktop in a container: `docker compose -f infra/local/docker-compose.yml up --build`.
+
+## The website
+
+`apps/site` is the project's website, built from the same tokens and orb as the web client.
+`npm run dev:site` serves it at http://localhost:4321. [apps/site/README.md](apps/site/README.md) has the
+one-time Vercel setup: every push to `main` deploys production, and every pull request gets a preview.
 
 ## Check it
 
@@ -83,18 +96,18 @@ Or with a virtual desktop in a container: `docker compose -f deploy/local/docker
 verify/verify.sh
 ```
 
-Lint, typecheck, build, 208 tests, and the repo gates. CI runs the same script.
+Lint, typecheck, build, the TypeScript and Python tests, and the repo gates. CI runs the same script.
 
 ## Build the apps
 
 Each client has a reusable workflow under `.github/workflows/clients-*.yml`. A version tag
 runs `release.yml`: it verifies, builds every client on its native runner, builds the server
-and VM images, and publishes one GitHub Release with every artifact. `clients/README.md`
+and VM images, and publishes one GitHub Release with every artifact. `apps/README.md`
 has the table of platforms, shells, commands and artifacts.
 
 ## Deploy
 
-`deploy/gcp/README.md`. Cloud Run for the server, one Compute Engine VM per user, Firestore,
+`infra/gcp/README.md`. Cloud Run for the server, one Compute Engine VM per user, Firestore,
 Identity Platform, Secret Manager, FCM, a TURN relay. `deploy.yml` deploys with Workload
 Identity Federation when the repository variables are set.
 

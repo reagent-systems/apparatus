@@ -22,7 +22,7 @@ already defines.
 | Human contributor questions, PR conventions | `CONTRIBUTING.md` | |
 | CI is missing or broken, workflows need creating | `CI.md` | Source blocks for `.github/workflows/`. |
 | Understanding the codebase before a change | `docs/ARCHITECTURE.md` | Parts, data flow, boundaries. |
-| Adding or changing any message between client, server, agentd or agentlib | `docs/PROTOCOL.md` | The wire contract. Change it with `protocol/apparatus_protocol/__init__.py` in one commit; a gate checks the two agree. |
+| Adding or changing any message between client, server, agentd or agentlib | `docs/PROTOCOL.md` | The wire contract. Change it with `packages/protocol/apparatus_protocol/__init__.py` in one commit; a gate checks the two agree. |
 | Adding/changing any config option | `docs/CONFIGURATION.md` | Every knob lands in its table, same PR. |
 | Touching the pluggable seam (adapters/providers/backends) | `docs/ADAPTERS.md` | Includes the new-adapter contract. |
 | Judging whether a feature is worth building, or writing roadmap items | `docs/USE-CASES.md` | Every ROADMAP item traces to a use case here. |

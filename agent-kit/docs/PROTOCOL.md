@@ -1,6 +1,6 @@
 # Protocol
 
-The human copy of `protocol/apparatus_protocol/__init__.py`. Change both in one commit.
+The human copy of `packages/protocol/apparatus_protocol/__init__.py`. Change both in one commit.
 
 Every message is one JSON object with a `type` field. Three links use it.
 

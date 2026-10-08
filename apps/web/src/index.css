@@ -1,0 +1,101 @@
+@import "tailwindcss";
+@import "tw-animate-css";
+@import "@apparatus/design/fonts.css";
+@import "@apparatus/design/tokens.css";
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+  html,
+  body,
+  #app {
+    height: 100%;
+  }
+  body {
+    @apply bg-background text-foreground font-sans text-sm antialiased;
+    font-feature-settings: "cv11", "ss01";
+  }
+  /* Every number sits in a tabular column. */
+  :where(.tabular-nums) {
+    font-variant-numeric: tabular-nums;
+  }
+  button,
+  [role="button"] {
+    transition-timing-function: var(--ease-ui);
+    transition-duration: 150ms;
+  }
+  :focus-visible {
+    @apply outline-none ring-2 ring-ring/50;
+  }
+  /* Thin, unobtrusive scrollbars on every surface; the thumb follows the ink. */
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: color-mix(in oklch, var(--foreground) 20%, transparent) transparent;
+  }
+  *::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+  }
+  *::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  *::-webkit-scrollbar-thumb {
+    border-radius: 9999px;
+    background: color-mix(in oklch, var(--foreground) 20%, transparent);
+    border: 2px solid transparent;
+    background-clip: padding-box;
+  }
+  *::-webkit-scrollbar-thumb:hover {
+    background: color-mix(in oklch, var(--foreground) 32%, transparent);
+    background-clip: padding-box;
+  }
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+      transition-duration: 0.01ms !important;
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+    }
+  }
+}
+
+/* `show` markdown in the pane and under a job card. The renderer emits plain tags.
+   In the components layer so a utility on the container (the job card's
+   prose-size headings) wins over these rules. */
+@layer components {
+  .show-output > :first-child {
+    margin-top: 0;
+  }
+  .show-output h1,
+  .show-output h2,
+  .show-output h3,
+  .show-output h4 {
+    @apply mt-6 mb-2 font-medium;
+  }
+  .show-output h1 { @apply text-2xl; }
+  .show-output h2 { @apply text-xl; }
+  .show-output h3 { @apply text-lg; }
+  .show-output p,
+  .show-output ul,
+  .show-output ol,
+  .show-output blockquote,
+  .show-output pre {
+    @apply my-3;
+  }
+  .show-output ul { @apply list-disc pl-6; }
+  .show-output ol { @apply list-decimal pl-6; }
+  .show-output blockquote { @apply border-l-2 pl-4 text-muted-foreground; }
+  .show-output pre { @apply overflow-auto rounded-md bg-muted p-3 font-mono text-[13px] leading-5 flat:bg-transparent; }
+  .show-output code { @apply font-mono text-[0.92em]; }
+  .show-output a { @apply underline underline-offset-4; }
+  .show-output hr { @apply my-6; }
+  .show-output strong { @apply font-medium; }
+  .show-output p,
+  .show-output li { overflow-wrap: anywhere; }
+  .show-output .table-wrap { @apply my-3 overflow-x-auto; }
+  .show-output table { @apply w-full border-collapse text-sm tabular-nums; }
+  .show-output th { @apply border-b px-2 py-1.5 text-left font-medium text-muted-foreground; }
+  .show-output td { @apply border-b px-2 py-1.5; }
+}

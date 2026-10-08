@@ -1,0 +1,77 @@
+---
+import approvalDark from "../assets/crops/approval-card-dark.png";
+import approval from "../assets/crops/approval-card.png";
+import { ROADMAP } from "../lib/links.ts";
+import Section from "./Section.astro";
+import Shot from "./Shot.astro";
+
+const points = [
+  {
+    title: "An audit log",
+    body: "The server writes jobs, approvals, handoffs, screens and Control to an append-only log. Nothing on the cloud computer can reach it.",
+  },
+  {
+    title: "No inbound ports",
+    body: "In the Google Cloud deployment, a firewall rule blocks every inbound connection to the cloud computer. It dials out to the server.",
+  },
+  {
+    title: "Your key stays on the server",
+    body: "The Gemini API key lives on the session server only. The cloud computer never holds it, and the model never sees it.",
+  },
+  {
+    title: "Web pages are data",
+    body: "Text from web pages and files reaches the model wrapped and marked as data. The model is told never to follow it as an instruction.",
+  },
+  {
+    title: "Hands off while you hold it",
+    body: "While you hold Control or a handoff is open, the cloud computer refuses the agent's desktop tool. During a handoff the server refuses it too. One gap is open: Python code in a job can still reach the display.",
+    link: { href: `${ROADMAP}#7-kernel-x-isolation`, label: "Roadmap item 7" },
+  },
+];
+---
+
+<Section id="safety" eyebrow="Safety" title="It asks before it sends, buys or deletes.">
+  <!-- The lead point beside the card it describes; the other five under them. -->
+  <div class="mt-12 grid items-center gap-10 lg:grid-cols-12 lg:gap-16">
+    <div class="lg:col-span-5">
+      <h3 class="text-[1.25rem] font-medium">Approvals before it acts</h3>
+      <p class="mt-3 leading-relaxed text-pretty text-muted-foreground">
+        The agent is told to ask before it sends, buys, deletes, posts, shares or changes an account. The job waits until
+        you answer. You see the action and its details first. The model enforces this rule, not a filter on the cloud
+        computer.
+      </p>
+    </div>
+    <figure class="lg:col-span-7">
+      <Shot
+        src={approval}
+        dark={approvalDark}
+        alt="An approval card: send an email to dana@larkspur.example with report.csv, with Approve and Deny"
+        widths={[400, 600, 892]}
+        sizes="(min-width: 512px) 480px, calc(100vw - 32px)"
+        class="max-w-[480px]"
+      />
+      <figcaption class="mt-2 text-[0.8125rem] text-muted-foreground">The action and its details, before it happens.</figcaption>
+    </figure>
+  </div>
+  <dl class="mt-16 grid gap-x-10 gap-y-8 sm:grid-cols-2 lg:grid-cols-3">
+    {
+      points.map((p) => (
+        <div>
+          <dt class="text-[1.0625rem] font-medium">{p.title}</dt>
+          <dd class="mt-2 text-[0.9375rem] leading-relaxed text-pretty text-muted-foreground">
+            {p.body}
+            {p.link && (
+              <>
+                {" "}
+                <a class="link" href={p.link.href}>
+                  {p.link.label}
+                </a>
+                .
+              </>
+            )}
+          </dd>
+        </div>
+      ))
+    }
+  </dl>
+</Section>

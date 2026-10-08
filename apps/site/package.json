@@ -1,0 +1,28 @@
+{
+  "name": "apparatus-site",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "The apparatus website: Astro, Tailwind CSS 4, and one plain script that draws the live orb with @apparatus/orb. Static HTML, deployed by Vercel.",
+  "scripts": {
+    "dev": "astro dev",
+    "build": "astro build",
+    "preview": "astro preview",
+    "typecheck": "astro check",
+    "media": "node scripts/media.mjs",
+    "og": "node scripts/og.mjs"
+  },
+  "dependencies": {
+    "@apparatus/design": "*",
+    "@apparatus/orb": "*",
+    "@astrojs/sitemap": "^3.7.4",
+    "astro": "^7.3.5"
+  },
+  "devDependencies": {
+    "@astrojs/check": "^0.9.10",
+    "@tailwindcss/vite": "^4.3.3",
+    "sharp": "^0.35.5",
+    "tailwindcss": "^4.3.3",
+    "typescript": "^5.9.3"
+  }
+}

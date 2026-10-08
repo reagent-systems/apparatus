@@ -25,13 +25,13 @@ Capture settings that differ from a plain local run:
 | Scene | Output |
 |---|---|
 | `day` | One day on one server, three devices at once. `hero-light.png`, `hero-dark.png`: three devices in a row with gutters, nothing over another: the desktop window (1024 px, the pane closed) listening, with what the model heard above the orb; the phone on a Receipt (`phone-sheet`); the Wear OS app listening, in a round case. `thread`: a job at work, the approval last, the orb listening. `borders-on`: the same frame with Borders on (the opt-in; every other capture shows the default, borderless); `borders-split`: `borders-on` and `thread` side by side with a gutter. `tablet`, `phone-thread`: the approval last above a dimmed orb. `phone-listening`: the phone holding the voice session over a job at work. `phone-sheet`: the pane as a sheet on a Receipt. The 3 phone stills share one window height. `jobs`: the Jobs view, the pane on a Receipt. `approval-card`, `handoff-card`: the cards that need you, close, on one canvas. `palette`: the command palette over the window. `audit`, `credits` |
-| `voice-to-job` | `voice-to-job.gif`: the thread column at 2x, 880 px wide, 50 fps on page time; the finished thread as the poster, a fade through the page colour, then a tap, a spoken request, a job, its steps, the result |
+| `voice-to-job` | `voice-to-job.gif`, `voice-to-job-dark.gif`: the thread column at 2x, 880 px wide, 50 fps on page time; the finished thread as the poster, a fade through the page colour, then a tap, a spoken request, a job, its steps, the result |
 | `approval` | `approval.gif`: the thread column at 2x, 880 px wide, 50 fps on page time; Approve on a job that needs you (hover, then the press held 0.6 s); the job runs and ends; the end fades through the page colour into the poster |
 | `orb` | `orb.gif`, `orb-dark.gif`: a square centred on the phone composer's orb at 3x, 50 fps on page time: off, listening with the heard line above it, speaking, working, speaking, off; both the same frame count |
-| `phone` | `phone.gif`: the voice-to-job story at 390 px in a phone bezel, 50 fps on page time like the desktop GIFs |
+| `phone` | `phone.gif`, `phone-dark.gif`: the voice-to-job story at 390 px in a phone bezel on each theme's page colour, 50 fps on page time like the desktop GIFs |
 | `appearance` | `appearance.gif`: the whole desktop window, Settings open from the rail footer, 50 fps on page time: Light, Dark, Borders on and off; the pointer glides to each choice and each repaint shows as the app draws it |
 | `screen` | `screen.png`: the whole desktop window, the thread with the job that wrote report.csv, the pane on the VM screen under Control, the table printed |
-| `screen-control` | `screen-control.gif`: the pane at 1.5x, about 956 px wide, 50 fps on page time; Control, the X pointer glides in (at least 2 px a frame) and clicks, a typed command lands in the VM, Release. Each frame waits until the page's video matches the X screen (`lib/vmsync.mjs`) |
+| `screen-control` | `screen-control.gif`, `screen-control-dark.gif`: the pane at 1.5x, about 956 px wide, 50 fps on page time; Control, the X pointer glides in (at least 2 px a frame) and clicks, a typed command lands in the VM, Release. Each frame waits until the page's video matches the X screen (`lib/vmsync.mjs`) |
 | `watch-strip` | `watch-strip.png`: the Wear OS screen: off, listening, speaking, working |
 | `watch` | `watch.gif`, `watch-dark.gif`: the Wear OS screen through a voice session, rendered at 50 fps, on the page colour through an antialiased round mask |
 | `phone-tour` (opt-in) | A morning on the phone, which holds the voice session throughout: `phone-<n>-<screen>.png` and `-dark`, 390 x 844 at 3x, 17 screens: `1-empty`, `2-listening`, `3-working`, `4-done`, `5-receipt`, `6-steps`, `7-artifacts`, `8-approval`, `9-approved`, `10-handoff`, `11-screen`, `12-jobs`, `13-menu`, `14-settings`, `15-credits`, `16-speaking`, `17-borders-on`. `sheet-light.png`, `sheet-dark.png`: the 17 screens at 360 px, 6 to a row, on the page colour. Each theme runs the whole morning on its own stack, with a real X desktop for the Screen; the client runs with the shell seam set to platform `android`, as the Capacitor shell sets it. The window is fixed at 844 px, so the lines of `9-approved` (the user asks to hear when the email is sent) and `16-speaking` (a two-line answer) are sized so the end of the thread starts on a whole row. The terminal hides its text cursor; `10-handoff` streams the sign-in page the job asks about; `11-screen` is shot after `15-credits` and the comparison's result |
@@ -42,8 +42,8 @@ An opt-in scene runs only when it is named: `node tools/media/capture.mjs phone-
 ## Run it
 
 ```sh
-npm --prefix tools/media install
-npm --prefix web run build                      # or pass --build
+npm install                                    # at the root: every workspace, this tool too
+npm run build -w apps/web                      # or pass --build
 MEDIA_ZONE=Etc/GMT-7 node tools/media/capture.mjs --out /tmp/media   # every scene, one clock
 node tools/media/capture.mjs voice-to-job screen --out /tmp/media --themes light
 ```
@@ -58,7 +58,7 @@ through `uv`. `watch`, `watch-strip` and `day` also need Gradle and the
 Android SDK (`ANDROID_HOME`, default `/opt/android-sdk`).
 
 A scene that cannot make its asset fails and makes nothing. The run ends with one line per
-asset or failure, and fails when a GIF passes 8 MB or the output folder passes 40 MB.
+asset or failure, and fails when a GIF passes 8 MB or the output folder passes 50 MB.
 
 ## How it works
 
@@ -74,7 +74,7 @@ asset or failure, and fails when a GIF passes 8 MB or the output folder passes 4
    turn, then `turnComplete` once the client has answered the call. The client relays each
    call to the session server.
 4. `lib/day.mjs` holds the spoken lines. A tap on the orb turns the agent on; each line is one
-   switch-on. The demo model (`server/apparatus_server/demo.py`) picks a story from the request
+   switch-on. The demo model (`apps/server/apparatus_server/demo.py`) picks a story from the request
    and runs it on agentd: its own steps, a CSV under `~/reports`, its own say line and table.
    The agent speaks a job's say line unchanged, as `voice.py` asks.
 5. A scene with `vtime` (a frame rate) records on page time (`lib/vtime.mjs`): Playwright's
@@ -109,7 +109,7 @@ asset or failure, and fails when a GIF passes 8 MB or the output folder passes 4
    key held 40 ms of page time stays down for as long as its frames take in wall time). The
    xclock has no second hand and is stopped (SIGSTOP) while the frames are taken. agentd
    streams at 10 fps here (`AGENTD_STREAM_FPS`); the GIF's rate does not depend on it.
-7. `lib/wear.mjs` copies `clients/wearos` to the work folder, adds Paparazzi and
+7. `lib/wear.mjs` copies `apps/wearos` to the work folder, adds Paparazzi and
    `wear/MediaWatchTest.kt`, and renders the app's own `Screen` over time at the test's
    `FPS` (50), and once with another device holding the voice session.
 8. `lib/compose.mjs` lays out real captures on a backdrop for the hero, and `phone.gif` gets

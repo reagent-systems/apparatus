@@ -10,8 +10,8 @@ Every capture shows the default look, Borders off, except `borders-split`.
 ## Regenerate
 
 ```sh
-npm --prefix tools/media install
-npm --prefix web run build
+npm install                     # at the root: every workspace
+npm run build -w apps/web
 MEDIA_ZONE=Etc/GMT-7 node tools/media/capture.mjs --out docs/media   # one clock for every scene
 rm docs/media/audit*.png docs/media/borders-on*.png   # made by the day scene, not published
 ```
@@ -32,18 +32,18 @@ rm docs/media/audit*.png docs/media/borders-on*.png   # made by the day scene, n
 The GIFs play at 50 fps (2 cs a frame), each frame its own moment of the app, captured on the page's own clock; the watch GIFs are Paparazzi renders at 50 fps.
 `screen-control.gif` shows the live VM stream: each of its frames is taken once the page's video matches the VM's screen.
 
-<img alt="A spoken request becomes a job with a table and report.csv" src="voice-to-job.gif">
+<picture><source media="(prefers-color-scheme: dark)" srcset="voice-to-job-dark.gif"><img alt="A spoken request becomes a job with a table and report.csv" src="voice-to-job.gif"></picture>
 
-`voice-to-job.gif`: speak; the agent starts a job and says the result.
+`voice-to-job.gif`, `voice-to-job-dark.gif`: speak; the agent starts a job and says the result.
 
 <table>
   <tr>
     <td width="50%"><img alt="Approve on an email the agent drafted; the job ends" src="approval.gif"></td>
-    <td width="50%"><img alt="The same request on a phone" src="phone.gif"></td>
+    <td width="50%"><picture><source media="(prefers-color-scheme: dark)" srcset="phone-dark.gif"><img alt="The same request on a phone" src="phone.gif"></picture></td>
   </tr>
   <tr>
     <td><code>approval.gif</code>: the agent asks before it acts.</td>
-    <td><code>phone.gif</code>: the same request on a phone.</td>
+    <td><code>phone.gif</code>, <code>phone-dark.gif</code>: the same request on a phone.</td>
   </tr>
   <tr>
     <td width="50%"><picture><source media="(prefers-color-scheme: dark)" srcset="orb-dark.gif"><img alt="The orb: off, listening with the heard line above it, speaking, working, speaking, off" src="orb.gif"></picture></td>
@@ -55,11 +55,11 @@ The GIFs play at 50 fps (2 cs a frame), each frame its own moment of the app, ca
   </tr>
   <tr>
     <td width="50%"><img alt="Light, Dark and Borders under Appearance" src="appearance.gif"></td>
-    <td width="50%"><img alt="Control of your computer's screen, a typed command, Release" src="screen-control.gif"></td>
+    <td width="50%"><picture><source media="(prefers-color-scheme: dark)" srcset="screen-control-dark.gif"><img alt="Control of your computer's screen, a typed command, Release" src="screen-control.gif"></picture></td>
   </tr>
   <tr>
     <td><code>appearance.gif</code>: Light, Dark, Borders.</td>
-    <td><code>screen-control.gif</code>: take Control of your computer, then Release it.</td>
+    <td><code>screen-control.gif</code>, <code>screen-control-dark.gif</code>: take Control of your computer, then Release it.</td>
   </tr>
 </table>
 

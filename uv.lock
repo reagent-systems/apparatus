@@ -18,7 +18,7 @@ members = [
 [[package]]
 name = "agentd"
 version = "0.1.0"
-source = { editable = "agentd" }
+source = { editable = "apps/agentd" }
 dependencies = [
     { name = "aiortc" },
     { name = "apparatus-protocol" },
@@ -28,7 +28,7 @@ dependencies = [
 [package.metadata]
 requires-dist = [
     { name = "aiortc", specifier = ">=1.9" },
-    { name = "apparatus-protocol", editable = "protocol" },
+    { name = "apparatus-protocol", editable = "packages/protocol" },
     { name = "websockets", specifier = ">=13" },
 ]
 
@@ -115,9 +115,9 @@ dev = [
 
 [package.metadata]
 requires-dist = [
-    { name = "agentd", editable = "agentd" },
-    { name = "apparatus-protocol", editable = "protocol" },
-    { name = "apparatus-server", editable = "server" },
+    { name = "agentd", editable = "apps/agentd" },
+    { name = "apparatus-protocol", editable = "packages/protocol" },
+    { name = "apparatus-server", editable = "apps/server" },
 ]
 
 [package.metadata.requires-dev]
@@ -131,12 +131,12 @@ dev = [
 [[package]]
 name = "apparatus-protocol"
 version = "0.1.0"
-source = { editable = "protocol" }
+source = { editable = "packages/protocol" }
 
 [[package]]
 name = "apparatus-server"
 version = "0.1.0"
-source = { editable = "server" }
+source = { editable = "apps/server" }
 dependencies = [
     { name = "apparatus-protocol" },
     { name = "fastapi" },
@@ -150,7 +150,7 @@ dependencies = [
 
 [package.metadata]
 requires-dist = [
-    { name = "apparatus-protocol", editable = "protocol" },
+    { name = "apparatus-protocol", editable = "packages/protocol" },
     { name = "fastapi", specifier = ">=0.115" },
     { name = "google-genai", specifier = ">=1.0" },
     { name = "httpx", specifier = ">=0.27" },

@@ -1,0 +1,39 @@
+---
+import Section from "./Section.astro";
+import Video from "./Video.astro";
+
+const steps = [
+  { title: "You talk", body: "Tap the orb and say what you need. There is no text box and no button to hold." },
+  {
+    title: "It works",
+    body: "The request becomes a job on your cloud computer. The voice keeps talking with you while the job runs.",
+  },
+  { title: "It shows you", body: "The result lands in the thread: what it found, a table, the file it made." },
+  {
+    title: "It asks only when a person must act",
+    body: "An approval, a sign-in, a captcha. The rest it does without you.",
+  },
+];
+---
+
+<Section id="how-it-feels" eyebrow="How it feels" title="You talk. It works. It shows you.">
+  <div class="mt-14 grid gap-12 lg:grid-cols-[minmax(0,5fr)_minmax(0,7fr)] lg:items-start lg:gap-16">
+    <ol class="grid gap-9">
+      {
+        steps.map((step, i) => (
+          <li class="grid gap-y-2 sm:grid-cols-[2rem_1fr] sm:gap-x-4">
+            <span class="pt-0.5 font-sans text-[0.8125rem] font-medium text-primary tabular-nums">{String(i + 1).padStart(2, "0")}</span>
+            <div>
+              <h3 class="text-lg font-medium">{step.title}</h3>
+              <p class="mt-2 leading-relaxed text-pretty text-muted-foreground">{step.body}</p>
+            </div>
+          </li>
+        ))
+      }
+    </ol>
+    <figure class="frame">
+      <Video name="voice-to-job" dark="voice-to-job-dark" label="A spoken request becomes a job with a table and report.csv" class="rounded-2xl" />
+      <figcaption class="sr-only">Speak. The agent starts a job and says the result.</figcaption>
+    </figure>
+  </div>
+</Section>

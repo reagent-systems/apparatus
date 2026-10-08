@@ -1,0 +1,10 @@
+{
+  "name": "@apparatus/gate-vectors",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Voice gate parity vectors: the web gate's events for synthetic input, replayed by the watchOS and Wear OS gates. Written by apps/web/scripts/gate-vectors.ts.",
+  "exports": {
+    "./gate-vectors.json": "./gate-vectors.json"
+  },
+  "files": ["gate-vectors.json"]
+}

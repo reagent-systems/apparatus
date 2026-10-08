@@ -41,6 +41,50 @@ Evidence: <commit / tag / gate run / screenshot>
 
 <!-- Entries below, newest first. -->
 
+## 2026-10-08 — The website's third round: one look per section, fewer claims, lighter page
+
+Two judges read round 2 of `apps/site` and sent 37 notes: design, honesty and speed. I applied them.
+The hero still now fades into the page at every edge; before, its shadow ended in a hard line.
+From 1280 px the hero figure leaves the column, so the desktop window reads at about half size.
+The orb section is a sheet of four live orbs; the tap demo and its helper caption are gone.
+The hero leaves Off out of its cycle on purpose: the ring of dashes reads as a spinner there, and the sheet shows it.
+The Control and Handoff tiles share one shape, and the watch has one wide tile with the Wear OS strip.
+Six claims went further than the code: the Control lock, the firewall, the approval headline, the Docker lede, the
+meta description and the phone Screen alt. I reworded each. I cut "typing lag and dropped keys": nothing in the
+repository records it. The orb stills moved out of the HTML into cached SVG files: index.html fell from 209 KB to
+101 KB and the DOM from 2,054 to 551 elements. The orbs start after load, and TBT went from 90 ms to 0 ms.
+The loops dropped to 25 fps and the phone loop left the page: the loops are 1.6 MB, down from 3.5 MB.
+
+Evidence: Lighthouse 12.8.2 mobile and desktop 100/100/100/100 (LCP 1.7 s and 0.5 s, TBT 0 ms, 551 elements); axe-core 4.10 0 violations on `/` and `/404` at 390 and 1440 px in both themes; Playwright shots at 1440, 1024, 768 and 390 px, light and dark, with no console error, failed request, overflow or other-theme fetch; `scrollWidth` 320 at 320 px.
+
+## 2026-10-08 — The website's second round: a bigger orb, honest copy, dark loops
+
+A judge read the first round of `apps/site` against the brief and the code and sent 43 notes. I applied them.
+The hero is now two columns from 1024 px up, with a live orb 460 px wide that opens on Listening. Its state
+chips are buttons that pin a state for 12 s. The page had three light loops on the dark theme; I recorded
+`voice-to-job-dark.gif`, `phone-dark.gif` and `screen-control-dark.gif` with the 50 fps recorder, so every loop
+has a twin. One `identify` check in the screen-control run died on a signal; I re-ran it by hand: 559 frames,
+all at 2 cs. Several claims went further than the code. The approval rule, the data markers and the captcha rule
+are prompt instructions, and the page now says so. The Control lock has an open gap at the X socket (roadmap
+item 7), and no release or Docker run exists yet; the page says that too. The page dropped React: one plain
+script draws the orbs with the orb package's painter, and the build draws each orb's first frame as SVG.
+Mobile Lighthouse went from 94 to 99 and LCP from 2.9 s to 1.4 s; the first load went from 302 KB to 101 KB.
+
+Evidence: Lighthouse mobile 99, 99, 100 (LCP 1.4, 1.5, 1.4 s), desktop 100; axe 0 violations on `/` and `/404` at 390 and 1440 px in both themes; Playwright shots at 1440, 1024, 768 and 390 px, light and dark, no console error or overflow.
+
+## 2026-10-08 — The website went up in apps/site, ready for Vercel
+
+The author asked for a website that advertises apparatus, deployed on Vercel. I built `apps/site` with
+Astro 7, Tailwind CSS 4 and the shared design and orb packages. The hero orb is the app's own renderer,
+cycling Off, Listening, Working and Speaking. Every picture is a real capture from `docs/media`; the 8 GIFs
+became MP4 and WebM loops of 3.9 MB in total, down from 24.0 MB. The page claims nothing the code does not do,
+and it says plainly that apparatus has not yet run a live session on a real cloud computer. The repository
+has no license file, so the page says the code is on GitHub and does not say "open source". `turbo-ignore`
+alone missed commits that change only `docs/media`; the ignore command now checks that folder too.
+No Vercel account ran a deploy; `vercel build` ran locally and wrote the static output.
+
+Evidence: `npx vercel@63.1.0 build` status ok; Playwright shots at 1440, 1024, 768 and 390 px, light and dark, with no console error or overflow; `verify/verify.sh` OK: 9 turbo tasks, `astro check` 0 errors, 186 web tests, 8 orb tests, 118 Python tests, `cargo check` and the Wear OS gradle build ran; Xcode skipped.
+
 ## 2026-10-06 — The README got a hero image, GIFs and a gallery
 
 The author asked for pictures and animated GIFs for the repo. `tools/media` captured them from

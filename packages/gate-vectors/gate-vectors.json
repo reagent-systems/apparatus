@@ -1,0 +1,344 @@
+{
+  "what": "Voice gate parity vectors. The web gate (apps/web/src/gate, open-mic mode, NoSpeakerCheck, energy VAD, heuristic completeness, energy-burst word estimator) run over synthetic input. A port of the gate replays each scenario's input and must emit exactly these events.",
+  "regenerate": "npm run gate-vectors -w apps/web (apps/web/scripts/gate-vectors.ts). apps/web/test/gate-vectors.test.ts fails when this file drifts from the web gate.",
+  "audio": {"sample_rate": 16000, "frame_ms": 20, "frame_samples": 320, "format": "Int16 mono PCM", "frame_formula": "Each segment is ms / 20 identical frames. A frame is 320 Int16 samples; sample k (0..319) is +q when k % 80 < 40, else -q. q = round(amplitude * 32767) is given per segment as an integer; use it, do not recompute it. The frame's RMS on the [-1, 1] scale is q / 32768."},
+  "gate": {"mode": "open_mic", "max_pending_ms": 3000, "max_turn_ms": 120000, "config": "Per scenario: the [gate] table of config/apparatus.toml (what /config and ready.gate send), with the scenario's overrides."},
+  "replay": [
+    "Frames are numbered from 0 in input order. Before pushing frame i, apply every step with before_frame == i in listed order: 'transcript' calls setTranscript(text), 'stop' calls stopAll(). After the last frame, apply steps with before_frame == input.frames.",
+    "isModelSpeaking() while frame i is processed returns true when from_ms <= i * 20 < to_ms for some model_speaking interval. It is a pure function of the frame index; the vectors do not model playback stopping on bargeIn.",
+    "Record every event in emission order. 'at' is the number of frames pushed when the event fired (for a step, the frames pushed before it). 't_ms' is the gate clock then (at * 20).",
+    "Audio events carry the input frame index instead of samples. Consecutive audio events whose frame indices are consecutive merge into one entry: first_frame is the first index, frames the count, and at / t_ms are those of the first event of the run.",
+    "voice_ms is the gate's voice time in ms (raw VAD frames * 20). words is max(energy-burst estimate, transcript word count)."
+  ],
+  "scenarios": [
+    {
+      "name": "silence_only",
+      "covers": "Digital silence and room noise under the VAD threshold open nothing.",
+      "config": {"vad_energy_threshold": 0.015, "vad_hangover_ms": 240, "min_speech_ms": 300, "silence_complete_ms": 500, "silence_incomplete_ms": 2500, "bargein_min_voice_ms": 300, "bargein_min_words": 2, "bargein_stop_ms": 200, "speaker_check": false, "speaker_match_threshold": 0.75},
+      "input": {
+        "frames": 110,
+        "segments": [
+          {"ms": 1000, "amplitude": 0, "q": 0, "kind": "silence"},
+          {"ms": 1000, "amplitude": 0.005, "q": 164, "kind": "noise"},
+          {"ms": 200, "amplitude": 0, "q": 0, "kind": "silence"}
+        ],
+        "model_speaking": [],
+        "steps": []
+      },
+      "events": [],
+      "counts": {"speechStart": 0, "audio_frames": 0, "speechEnd": 0, "bargeIn": 0, "drop": 0},
+      "end_state": "idle"
+    },
+    {
+      "name": "one_utterance",
+      "covers": "Speech confirms once min_speech_ms of voice is buffered, flushes the buffer, and ends complete after silence_complete_ms of silence.",
+      "config": {"vad_energy_threshold": 0.015, "vad_hangover_ms": 240, "min_speech_ms": 300, "silence_complete_ms": 500, "silence_incomplete_ms": 2500, "bargein_min_voice_ms": 300, "bargein_min_words": 2, "bargein_stop_ms": 200, "speaker_check": false, "speaker_match_threshold": 0.75},
+      "input": {
+        "frames": 100,
+        "segments": [
+          {"ms": 200, "amplitude": 0, "q": 0, "kind": "silence"},
+          {"ms": 800, "amplitude": 0.2, "q": 6553, "kind": "speech"},
+          {"ms": 1000, "amplitude": 0, "q": 0, "kind": "silence"}
+        ],
+        "model_speaking": [],
+        "steps": []
+      },
+      "events": [
+        {"at": 25, "t_ms": 500, "kind": "speechStart", "forced": false},
+        {"at": 25, "t_ms": 500, "kind": "audio", "first_frame": 10, "frames": 65},
+        {"at": 75, "t_ms": 1500, "kind": "speechEnd", "reason": "complete"}
+      ],
+      "counts": {"speechStart": 1, "audio_frames": 65, "speechEnd": 1, "bargeIn": 0, "drop": 0},
+      "end_state": "idle"
+    },
+    {
+      "name": "mid_sentence_pause",
+      "covers": "A 480 ms pause, one frame under silence_complete_ms, keeps the turn open; one turn ends after the second phrase.",
+      "config": {"vad_energy_threshold": 0.015, "vad_hangover_ms": 240, "min_speech_ms": 300, "silence_complete_ms": 500, "silence_incomplete_ms": 2500, "bargein_min_voice_ms": 300, "bargein_min_words": 2, "bargein_stop_ms": 200, "speaker_check": false, "speaker_match_threshold": 0.75},
+      "input": {
+        "frames": 144,
+        "segments": [
+          {"ms": 200, "amplitude": 0, "q": 0, "kind": "silence"},
+          {"ms": 600, "amplitude": 0.2, "q": 6553, "kind": "speech"},
+          {"ms": 480, "amplitude": 0, "q": 0, "kind": "silence"},
+          {"ms": 600, "amplitude": 0.2, "q": 6553, "kind": "speech"},
+          {"ms": 1000, "amplitude": 0, "q": 0, "kind": "silence"}
+        ],
+        "model_speaking": [],
+        "steps": []
+      },
+      "events": [
+        {"at": 25, "t_ms": 500, "kind": "speechStart", "forced": false},
+        {"at": 25, "t_ms": 500, "kind": "audio", "first_frame": 10, "frames": 109},
+        {"at": 119, "t_ms": 2380, "kind": "speechEnd", "reason": "complete"}
+      ],
+      "counts": {"speechStart": 1, "audio_frames": 109, "speechEnd": 1, "bargeIn": 0, "drop": 0},
+      "end_state": "idle"
+    },
+    {
+      "name": "cough_and_click",
+      "covers": "A 40 ms click and a 280 ms cough (one frame under min_speech_ms) are dropped too_short once the VAD hangover runs out; no audio leaves.",
+      "config": {"vad_energy_threshold": 0.015, "vad_hangover_ms": 240, "min_speech_ms": 300, "silence_complete_ms": 500, "silence_incomplete_ms": 2500, "bargein_min_voice_ms": 300, "bargein_min_words": 2, "bargein_stop_ms": 200, "speaker_check": false, "speaker_match_threshold": 0.75},
+      "input": {
+        "frames": 86,
+        "segments": [
+          {"ms": 200, "amplitude": 0, "q": 0, "kind": "silence"},
+          {"ms": 40, "amplitude": 0.5, "q": 16384, "kind": "click"},
+          {"ms": 600, "amplitude": 0, "q": 0, "kind": "silence"},
+          {"ms": 280, "amplitude": 0.3, "q": 9830, "kind": "cough"},
+          {"ms": 600, "amplitude": 0, "q": 0, "kind": "silence"}
+        ],
+        "model_speaking": [],
+        "steps": []
+      },
+      "events": [
+        {"at": 25, "t_ms": 500, "kind": "drop", "reason": "too_short", "voice_ms": 40},
+        {"at": 69, "t_ms": 1380, "kind": "drop", "reason": "too_short", "voice_ms": 280}
+      ],
+      "counts": {"speechStart": 0, "audio_frames": 0, "speechEnd": 0, "bargeIn": 0, "drop": 2},
+      "end_state": "idle"
+    },
+    {
+      "name": "bargein_rejected",
+      "covers": "While the model speaks, one continuous burst counts as one word, under bargein_min_words: a 400 ms burst is dropped bargein_rejected when the hangover ends; a 3.6 s burst is dropped at the 3000 ms pending limit and stays rejected, emitting nothing, until the VAD goes inactive.",
+      "config": {"vad_energy_threshold": 0.015, "vad_hangover_ms": 240, "min_speech_ms": 300, "silence_complete_ms": 500, "silence_incomplete_ms": 2500, "bargein_min_voice_ms": 300, "bargein_min_words": 2, "bargein_stop_ms": 200, "speaker_check": false, "speaker_match_threshold": 0.75},
+      "input": {
+        "frames": 280,
+        "segments": [
+          {"ms": 200, "amplitude": 0, "q": 0, "kind": "silence"},
+          {"ms": 400, "amplitude": 0.2, "q": 6553, "kind": "speech"},
+          {"ms": 600, "amplitude": 0, "q": 0, "kind": "silence"},
+          {"ms": 3600, "amplitude": 0.2, "q": 6553, "kind": "speech"},
+          {"ms": 800, "amplitude": 0, "q": 0, "kind": "silence"}
+        ],
+        "model_speaking": [
+          {"from_ms": 0, "to_ms": 5600}
+        ],
+        "steps": []
+      },
+      "events": [
+        {"at": 43, "t_ms": 860, "kind": "drop", "reason": "bargein_rejected", "voice_ms": 400},
+        {"at": 210, "t_ms": 4200, "kind": "drop", "reason": "bargein_rejected", "voice_ms": 3000}
+      ],
+      "counts": {"speechStart": 0, "audio_frames": 0, "speechEnd": 0, "bargeIn": 0, "drop": 2},
+      "end_state": "idle"
+    },
+    {
+      "name": "bargein_accepted",
+      "covers": "While the model speaks, three 160 ms words split by 60 ms dips clear the bar (300 ms voice, 2 words): bargeIn, then speechStart with the buffer. The client stops playback within bargein_stop_ms. After the model stops, the next utterance needs no barge-in.",
+      "config": {"vad_energy_threshold": 0.015, "vad_hangover_ms": 240, "min_speech_ms": 300, "silence_complete_ms": 500, "silence_incomplete_ms": 2500, "bargein_min_voice_ms": 300, "bargein_min_words": 2, "bargein_stop_ms": 200, "speaker_check": false, "speaker_match_threshold": 0.75},
+      "input": {
+        "frames": 150,
+        "segments": [
+          {"ms": 200, "amplitude": 0, "q": 0, "kind": "silence"},
+          {"ms": 160, "amplitude": 0.2, "q": 6553, "kind": "speech"},
+          {"ms": 60, "amplitude": 0, "q": 0, "kind": "dip"},
+          {"ms": 160, "amplitude": 0.2, "q": 6553, "kind": "speech"},
+          {"ms": 60, "amplitude": 0, "q": 0, "kind": "dip"},
+          {"ms": 160, "amplitude": 0.2, "q": 6553, "kind": "speech"},
+          {"ms": 800, "amplitude": 0, "q": 0, "kind": "silence"},
+          {"ms": 600, "amplitude": 0.2, "q": 6553, "kind": "speech"},
+          {"ms": 800, "amplitude": 0, "q": 0, "kind": "silence"}
+        ],
+        "model_speaking": [
+          {"from_ms": 0, "to_ms": 1400}
+        ],
+        "steps": []
+      },
+      "events": [
+        {"at": 28, "t_ms": 560, "kind": "bargeIn", "voice_ms": 300, "words": 2},
+        {"at": 28, "t_ms": 560, "kind": "speechStart", "forced": false},
+        {"at": 28, "t_ms": 560, "kind": "audio", "first_frame": 10, "frames": 55},
+        {"at": 65, "t_ms": 1300, "kind": "speechEnd", "reason": "complete"},
+        {"at": 95, "t_ms": 1900, "kind": "speechStart", "forced": false},
+        {"at": 95, "t_ms": 1900, "kind": "audio", "first_frame": 80, "frames": 55},
+        {"at": 135, "t_ms": 2700, "kind": "speechEnd", "reason": "complete"}
+      ],
+      "counts": {"speechStart": 2, "audio_frames": 110, "speechEnd": 2, "bargeIn": 1, "drop": 0},
+      "end_state": "idle"
+    },
+    {
+      "name": "incomplete_transcript",
+      "covers": "The interim transcript picks the silence limit: a sentence ending on 'to' waits silence_incomplete_ms; one ending on '.' ends after silence_complete_ms.",
+      "config": {"vad_energy_threshold": 0.015, "vad_hangover_ms": 240, "min_speech_ms": 300, "silence_complete_ms": 500, "silence_incomplete_ms": 2500, "bargein_min_voice_ms": 300, "bargein_min_words": 2, "bargein_stop_ms": 200, "speaker_check": false, "speaker_match_threshold": 0.75},
+      "input": {
+        "frames": 260,
+        "segments": [
+          {"ms": 200, "amplitude": 0, "q": 0, "kind": "silence"},
+          {"ms": 800, "amplitude": 0.2, "q": 6553, "kind": "speech"},
+          {"ms": 2600, "amplitude": 0, "q": 0, "kind": "silence"},
+          {"ms": 800, "amplitude": 0.2, "q": 6553, "kind": "speech"},
+          {"ms": 800, "amplitude": 0, "q": 0, "kind": "silence"}
+        ],
+        "model_speaking": [],
+        "steps": [
+          {"before_frame": 40, "op": "transcript", "text": "Book a flight to"},
+          {"before_frame": 200, "op": "transcript", "text": "Book a flight to Paris."}
+        ]
+      },
+      "events": [
+        {"at": 25, "t_ms": 500, "kind": "speechStart", "forced": false},
+        {"at": 25, "t_ms": 500, "kind": "audio", "first_frame": 10, "frames": 165},
+        {"at": 175, "t_ms": 3500, "kind": "speechEnd", "reason": "incomplete"},
+        {"at": 195, "t_ms": 3900, "kind": "speechStart", "forced": false},
+        {"at": 195, "t_ms": 3900, "kind": "audio", "first_frame": 180, "frames": 65},
+        {"at": 245, "t_ms": 4900, "kind": "speechEnd", "reason": "complete"}
+      ],
+      "counts": {"speechStart": 2, "audio_frames": 230, "speechEnd": 2, "bargeIn": 0, "drop": 0},
+      "end_state": "idle"
+    },
+    {
+      "name": "line_terminator_transcript",
+      "covers": "A transcript ending in U+0085 (NEL) is read as JavaScript reads it: `$` without the m flag matches only at the true end and trim keeps U+0085, so 'Well,\\u0085' is complete (silence_complete_ms) and 'Book a flight to.\\u0085' is incomplete (silence_incomplete_ms). A Java or Kotlin `$` would also match before the final U+0085 and pick the other limit.",
+      "config": {"vad_energy_threshold": 0.015, "vad_hangover_ms": 240, "min_speech_ms": 300, "silence_complete_ms": 500, "silence_incomplete_ms": 2500, "bargein_min_voice_ms": 300, "bargein_min_words": 2, "bargein_stop_ms": 200, "speaker_check": false, "speaker_match_threshold": 0.75},
+      "input": {
+        "frames": 260,
+        "segments": [
+          {"ms": 200, "amplitude": 0, "q": 0, "kind": "silence"},
+          {"ms": 800, "amplitude": 0.2, "q": 6553, "kind": "speech"},
+          {"ms": 800, "amplitude": 0, "q": 0, "kind": "silence"},
+          {"ms": 800, "amplitude": 0.2, "q": 6553, "kind": "speech"},
+          {"ms": 2600, "amplitude": 0, "q": 0, "kind": "silence"}
+        ],
+        "model_speaking": [],
+        "steps": [
+          {"before_frame": 40, "op": "transcript", "text": "Well,"},
+          {"before_frame": 120, "op": "transcript", "text": "Book a flight to."}
+        ]
+      },
+      "events": [
+        {"at": 25, "t_ms": 500, "kind": "speechStart", "forced": false},
+        {"at": 25, "t_ms": 500, "kind": "audio", "first_frame": 10, "frames": 65},
+        {"at": 75, "t_ms": 1500, "kind": "speechEnd", "reason": "complete"},
+        {"at": 105, "t_ms": 2100, "kind": "speechStart", "forced": false},
+        {"at": 105, "t_ms": 2100, "kind": "audio", "first_frame": 90, "frames": 165},
+        {"at": 255, "t_ms": 5100, "kind": "speechEnd", "reason": "incomplete"}
+      ],
+      "counts": {"speechStart": 2, "audio_frames": 230, "speechEnd": 2, "bargeIn": 0, "drop": 0},
+      "end_state": "idle"
+    },
+    {
+      "name": "max_duration",
+      "covers": "An automatic turn that never goes silent ends max_duration after 120000 ms; the voice that continues opens a new turn.",
+      "config": {"vad_energy_threshold": 0.015, "vad_hangover_ms": 240, "min_speech_ms": 300, "silence_complete_ms": 500, "silence_incomplete_ms": 2500, "bargein_min_voice_ms": 300, "bargein_min_words": 2, "bargein_stop_ms": 200, "speaker_check": false, "speaker_match_threshold": 0.75},
+      "input": {
+        "frames": 6100,
+        "segments": [
+          {"ms": 200, "amplitude": 0, "q": 0, "kind": "silence"},
+          {"ms": 121000, "amplitude": 0.2, "q": 6553, "kind": "speech"},
+          {"ms": 800, "amplitude": 0, "q": 0, "kind": "silence"}
+        ],
+        "model_speaking": [],
+        "steps": []
+      },
+      "events": [
+        {"at": 25, "t_ms": 500, "kind": "speechStart", "forced": false},
+        {"at": 25, "t_ms": 500, "kind": "audio", "first_frame": 10, "frames": 6015},
+        {"at": 6025, "t_ms": 120500, "kind": "speechEnd", "reason": "max_duration"},
+        {"at": 6040, "t_ms": 120800, "kind": "speechStart", "forced": false},
+        {"at": 6040, "t_ms": 120800, "kind": "audio", "first_frame": 6025, "frames": 60},
+        {"at": 6085, "t_ms": 121700, "kind": "speechEnd", "reason": "complete"}
+      ],
+      "counts": {"speechStart": 2, "audio_frames": 6075, "speechEnd": 2, "bargeIn": 0, "drop": 0},
+      "end_state": "idle"
+    },
+    {
+      "name": "back_to_back",
+      "covers": "Two utterances with exactly silence_complete_ms between them: the first ends on the last silent frame, the second confirms on its own.",
+      "config": {"vad_energy_threshold": 0.015, "vad_hangover_ms": 240, "min_speech_ms": 300, "silence_complete_ms": 500, "silence_incomplete_ms": 2500, "bargein_min_voice_ms": 300, "bargein_min_words": 2, "bargein_stop_ms": 200, "speaker_check": false, "speaker_match_threshold": 0.75},
+      "input": {
+        "frames": 135,
+        "segments": [
+          {"ms": 200, "amplitude": 0, "q": 0, "kind": "silence"},
+          {"ms": 600, "amplitude": 0.2, "q": 6553, "kind": "speech"},
+          {"ms": 500, "amplitude": 0, "q": 0, "kind": "silence"},
+          {"ms": 600, "amplitude": 0.2, "q": 6553, "kind": "speech"},
+          {"ms": 800, "amplitude": 0, "q": 0, "kind": "silence"}
+        ],
+        "model_speaking": [],
+        "steps": []
+      },
+      "events": [
+        {"at": 25, "t_ms": 500, "kind": "speechStart", "forced": false},
+        {"at": 25, "t_ms": 500, "kind": "audio", "first_frame": 10, "frames": 55},
+        {"at": 65, "t_ms": 1300, "kind": "speechEnd", "reason": "complete"},
+        {"at": 80, "t_ms": 1600, "kind": "speechStart", "forced": false},
+        {"at": 80, "t_ms": 1600, "kind": "audio", "first_frame": 65, "frames": 55},
+        {"at": 120, "t_ms": 2400, "kind": "speechEnd", "reason": "complete"}
+      ],
+      "counts": {"speechStart": 2, "audio_frames": 110, "speechEnd": 2, "bargeIn": 0, "drop": 0},
+      "end_state": "idle"
+    },
+    {
+      "name": "hang_up_mid_utterance",
+      "covers": "Hang-up while the user speaks: stopAll ends the open turn manual_stop. The microphone stops, so no frame follows.",
+      "config": {"vad_energy_threshold": 0.015, "vad_hangover_ms": 240, "min_speech_ms": 300, "silence_complete_ms": 500, "silence_incomplete_ms": 2500, "bargein_min_voice_ms": 300, "bargein_min_words": 2, "bargein_stop_ms": 200, "speaker_check": false, "speaker_match_threshold": 0.75},
+      "input": {
+        "frames": 40,
+        "segments": [
+          {"ms": 200, "amplitude": 0, "q": 0, "kind": "silence"},
+          {"ms": 600, "amplitude": 0.2, "q": 6553, "kind": "speech"}
+        ],
+        "model_speaking": [],
+        "steps": [
+          {"before_frame": 40, "op": "stop"}
+        ]
+      },
+      "events": [
+        {"at": 25, "t_ms": 500, "kind": "speechStart", "forced": false},
+        {"at": 25, "t_ms": 500, "kind": "audio", "first_frame": 10, "frames": 30},
+        {"at": 40, "t_ms": 800, "kind": "speechEnd", "reason": "manual_stop"}
+      ],
+      "counts": {"speechStart": 1, "audio_frames": 30, "speechEnd": 1, "bargeIn": 0, "drop": 0},
+      "end_state": "idle"
+    },
+    {
+      "name": "hang_up_pending",
+      "covers": "Hang-up while a candidate is still buffered: stopAll drops it manual_stop and no audio leaves.",
+      "config": {"vad_energy_threshold": 0.015, "vad_hangover_ms": 240, "min_speech_ms": 300, "silence_complete_ms": 500, "silence_incomplete_ms": 2500, "bargein_min_voice_ms": 300, "bargein_min_words": 2, "bargein_stop_ms": 200, "speaker_check": false, "speaker_match_threshold": 0.75},
+      "input": {
+        "frames": 20,
+        "segments": [
+          {"ms": 200, "amplitude": 0, "q": 0, "kind": "silence"},
+          {"ms": 200, "amplitude": 0.2, "q": 6553, "kind": "speech"}
+        ],
+        "model_speaking": [],
+        "steps": [
+          {"before_frame": 20, "op": "stop"}
+        ]
+      },
+      "events": [
+        {"at": 20, "t_ms": 400, "kind": "drop", "reason": "manual_stop", "voice_ms": 200}
+      ],
+      "counts": {"speechStart": 0, "audio_frames": 0, "speechEnd": 0, "bargeIn": 0, "drop": 1},
+      "end_state": "idle"
+    },
+    {
+      "name": "server_config",
+      "covers": "Thresholds come from the config, not the code: under this table 0.03 RMS is silence, a 60 ms burst drops too_short after a 100 ms hangover, 100 ms of voice confirms, and 300 ms of silence ends the turn.",
+      "config": {"vad_energy_threshold": 0.05, "vad_hangover_ms": 100, "min_speech_ms": 100, "silence_complete_ms": 300, "silence_incomplete_ms": 2500, "bargein_min_voice_ms": 300, "bargein_min_words": 2, "bargein_stop_ms": 200, "speaker_check": false, "speaker_match_threshold": 0.75},
+      "input": {
+        "frames": 119,
+        "segments": [
+          {"ms": 200, "amplitude": 0, "q": 0, "kind": "silence"},
+          {"ms": 600, "amplitude": 0.03, "q": 983, "kind": "speech"},
+          {"ms": 400, "amplitude": 0, "q": 0, "kind": "silence"},
+          {"ms": 60, "amplitude": 0.2, "q": 6553, "kind": "speech"},
+          {"ms": 400, "amplitude": 0, "q": 0, "kind": "silence"},
+          {"ms": 120, "amplitude": 0.2, "q": 6553, "kind": "speech"},
+          {"ms": 600, "amplitude": 0, "q": 0, "kind": "silence"}
+        ],
+        "model_speaking": [],
+        "steps": []
+      },
+      "events": [
+        {"at": 69, "t_ms": 1380, "kind": "drop", "reason": "too_short", "voice_ms": 60},
+        {"at": 88, "t_ms": 1760, "kind": "speechStart", "forced": false},
+        {"at": 88, "t_ms": 1760, "kind": "audio", "first_frame": 83, "frames": 21},
+        {"at": 104, "t_ms": 2080, "kind": "speechEnd", "reason": "complete"}
+      ],
+      "counts": {"speechStart": 1, "audio_frames": 21, "speechEnd": 1, "bargeIn": 0, "drop": 1},
+      "end_state": "idle"
+    }
+  ]
+}

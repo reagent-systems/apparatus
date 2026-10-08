@@ -1,0 +1,28 @@
+{
+  "name": "@apparatus/orb",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "The orb renderer: thinking-orbs drawn at its real size on a canvas, one shared clock, reduced motion. TypeScript source, no build step.",
+  "exports": {
+    ".": "./src/index.ts",
+    "./paint": "./src/orb-paint.ts",
+    "./clock": "./src/orb-clock.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit -p tsconfig.json",
+    "test": "node --test test/*.test.ts"
+  },
+  "dependencies": {
+    "thinking-orbs": "^0.3.2"
+  },
+  "peerDependencies": {
+    "react": "^19.0.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "@types/react": "^19.3.0",
+    "react": "^19.3.0",
+    "typescript": "^5.6.0"
+  }
+}

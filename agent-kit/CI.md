@@ -77,7 +77,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: Build artifacts
-        run: npm --prefix web run build    # adjust to produce dist/
+        run: npm run build -w apps/web    # adjust to produce dist/
       - name: Publish GitHub Release
         uses: softprops/action-gh-release@v2
         with:

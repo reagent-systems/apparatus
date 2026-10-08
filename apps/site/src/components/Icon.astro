@@ -1,0 +1,26 @@
+---
+// A Lucide icon as inline SVG (lib/icons.ts), drawn at build time.
+import { ICONS, type IconName } from "../lib/icons.ts";
+
+interface Props {
+  name: IconName;
+  class?: string;
+  strokeWidth?: number;
+}
+const { name, class: className = "size-4", strokeWidth = 1.5 } = Astro.props;
+const body = ICONS[name]
+  .map(([tag, attrs]) => `<${tag} ${Object.entries(attrs).map(([k, v]) => `${k}="${v}"`).join(" ")}/>`)
+  .join("");
+---
+
+<svg
+  viewBox="0 0 24 24"
+  class={className}
+  fill="none"
+  stroke="currentColor"
+  stroke-width={strokeWidth}
+  stroke-linecap="round"
+  stroke-linejoin="round"
+  aria-hidden="true"
+  set:html={body}
+/>

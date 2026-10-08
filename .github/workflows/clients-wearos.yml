@@ -5,9 +5,9 @@ on:
   workflow_dispatch: {}
   pull_request:
     paths:
-      - "clients/wearos/**"
+      - "apps/wearos/**"
       # The voice gate vectors the unit tests replay.
-      - "clients/shared/**"
+      - "packages/gate-vectors/**"
       - ".github/workflows/clients-wearos.yml"
 
 permissions:
@@ -23,7 +23,7 @@ jobs:
     timeout-minutes: 40
     defaults:
       run:
-        working-directory: clients/wearos
+        working-directory: apps/wearos
     env:
       # Secrets are not readable in step `if`; mapped to env they are.
       WEAROS_GOOGLE_SERVICES_JSON: ${{ secrets.WEAROS_GOOGLE_SERVICES_JSON }}
@@ -54,7 +54,7 @@ jobs:
         run: printf '%s' "$WEAROS_GOOGLE_SERVICES_JSON" > app/google-services.json
 
       # JVM unit tests: the thinking-orbs golden frames, the shared voice gate vectors
-      # (clients/shared/gate-vectors.json), the turn heuristic, the reply latch, the orb state
+      # (packages/gate-vectors/gate-vectors.json), the turn heuristic, the reply latch, the orb state
       # mapping and the Live setup.
       - name: Unit tests
         run: gradle test -PAPPARATUS_SERVER_ORIGIN="$APPARATUS_SERVER_ORIGIN"
@@ -71,11 +71,11 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: wearos-test-reports
-          path: clients/wearos/app/build/reports/tests/
+          path: apps/wearos/app/build/reports/tests/
           if-no-files-found: ignore
 
       - uses: actions/upload-artifact@v4
         with:
           name: wearos
-          path: clients/wearos/app/build/outputs/apk/**/*.apk
+          path: apps/wearos/app/build/outputs/apk/**/*.apk
           if-no-files-found: error

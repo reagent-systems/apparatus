@@ -34,9 +34,11 @@ jobs:
         run: |
           IMAGE="${{ vars.GCP_REGION }}-docker.pkg.dev/${{ vars.GCP_PROJECT }}/apparatus/server:${{ github.sha }}"
           gcloud auth configure-docker "${{ vars.GCP_REGION }}-docker.pkg.dev" --quiet
-          docker build -f server/Dockerfile -t "$IMAGE" .
+          docker build -f apps/server/Dockerfile -t "$IMAGE" .
           docker push "$IMAGE"
           echo "IMAGE=$IMAGE" >> "$GITHUB_ENV"
+      # --update-* merges into what Terraform set (infra/gcp/main.tf). --set-* would replace
+      # the whole list and drop APPARATUS_TURN_URL and APPARATUS_TURN_SECRET.
       - name: Deploy to Cloud Run
         run: |
           gcloud run deploy apparatus-server \
@@ -44,8 +46,8 @@ jobs:
             --image "$IMAGE" --platform managed \
             --no-cpu-throttling --min-instances 1 --max-instances 20 \
             --session-affinity --timeout 3600 --port 8080 \
-            --set-env-vars "APPARATUS_AUTH_MODE=firebase,APPARATUS_STORE=file,APPARATUS_VM_CONTROLLER=gce,APPARATUS_PUSH=fcm,GCE_PROJECT=${{ vars.GCP_PROJECT }},GCE_ZONE=${{ vars.GCP_ZONE }},FIREBASE_PROJECT_ID=${{ vars.GCP_PROJECT }}" \
-            --set-secrets "GEMINI_API_KEY=gemini-api-key:latest,APPARATUS_VM_ENROLL_SECRET=vm-enroll-secret:latest" \
+            --update-env-vars "APPARATUS_AUTH_MODE=firebase,APPARATUS_STORE=file,APPARATUS_VM_CONTROLLER=gce,APPARATUS_PUSH=fcm,GCE_PROJECT=${{ vars.GCP_PROJECT }},GCE_ZONE=${{ vars.GCP_ZONE }},FIREBASE_PROJECT_ID=${{ vars.GCP_PROJECT }}" \
+            --update-secrets "GEMINI_API_KEY=gemini-api-key:latest,APPARATUS_VM_ENROLL_SECRET=vm-enroll-secret:latest" \
             --quiet
 
   vm-image:
@@ -60,8 +62,8 @@ jobs:
           workload_identity_provider: ${{ vars.GCP_WORKLOAD_IDENTITY_PROVIDER }}
           service_account: ${{ vars.GCP_DEPLOY_SERVICE_ACCOUNT }}
       - uses: google-github-actions/setup-gcloud@v2
-      - name: Build the user-VM image with vm/setup.sh on a builder instance
-        run: deploy/gcp/build-vm-image.sh
+      - name: Build the user-VM image with infra/vm/setup.sh on a builder instance
+        run: infra/gcp/build-vm-image.sh
         env:
           GCP_PROJECT: ${{ vars.GCP_PROJECT }}
           GCP_ZONE: ${{ vars.GCP_ZONE }}

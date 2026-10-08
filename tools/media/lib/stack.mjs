@@ -103,7 +103,7 @@ export async function startStack({ work, webDist, desktop = "fake", display = nu
   const serverLog = path.join(work, "server.log");
   const agentdLog = path.join(work, "agentd.log");
   if (!fs.existsSync(path.join(webDist, "index.html"))) {
-    throw new Error(`${webDist}/index.html is missing: run \`npm --prefix ${REPO}/web run build\` or pass --build`);
+    throw new Error(`${webDist}/index.html is missing: run \`npm --prefix ${REPO}/apps/web run build\` or pass --build`);
   }
 
   const server = launch(

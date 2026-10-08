@@ -8,7 +8,7 @@
 // session server. The demo model on the server runs every job for real on
 // agentd: a python step that writes report.csv, a show step, the result.
 //
-// The demo model picks a story from the request (server/apparatus_server/demo.py):
+// The demo model picks a story from the request (apps/server/apparatus_server/demo.py):
 // the weekly orders table, "compare" or "last week", "revenue", "approve"
 // (an email to Dana after an approval) and "login" (a handoff first). Each
 // story has its own steps, say line, table and CSV. The agent speaks a job's
@@ -87,7 +87,7 @@ export async function askForJob(app, { ask, ack, request, fresh = true, heardMs 
 
 /**
  * Wait for a job's done event; the agent then speaks the event's say line
- * unchanged, as the voice prompt asks (server/apparatus_server/voice.py:
+ * unchanged, as the voice prompt asks (apps/server/apparatus_server/voice.py:
  * "speak it with almost no change, then stop"). Resolves with the line.
  */
 export async function speakResult(app, jobId, { timeout = 60_000, wps = null } = {}) {

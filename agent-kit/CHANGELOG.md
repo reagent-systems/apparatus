@@ -27,6 +27,8 @@ Format: [Keep a Changelog](https://keepachangelog.com/) · Versioning: [SemVer](
 - Demo mode for development: `APPARATUS_DEMO=1` replaces the smart model with a scripted job, an approval or a handoff.
 - Borders, a per-device setting on the screen clients: a switch under Appearance and a row in the command palette. Off hides every border, divider and outline ring and puts every surface on the page background; controls and states keep their fill, and floating layers keep their shadow. Off, borderless, is the default; on brings back the lines and stepped surfaces.
 - Media for the README in `docs/media/`: 27 stills (a hero for light and dark among them) and 9 GIFs, with a gallery in `docs/media/README.md`. `tools/media` makes them from the real client in demo mode with scripted voice.
+- The website, `apps/site`: one static Astro page that says what apparatus is, with a live orb from `packages/orb`, the look of `packages/design`, and the real captures from `docs/media`. The hero orb cycles Listening, Working and Speaking, and its state buttons pin one; the orb section shows all four states live, side by side. 6 GIFs play as 25 fps MP4 and WebM loops, 1.6 MB against 20.4 MB of GIFs, each with a dark twin. Light and dark follow the system, with a toggle; Pause motion, in the hero and the footer, holds the orbs and the loops. The Open Graph image carries the orb, the name and the one-liner. The page says what is built and what is not. Vercel deploys it: production from `main`, a preview per pull request; an unknown path gets the site's own 404 page.
+- Dark variants of 3 README GIFs: `voice-to-job-dark.gif`, `phone-dark.gif` and `screen-control-dark.gif`; `tools/media` makes each scene in every theme it is given.
 ### Changed
 - `signal` carries `stream_id` on every link; `handoff_id` is gone from it. One handoff opens a stream like any other screen.
 - `ready` carries `jobs`, `control` and `streams`; `vm.state` carries `streams` and `user_control`.
@@ -39,11 +41,18 @@ Format: [Keep a Changelog](https://keepachangelog.com/) · Versioning: [SemVer](
 - The orb sits centred in the composer box, and what the model heard sits centred above it, at most 2 lines (3 on a phone). The box grows upward, so the orb never moves.
 - The orb has no disc, no ring and no shadow: only its dots, black in light mode and white in dark mode, in a circular hit region. Every orb takes its ink from the app's theme, not from the OS, so Light on a dark OS draws black dots.
 - Barge-in on the web keeps the rest of the reply the user talked over silent, as on the watches.
+- The repository is a monorepo. `apps/` holds web, desktop, mobile, watchos, wearos, server and agentd; `packages/` holds protocol, design, orb and gate-vectors; `infra/` holds gcp, local and vm. The TypeScript side is one npm workspace with Turborepo and one `package-lock.json`; the Python side is one uv workspace. The colour tokens and fonts are `packages/design`, the orb renderer is `packages/orb`, and `apps/web` imports both.
+- The desktop shell's Tauri commands are `npm run tauri:build` and `npm run tauri:dev`.
+- `APPARATUS_WEB_DIST` defaults to `apps/web/dist`.
 ### Deprecated
 ### Removed
 - The orb's hold (a forced turn of 350 ms or more), the tap that interrupts, the tap that only claims, the Space hold and the Esc interrupt on the screen clients; `pressTalk`, `releaseTalk` and `interrupt` on the web voice context; the `--orb-disc` and `--orb-ring` tokens.
 - The job sidebar, the feed controls and the old pane; the 3-column layout from the sketches.
 ### Fixed
+- The local docker-compose VM reads the server's `.env`, so both hold the same `APPARATUS_VM_ENROLL_SECRET` and the server accepts the VM; the Gemini key and the TURN secret stay blank in the VM.
+- `deploy.yml` updates the Cloud Run variables and secrets instead of replacing them, so `APPARATUS_TURN_URL` and `APPARATUS_TURN_SECRET` from Terraform stay set.
+- The first-deployment steps in `infra/gcp/README.md` are reordered: the VM image first, then the Artifact Registry repository and the Gemini key's secret with its version, then the server image, the full apply, and a second apply with `api_domain` set to the Cloud Run host. `main.tf` now parses (`replication { auto {} }` was invalid HCL) and `terraform validate` passes; no apply has run against a real project. The Cloud Run service waits for the secret versions and the read grants, and keeps the image `deploy.yml` deployed on a later apply.
+- `build-vm-image.sh` packs only the repository's tracked files, wherever it is called from; before, a local run packed `.env` and the Terraform state into the VM image. `.gitignore` and `.dockerignore` cover `.terraform/`, `*.tfstate*`, `gha-creds-*.json` and `.vercel`.
 - The web microphone is released when the switch turns off while `getUserMedia` is still pending; before, the late stream stayed open.
 ### Security
 - Stream input reaches the desktop only during a handoff or from the controlling device's own stream; the server names that stream in `control`.

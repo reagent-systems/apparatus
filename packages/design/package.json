@@ -1,0 +1,15 @@
+{
+  "name": "@apparatus/design",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "The shared look: colour tokens, the dark and flat variants, the Tailwind theme mapping, and the fonts. Source CSS, no build step.",
+  "exports": {
+    "./tokens.css": "./src/tokens.css",
+    "./fonts.css": "./src/fonts.css"
+  },
+  "dependencies": {
+    "@fontsource-variable/inter": "^5.3.0",
+    "@fontsource-variable/jetbrains-mono": "^5.3.0"
+  }
+}

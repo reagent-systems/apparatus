@@ -1,0 +1,126 @@
+---
+import { ARCHITECTURE } from "../lib/links.ts";
+import Section from "./Section.astro";
+
+type Node = { x: number; y: number; w: number; h: number; title: string; sub: string; accent?: boolean };
+
+// Wide: the two Gemini models sit over the gaps between the device, the server and the VM.
+const wide: Node[] = [
+  { x: 187, y: 16, w: 250, h: 84, title: "Gemini Live", sub: "talks with you, starts jobs" },
+  { x: 522, y: 16, w: 250, h: 84, title: "Gemini text model", sub: "plans and does the work" },
+  { x: 20, y: 176, w: 250, h: 96, title: "Your device", sub: "microphone, voice gate, screen" },
+  { x: 355, y: 176, w: 250, h: 96, title: "Session server", sub: "the key, jobs, approvals, audit", accent: true },
+  { x: 690, y: 176, w: 250, h: 96, title: "Your cloud computer", sub: "a Linux desktop with agentd" },
+];
+// Narrow: one column, the text model named inside the server's box.
+const tall: Node[] = [
+  { x: 24, y: 8, w: 280, h: 76, title: "Gemini Live", sub: "talks with you, starts jobs" },
+  { x: 24, y: 148, w: 280, h: 76, title: "Your device", sub: "microphone, voice gate, screen" },
+  { x: 24, y: 288, w: 280, h: 92, title: "Session server", sub: "the key, jobs, approvals, audit", accent: true },
+  { x: 24, y: 444, w: 280, h: 76, title: "Your cloud computer", sub: "a Linux desktop with agentd" },
+];
+// A box's second line: muted on paper; on the accent fill, the accent's own ink
+// at 80 %, because muted on the accent is 4.46:1 in light (under AA).
+const sub = (n: Node) => (n.accent ? { fill: "var(--accent-foreground)", "fill-opacity": "0.8" } : { fill: "var(--muted-foreground)" });
+---
+
+<Section id="how-it-works" eyebrow="How it works" title="Two models, one server, your cloud computer.">
+  <figure class="mt-12 frame px-4 py-8 sm:px-8 sm:py-10">
+    <svg viewBox="0 0 960 360" class="mx-auto hidden w-full max-w-[1000px] lg:block" role="img" aria-labelledby="diagram-title">
+      <title id="diagram-title">
+        Your device talks to Gemini Live and to the session server. The server runs jobs with a Gemini text model. Your
+        cloud computer dials out to the server. The screen streams from the cloud computer to your device.
+      </title>
+      <defs>
+        <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+          <path d="M0 1 L9 5 L0 9 z" fill="var(--muted-foreground)"></path>
+        </marker>
+      </defs>
+      <g stroke="var(--muted-foreground)" stroke-width="1.5" fill="none" stroke-opacity="0.7">
+        <path d="M312 104 V140 H145 V172" marker-start="url(#arrow)" marker-end="url(#arrow)"></path>
+        <path d="M647 104 V140 H480 V172" marker-start="url(#arrow)" marker-end="url(#arrow)"></path>
+        <path d="M274 224 H351" marker-start="url(#arrow)" marker-end="url(#arrow)"></path>
+        <path d="M686 224 H609" marker-end="url(#arrow)"></path>
+        <path d="M815 276 V326 H145 V276" stroke-dasharray="5 6" marker-end="url(#arrow)"></path>
+      </g>
+      <g font-size="13" fill="var(--muted-foreground)" font-family="var(--font-sans)">
+        <text x="228" y="132" text-anchor="middle">voice</text>
+        <text x="563" y="132" text-anchor="middle">model calls</text>
+        <text x="312" y="212" text-anchor="middle">jobs</text>
+        <text x="647" y="212" text-anchor="middle">dials out</text>
+        <text x="480" y="318" text-anchor="middle">the screen and Control, over WebRTC</text>
+      </g>
+      {
+        wide.map((n) => (
+          <g>
+            <rect
+              x={n.x}
+              y={n.y}
+              width={n.w}
+              height={n.h}
+              rx="14"
+              fill={n.accent ? "var(--accent)" : "var(--background)"}
+            />
+            <text x={n.x + 20} y={n.y + n.h / 2 - 4} font-size="16" font-weight="500" fill={n.accent ? "var(--accent-foreground)" : "var(--foreground)"} font-family="var(--font-sans)">
+              {n.title}
+            </text>
+            <text x={n.x + 20} y={n.y + n.h / 2 + 18} font-size="13" {...sub(n)} font-family="var(--font-sans)">
+              {n.sub}
+            </text>
+          </g>
+        ))
+      }
+    </svg>
+
+    <svg viewBox="0 0 360 528" class="mx-auto block w-full max-w-[400px] lg:hidden" role="img" aria-labelledby="diagram-title-tall">
+      <title id="diagram-title-tall">
+        Gemini Live talks with your device. Your device sends jobs to the session server, which runs them with a Gemini
+        text model. Your cloud computer dials out to the server and streams the screen to your device.
+      </title>
+      <defs>
+        <marker id="arrow-tall" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+          <path d="M0 1 L9 5 L0 9 z" fill="var(--muted-foreground)"></path>
+        </marker>
+      </defs>
+      <g stroke="var(--muted-foreground)" stroke-width="1.5" fill="none" stroke-opacity="0.7">
+        <path d="M164 88 V144" marker-start="url(#arrow-tall)" marker-end="url(#arrow-tall)"></path>
+        <path d="M164 228 V284" marker-start="url(#arrow-tall)" marker-end="url(#arrow-tall)"></path>
+        <path d="M164 440 V384" marker-end="url(#arrow-tall)"></path>
+        <path d="M304 482 H326 V186 H308" stroke-dasharray="5 6" marker-end="url(#arrow-tall)"></path>
+      </g>
+      <g font-size="13" fill="var(--muted-foreground)" font-family="var(--font-sans)">
+        <text x="176" y="121">voice</text>
+        <text x="176" y="261">jobs</text>
+        <text x="176" y="417">dials out</text>
+        <text transform="translate(343 334) rotate(-90)" text-anchor="middle">the screen, over WebRTC</text>
+      </g>
+      {
+        tall.map((n) => (
+          <g>
+            <rect x={n.x} y={n.y} width={n.w} height={n.h} rx="14" fill={n.accent ? "var(--accent)" : "var(--background)"} />
+            <text x={n.x + 18} y={n.y + 32} font-size="16" font-weight="500" fill={n.accent ? "var(--accent-foreground)" : "var(--foreground)"} font-family="var(--font-sans)">
+              {n.title}
+            </text>
+            <text x={n.x + 18} y={n.y + 54} font-size="13" {...sub(n)} font-family="var(--font-sans)">
+              {n.sub}
+            </text>
+            {n.accent && (
+              <text x={n.x + 18} y={n.y + 74} font-size="13" {...sub(n)} font-family="var(--font-sans)">
+                runs jobs on a Gemini text model
+              </text>
+            )}
+          </g>
+        ))
+      }
+    </svg>
+  </figure>
+
+  <p class="mt-10 max-w-[46rem] text-[0.9375rem] leading-relaxed text-pretty text-muted-foreground">
+    Your device gets a short-lived Live token from the server, so the API key never leaves the server. The cloud
+    computer dials out to the server. In the Google Cloud deployment, a firewall rule blocks every inbound connection to
+    the cloud computer.
+  </p>
+  <p class="mt-4 text-[0.9375rem] text-muted-foreground">
+    The <a class="link" href={ARCHITECTURE}>architecture notes</a> follow one voice turn through every part.
+  </p>
+</Section>

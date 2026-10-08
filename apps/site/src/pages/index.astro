@@ -1,0 +1,33 @@
+---
+import Closing from "../components/Closing.astro";
+import Desktop from "../components/Desktop.astro";
+import Devices from "../components/Devices.astro";
+import Feels from "../components/Feels.astro";
+import Footer from "../components/Footer.astro";
+import Header from "../components/Header.astro";
+import Hero from "../components/Hero.astro";
+import HowItWorks from "../components/HowItWorks.astro";
+import Orb from "../components/Orb.astro";
+import RunIt from "../components/RunIt.astro";
+import Safety from "../components/Safety.astro";
+import Base from "../layouts/Base.astro";
+---
+
+<Base
+  title="apparatus: a voice agent with its own cloud computer"
+  description="You talk. apparatus does the work on a Linux desktop of its own, shows you the result, and asks you only when a person must act. Open source, with clients for the web, desktop, phone and watch."
+>
+  <Header />
+  <main id="main" tabindex="-1">
+    <Hero />
+    <Feels />
+    <Orb />
+    <Desktop />
+    <Devices />
+    <Safety />
+    <HowItWorks />
+    <RunIt />
+    <Closing />
+  </main>
+  <Footer />
+</Base>

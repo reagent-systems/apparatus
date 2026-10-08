@@ -1,0 +1,24 @@
+---
+import Footer from "../components/Footer.astro";
+import Header from "../components/Header.astro";
+import Base from "../layouts/Base.astro";
+import { REPO } from "../lib/links.ts";
+---
+
+<Base title="Page not found · apparatus" description="This page does not exist on the apparatus website.">
+  <Header />
+  <main id="main" tabindex="-1" class="mx-auto flex min-h-[60dvh] w-full max-w-[1200px] flex-col items-start justify-center px-4 py-24 sm:px-6 lg:px-8">
+    <p class="eyebrow">404</p>
+    <h1 class="mt-4 text-title font-medium text-balance">This page does not exist.</h1>
+    <p class="mt-5 max-w-[34rem] text-lede text-pretty text-muted-foreground">The address may have a typo, or the page moved.</p>
+    <div class="mt-9 flex flex-col gap-3 sm:flex-row">
+      <a href="/" class="flex h-12 items-center justify-center rounded-full bg-primary px-6 text-[0.9375rem] font-medium text-primary-foreground transition-opacity duration-150 ease-ui hover:opacity-90">
+        Go to the home page
+      </a>
+      <a href={REPO} class="flex h-12 items-center justify-center rounded-full bg-secondary px-6 text-[0.9375rem] font-medium transition-colors duration-150 ease-ui hover:bg-accent hover:text-accent-foreground">
+        The code on GitHub
+      </a>
+    </div>
+  </main>
+  <Footer />
+</Base>

@@ -1,0 +1,23 @@
+{
+  "name": "apparatus",
+  "private": true,
+  "description": "The apparatus monorepo: the web client, the native shells and the shared packages. The Python side (apps/server, apps/agentd, packages/protocol) is a uv workspace in pyproject.toml.",
+  "packageManager": "npm@10.9.4",
+  "workspaces": [
+    "apps/*",
+    "packages/*",
+    "tools/*"
+  ],
+  "scripts": {
+    "build": "turbo run build",
+    "test": "turbo run test",
+    "typecheck": "turbo run typecheck",
+    "lint": "turbo run lint",
+    "dev:web": "turbo run dev --filter=apparatus-web",
+    "dev:site": "turbo run dev --filter=apparatus-site",
+    "verify": "verify/verify.sh"
+  },
+  "devDependencies": {
+    "turbo": "2.11.7"
+  }
+}

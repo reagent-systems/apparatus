@@ -70,7 +70,7 @@ disk_home = "/home/agent"
 stun_url = "stun:stun.l.google.com:19302"
 # Lifetime of one minted TURN credential, seconds.
 turn_ttl_seconds = 3600
-# Capture rate and frame size. Match the Xvfb screen in vm/setup.sh.
+# Capture rate and frame size. Match the Xvfb screen in infra/vm/setup.sh.
 fps = 12
 width = 1280
 height = 800

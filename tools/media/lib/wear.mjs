@@ -1,8 +1,8 @@
-// The Wear OS app rendered by Paparazzi. A scratch copy of clients/wearos
-// (and clients/shared, which its tests read) gets the Paparazzi plugin and
+// The Wear OS app rendered by Paparazzi. A scratch copy of apps/wearos
+// (and packages/gate-vectors, which its tests read) gets the Paparazzi plugin and
 // tools/media/wear/MediaWatchTest.kt; `gradle recordPaparazziDebug` renders
 // the app's real Screen over time into an APNG, and ffmpeg splits it into
-// PNG frames. The repo's clients/wearos is never written.
+// PNG frames. The repo's apps/wearos is never written.
 
 import fs from "node:fs";
 import path from "node:path";
@@ -25,10 +25,12 @@ function patch(file, find, insert) {
 /** Prepare the scratch project under `work`; returns its folder. */
 export function prepareWear(work) {
   const root = mkdirp(path.join(work, "wear"));
-  const proj = path.join(root, "wearos");
+  // The same relative layout as the repository: app/build.gradle.kts reads
+  // ../../packages/gate-vectors/gate-vectors.json from the Wear OS project.
+  const proj = path.join(root, "apps", "wearos");
   fs.rmSync(path.join(proj, "app", "src"), { recursive: true, force: true });
-  copyTree(path.join(REPO, "clients", "wearos"), proj);
-  copyTree(path.join(REPO, "clients", "shared"), path.join(root, "shared"));
+  copyTree(path.join(REPO, "apps", "wearos"), proj);
+  copyTree(path.join(REPO, "packages", "gate-vectors"), path.join(root, "packages", "gate-vectors"));
   patch(path.join(proj, "build.gradle.kts"), "plugins {", `    id("app.cash.paparazzi") version "${PAPARAZZI}" apply false`);
   patch(path.join(proj, "app", "build.gradle.kts"), "plugins {", `    id("app.cash.paparazzi")`);
   const sdk = process.env.ANDROID_HOME ?? process.env.ANDROID_SDK_ROOT ?? "/opt/android-sdk";

@@ -8,6 +8,7 @@ file only points to it.
 Quick facts:
 
 - Health gate: `verify/verify.sh`. Green before every push.
-- Protocol: `agent-kit/docs/PROTOCOL.md` ↔ `protocol/apparatus_protocol/__init__.py`. Change both in one commit.
+- Layout: `apps/` (web, site, desktop, mobile, watchos, wearos, server, agentd), `packages/` (protocol, design, orb, gate-vectors), `infra/` (gcp, local, vm), `tools/media`. `apps/site` is the website Vercel deploys. One npm workspace with Turborepo and one `package-lock.json` at the root; one uv workspace in `pyproject.toml`.
+- Protocol: `agent-kit/docs/PROTOCOL.md` ↔ `packages/protocol/apparatus_protocol/__init__.py`. Change both in one commit.
 - Config: `config/apparatus.toml` ↔ `agent-kit/docs/CONFIGURATION.md`. Change both in one commit.
 - What to build next: `agent-kit/ROADMAP.md`. Where things stand: `agent-kit/STATUS.md`.

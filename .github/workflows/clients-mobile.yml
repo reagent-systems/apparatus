@@ -7,8 +7,13 @@ on:
   workflow_dispatch: {}
   pull_request:
     paths:
-      - "web/**"
-      - "clients/mobile/**"
+      - "apps/web/**"
+      - "apps/mobile/**"
+      - "packages/design/**"
+      - "packages/orb/**"
+      - "package-lock.json"
+      - "package.json"
+      - "turbo.json"
       - ".github/workflows/clients-mobile.yml"
 
 permissions:
@@ -28,7 +33,7 @@ jobs:
     timeout-minutes: 60
     defaults:
       run:
-        working-directory: clients/mobile
+        working-directory: apps/mobile
     steps:
       - uses: actions/checkout@v4
 
@@ -37,22 +42,18 @@ jobs:
           distribution: temurin
           java-version: 17
           cache: gradle
-          cache-dependency-path: clients/mobile/android/**/*.gradle*
+          cache-dependency-path: apps/mobile/android/**/*.gradle*
 
       - uses: actions/setup-node@v4
         with:
           node-version: 22
           cache: npm
-          cache-dependency-path: |
-            web/package-lock.json
-            clients/mobile/package-lock.json
+          cache-dependency-path: package-lock.json
 
-      - name: Install web dependencies
+      # One install at the root for every workspace (see clients-desktop.yml).
+      - name: Install dependencies
         run: npm ci
-        working-directory: web
-
-      - name: Install mobile dependencies
-        run: npm ci
+        working-directory: .
 
       - name: Build web client and bridge
         run: npm run prepare-dist
@@ -75,7 +76,7 @@ jobs:
 
       - name: Build debug APK
         run: ./gradlew assembleDebug --no-daemon
-        working-directory: clients/mobile/android
+        working-directory: apps/mobile/android
 
       - name: Build signed release APK
         env:
@@ -83,7 +84,7 @@ jobs:
           ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
           ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
           ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
-        working-directory: clients/mobile/android
+        working-directory: apps/mobile/android
         run: |
           if [ -z "$ANDROID_KEYSTORE_BASE64" ]; then
             echo "ANDROID_KEYSTORE_BASE64 not set: no release APK"
@@ -102,15 +103,15 @@ jobs:
           name: mobile-android
           if-no-files-found: error
           path: |
-            clients/mobile/android/app/build/outputs/apk/debug/*.apk
-            clients/mobile/android/app/build/outputs/apk/release/*.apk
+            apps/mobile/android/app/build/outputs/apk/debug/*.apk
+            apps/mobile/android/app/build/outputs/apk/release/*.apk
 
   ios:
     runs-on: macos-latest
     timeout-minutes: 90
     defaults:
       run:
-        working-directory: clients/mobile
+        working-directory: apps/mobile
     steps:
       - uses: actions/checkout@v4
 
@@ -118,16 +119,12 @@ jobs:
         with:
           node-version: 22
           cache: npm
-          cache-dependency-path: |
-            web/package-lock.json
-            clients/mobile/package-lock.json
+          cache-dependency-path: package-lock.json
 
-      - name: Install web dependencies
+      # One install at the root for every workspace (see clients-desktop.yml).
+      - name: Install dependencies
         run: npm ci
-        working-directory: web
-
-      - name: Install mobile dependencies
-        run: npm ci
+        working-directory: .
 
       - name: Build web client and bridge
         run: npm run prepare-dist
@@ -206,5 +203,5 @@ jobs:
           name: mobile-ios
           if-no-files-found: error
           path: |
-            clients/mobile/build/derived/Build/Products/Debug-iphonesimulator/App.app
-            clients/mobile/build/ipa/*.ipa
+            apps/mobile/build/derived/Build/Products/Debug-iphonesimulator/App.app
+            apps/mobile/build/ipa/*.ipa

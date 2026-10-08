@@ -2,15 +2,15 @@
 
 `verify/verify.sh` runs, in order:
 
-1. Lint / format check — `uv run ruff check protocol server agentd && uv run ruff format --check protocol server agentd`
-2. Build — `npm --prefix web run verify` (typecheck, esbuild bundle, node tests)
+1. Lint / format check — `uv run ruff check packages/protocol apps/server apps/agentd && uv run ruff format --check packages/protocol apps/server apps/agentd`
+2. Build — `npm ci` at the root, then `npx turbo run typecheck build test --force`: every workspace with the task (apps/web typecheck, Vite and esbuild build, node tests; packages/orb typecheck and tests; apps/desktop and apps/mobile typecheck; apps/site `astro check` and the Astro static build). `--force` skips the turbo cache.
 3. Tests — `uv run pytest` (protocol, agentd with real kernels, server with a real in-process agentd core)
 4. Repo gates, each a script under `verify/gates/`, each independently runnable:
-   - `config_documented.py` — every field in `config/apparatus.toml` and in `server/apparatus_server/config.py` has a row in `docs/CONFIGURATION.md`, and the two agree.
+   - `config_documented.py` — every field in `config/apparatus.toml` and in `apps/server/apparatus_server/config.py` has a row in `docs/CONFIGURATION.md`, and the two agree.
    - `protocol_documented.py` — every message type in `apparatus_protocol` appears in `docs/PROTOCOL.md`.
    - `workflows_parse.py` — every workflow parses and every job has `timeout-minutes`.
    - placeholder scan — no double-brace template placeholder left in `agent-kit/`.
-   - native shells — `cargo check` (desktop), `xcodebuild` (watchOS, iOS), `gradle assembleDebug` (Wear OS, Android). Each skips loudly when its toolchain is absent; CI runs them on their native runners through the `clients-*.yml` workflows.
+   - native shells — `cargo check` (desktop, after `prepare-dist` writes `apps/desktop/dist` and the icons; on Linux it needs the webkit2gtk-4.1 and glib dev packages), `xcodebuild` (watchOS, iOS), `gradle assembleDebug` (Wear OS, Android). Each skips loudly when its toolchain is absent; CI runs them on their native runners through the `clients-*.yml` workflows.
 
 ## Rules
 

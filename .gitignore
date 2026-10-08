@@ -10,12 +10,22 @@ build/
 
 # Node
 node_modules/
-web/dist/
+.turbo/
+.astro/
 
 # Local state
 .env
+.vercel
 data/
+# The site manifest under apps/site/src/data/ is source, not local state.
+!apps/site/src/data/
 *.local.json
+
+# Terraform state holds the deployment's secrets; CI credentials from google-github-actions/auth
+.terraform/
+*.tfstate
+*.tfstate.*
+gha-creds-*.json
 
 # Ralph loop state (LOOP.md)
 .claude/ralph-loop.local.md

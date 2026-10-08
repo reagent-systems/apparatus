@@ -21,7 +21,8 @@ dev = [
 package = false
 
 [tool.uv.workspace]
-members = ["protocol", "server", "agentd"]
+# Listed, not globbed: apps/* and packages/* also hold npm and native folders.
+members = ["packages/protocol", "apps/server", "apps/agentd"]
 
 [tool.uv.sources]
 apparatus-protocol = { workspace = true }
@@ -31,19 +32,19 @@ agentd = { workspace = true }
 [tool.ruff]
 line-length = 100
 target-version = "py311"
-extend-exclude = ["web", ".venv"]
+extend-exclude = ["apps/web", "apps/site", ".venv"]
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "B", "UP", "ASYNC"]
 ignore = ["E501", "ASYNC109"]
 
 [tool.ruff.lint.per-file-ignores]
-"*/tests/*" = ["ASYNC110"]
+"**/tests/**" = ["ASYNC110"]
 
 [tool.ruff.lint.isort]
 known-first-party = ["agentd", "agentlib", "apparatus_protocol", "apparatus_server"]
 
 [tool.pytest.ini_options]
-testpaths = ["protocol/tests", "server/tests", "agentd/tests"]
+testpaths = ["packages/protocol/tests", "apps/server/tests", "apps/agentd/tests"]
 asyncio_mode = "auto"
 asyncio_default_fixture_loop_scope = "function"

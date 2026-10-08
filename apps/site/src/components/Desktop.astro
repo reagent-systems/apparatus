@@ -1,0 +1,57 @@
+---
+import handoffDark from "../assets/crops/handoff-card-dark.png";
+import handoff from "../assets/crops/handoff-card.png";
+import Section from "./Section.astro";
+import Shot from "./Shot.astro";
+import Video from "./Video.astro";
+---
+
+<Section id="desktop" eyebrow="Your cloud computer" title="Work on a desktop you can watch and take over.">
+  <p slot="lede" class="mt-6 text-lede text-pretty text-muted-foreground">
+    In your own deployment, each user has a Linux desktop VM. Its files stay between jobs. The agent runs code and uses
+    apps on it. You can watch it work, take the desktop, and hand it back.
+  </p>
+
+  <!-- Two tiles of one shape, so the captions line up. -->
+  <div class="mt-14 grid gap-x-8 gap-y-14 lg:grid-cols-2">
+    <figure>
+      <div class="frame aspect-[956/726]">
+        <Video
+          name="screen-control"
+          dark="screen-control-dark"
+          label="Control of the cloud computer's screen: a typed command prints a table, then Release"
+          class="rounded-2xl"
+        />
+      </div>
+      <figcaption class="mt-6">
+        <h3 class="text-lg font-medium">Control and Release</h3>
+        <p class="mt-2 max-w-[34rem] leading-relaxed text-pretty text-muted-foreground">
+          The screen streams live to your device. Press Control to use the desktop yourself; the agent's desktop tool stays
+          locked until you press Release.
+        </p>
+      </figcaption>
+    </figure>
+
+    <figure>
+      <!-- The card on paper at about its size in the app. -->
+      <div class="frame grid aspect-[956/726] place-items-center p-6">
+        <div class="w-full max-w-[360px] rounded-xl bg-background p-1">
+          <Shot
+            src={handoff}
+            dark={handoffDark}
+            alt="A handoff card: Sign in to the reports site, with Done and Cancel"
+            widths={[360, 720]}
+            sizes="360px"
+          />
+        </div>
+      </div>
+      <figcaption class="mt-6">
+        <h3 class="text-lg font-medium">Handoffs</h3>
+        <p class="mt-2 max-w-[34rem] leading-relaxed text-pretty text-muted-foreground">
+          On a sign-in page, a code request or a captcha, the agent stops and hands you the screen. You sign in on your
+          cloud computer, press Done, and the job goes on. The agent is told never to solve a captcha.
+        </p>
+      </figcaption>
+    </figure>
+  </div>
+</Section>

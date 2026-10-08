@@ -1,0 +1,26 @@
+{
+  "name": "apparatus-desktop",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Tauri 2 shell for the Apparatus web client: Windows, macOS, Linux.",
+  "scripts": {
+    "bridge": "node scripts/bridge.mjs",
+    "icons": "node scripts/icons.mjs",
+    "prepare-dist": "node scripts/prepare-dist.mjs",
+    "server-config": "node scripts/server-config.mjs",
+    "typecheck": "tsc --noEmit -p tsconfig.json",
+    "tauri:dev": "npm run server-config && tauri dev --config src-tauri/gen/server.conf.json",
+    "tauri:build": "npm run server-config && tauri build --config src-tauri/gen/server.conf.json",
+    "tauri": "tauri"
+  },
+  "devDependencies": {
+    "@tauri-apps/api": "^2.12.0",
+    "@tauri-apps/cli": "^2.12.0",
+    "@tauri-apps/plugin-notification": "^2.5.0",
+    "@tauri-apps/plugin-opener": "^2.7.0",
+    "@types/node": "^22.0.0",
+    "esbuild": "^0.28.0",
+    "typescript": "^5.6.0"
+  }
+}

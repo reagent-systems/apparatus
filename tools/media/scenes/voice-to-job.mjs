@@ -14,11 +14,12 @@
 // app, 20 ms after the one before; the waits, the stand-in's lines, the
 // microphone's turn and the job's events all run on page time.
 
+import path from "node:path";
 import { heardShownAt, listenCut, parkPointer, primeSwitch, tapOrb } from "../lib/browser.mjs";
 import { RAIL_COLLAPSED, columnClip } from "../lib/column.mjs";
 import { GIF_HEARD_MS, GIF_MIC_HOLD, GIF_WPS, LINES, speakResult } from "../lib/day.mjs";
 import { finish, record } from "../lib/gifscene.mjs";
-import { withApp } from "../lib/scene.mjs";
+import { variant, withApp } from "../lib/scene.mjs";
 import { log } from "../lib/util.mjs";
 
 const DEVICE = { viewport: { width: 1024, height: 780 }, deviceScaleFactor: 2 };
@@ -37,36 +38,43 @@ async function assertNoScroll(page) {
 export default {
   name: "voice-to-job",
   kind: "gif",
-  makes: "voice-to-job.gif: tap, speak, listen, answer, job card, steps, result with artifact (thread column, 880 px)",
+  makes: "voice-to-job.gif, voice-to-job-dark.gif: tap, speak, listen, answer, job card, steps, result with artifact (thread column, 880 px)",
   async run(ctx) {
-    return withApp(ctx, { name: "voice-to-job", device: DEVICE, prefs: RAIL_COLLAPSED, platform: "desktop", mic: GIF_MIC_HOLD, paceJobsMs: 600, vtime: FPS }, async (app) => {
-      const { page, live, clock } = app;
-      const sleep = (ms) => clock.sleep(ms);
-      await primeSwitch(app);
-      const rec = await record(app, ctx, { fps: FPS, clip: await columnClip(page) });
-      await sleep(600);
-      // The story opens 0.3 s before the tap: the idle orb, then the switch.
-      rec.marks.start = clock.now() - 300;
-      const tapAt = clock.now();
-      const heard = heardShownAt(page);
-      await tapOrb(app, { big: true });
-      await parkPointer(page);
-      await live.user(LINES.ordersAsk, { ms: GIF_HEARD_MS });
-      const heardAt = await heard;
-      // On page time the wait for the first heard words is the app's own (under 1 s): kept whole
-      // unless, with the 0.3 s before the tap, it passes 1.5 s.
-      const cuts = listenCut(tapAt, heardAt);
-      log(`voice-to-job: heard words ${heardAt - tapAt} ms after the tap; ${cuts.length ? `cut ${cuts[0][1] - cuts[0][0]} ms` : "no cut"}`);
-      const { job_id } = await live.agent(LINES.ordersAck, { tool: { name: "start_job", args: { request: LINES.ordersJob } }, ms: 850 });
-      await speakResult(app, job_id, { wps: GIF_WPS });
-      await sleep(1000);
-      rec.mark("end");
-      // The poster: the next second of the finished thread, real frames.
-      await sleep(1000);
-      rec.mark("tail");
-      await assertNoScroll(page);
-      // The fade through the page colour: 17 + 1 + 17 frames, 0.7 s at 50 fps, a dissolve and not a blink.
-      return [await finish(rec, ctx, "voice-to-job.gif", { width: 880, posterTail: "tail", posterFade: 17, cuts })];
-    });
+    const made = [];
+    for (const theme of ctx.themes) made.push(...(await shoot(ctx, theme)));
+    return made;
   },
 };
+
+async function shoot(ctx, theme) {
+  const name = theme === "dark" ? "voice-to-job-dark" : "voice-to-job";
+  return withApp(ctx, { name, theme, device: DEVICE, prefs: RAIL_COLLAPSED, platform: "desktop", mic: GIF_MIC_HOLD, paceJobsMs: 600, vtime: FPS }, async (app) => {
+    const { page, live, clock } = app;
+    const sleep = (ms) => clock.sleep(ms);
+    await primeSwitch(app);
+    const rec = await record(app, ctx, { fps: FPS, clip: await columnClip(page) });
+    await sleep(600);
+    // The story opens 0.3 s before the tap: the idle orb, then the switch.
+    rec.marks.start = clock.now() - 300;
+    const tapAt = clock.now();
+    const heard = heardShownAt(page);
+    await tapOrb(app, { big: true });
+    await parkPointer(page);
+    await live.user(LINES.ordersAsk, { ms: GIF_HEARD_MS });
+    const heardAt = await heard;
+    // On page time the wait for the first heard words is the app's own (under 1 s): kept whole
+    // unless, with the 0.3 s before the tap, it passes 1.5 s.
+    const cuts = listenCut(tapAt, heardAt);
+    log(`voice-to-job: heard words ${heardAt - tapAt} ms after the tap; ${cuts.length ? `cut ${cuts[0][1] - cuts[0][0]} ms` : "no cut"}`);
+    const { job_id } = await live.agent(LINES.ordersAck, { tool: { name: "start_job", args: { request: LINES.ordersJob } }, ms: 850 });
+    await speakResult(app, job_id, { wps: GIF_WPS });
+    await sleep(1000);
+    rec.mark("end");
+    // The poster: the next second of the finished thread, real frames.
+    await sleep(1000);
+    rec.mark("tail");
+    await assertNoScroll(page);
+    // The fade through the page colour: 17 + 1 + 17 frames, 0.7 s at 50 fps, a dissolve and not a blink.
+    return [await finish(rec, ctx, path.basename(variant(ctx.out, "voice-to-job", theme, "gif")), { width: 880, posterTail: "tail", posterFade: 17, cuts })];
+  });
+}

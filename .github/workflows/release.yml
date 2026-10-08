@@ -30,8 +30,8 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 22
-      - run: cd web && npm ci && npm run build
-      - run: cd web/dist && zip -r ../../apparatus-web.zip .
+      - run: npm ci && npm run build -w apps/web
+      - run: cd apps/web/dist && zip -r ../../../apparatus-web.zip .
       - uses: actions/upload-artifact@v4
         with:
           name: web
@@ -76,7 +76,7 @@ jobs:
         uses: docker/build-push-action@v6
         with:
           context: .
-          file: server/Dockerfile
+          file: apps/server/Dockerfile
           push: true
           tags: |
             ghcr.io/${{ github.repository }}/server:${{ github.ref_name }}
@@ -85,7 +85,7 @@ jobs:
         uses: docker/build-push-action@v6
         with:
           context: .
-          file: vm/Dockerfile
+          file: infra/vm/Dockerfile
           push: true
           tags: |
             ghcr.io/${{ github.repository }}/vm:${{ github.ref_name }}

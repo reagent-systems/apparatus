@@ -86,7 +86,7 @@ The screen stream: WebRTC from the VM to one client device, signaled through the
 | `stream.stun_url` | string | `"stun:stun.l.google.com:19302"` | STUN server every peer uses. Empty sends no STUN entry. |
 | `stream.turn_ttl_seconds` | int | `3600` | Lifetime of one minted TURN credential. |
 | `stream.fps` | int | `12` | Capture rate agentd uses for the stream. |
-| `stream.width` | int | `1280` | Frame width. Match the Xvfb screen in `vm/setup.sh`. |
+| `stream.width` | int | `1280` | Frame width. Match the Xvfb screen in `infra/vm/setup.sh`. |
 | `stream.height` | int | `800` | Frame height. |
 
 TURN credentials follow coturn `use-auth-secret`: username is `<unix expiry>:apparatus`, credential is `base64(HMAC-SHA1(secret, username))`. The server mints one pair per `screen.open` and sends it in `screen.opened` as part of `ice_servers`.
@@ -133,7 +133,7 @@ TURN credentials follow coturn `use-auth-secret`: username is `<unix expiry>:app
 | `APPARATUS_VM_CONTROLLER` | `local` | `local` (no-op) or `gce` (Compute Engine start/stop). |
 | `GCE_PROJECT` / `GCE_ZONE` | empty | For the `gce` controller. |
 | `APPARATUS_PUSH` | `log` | Push adapter: `log` or `fcm`. |
-| `APPARATUS_WEB_DIST` | `web/dist` | Folder with the built web app, served at `/`. |
+| `APPARATUS_WEB_DIST` | `apps/web/dist` | Folder with the built web app, served at `/`. |
 | `APPARATUS_TURN_URL` | empty | TURN relay for the screen stream, for example `turn:1.2.3.4:3478?transport=udp`. Empty: STUN only. |
 | `APPARATUS_TURN_SECRET` | empty | The coturn `static-auth-secret`. Needed with `APPARATUS_TURN_URL`. |
 | `APPARATUS_DEMO` | empty | `1` replaces the smart model with a scripted demo job: a python step that writes `report.csv`, progress, a show and a result. `approve` in the request adds an approval; `login` adds a handoff. Wins over `GEMINI_API_KEY` for jobs; the voice is unchanged. |

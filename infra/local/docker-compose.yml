@@ -1,0 +1,40 @@
+# Local development: the session server plus one VM stand-in with a virtual desktop.
+#   cp .env.example .env   # fill GEMINI_API_KEY; without one, add APPARATUS_DEMO=1 for scripted jobs
+#   docker compose -f infra/local/docker-compose.yml up --build
+# Then open http://localhost:8080 (dev auth: the user id is "dev").
+services:
+  server:
+    build:
+      context: ../..
+      dockerfile: apps/server/Dockerfile
+    ports: ["8080:8080"]
+    env_file: ../../.env
+    environment:
+      APPARATUS_STORE: file
+      APPARATUS_DATA_DIR: /data
+      APPARATUS_VM_CONTROLLER: local
+      APPARATUS_AUTH_MODE: dev
+    volumes: ["server-data:/data"]
+  vm:
+    build:
+      context: ../..
+      dockerfile: infra/vm/Dockerfile
+    depends_on: [server]
+    # The same .env as the server, so both hold one APPARATUS_VM_ENROLL_SECRET.
+    # `environment` wins over env_file: the blanks keep the server's secrets out of
+    # the VM, and the AGENTD_ pins keep .env's host values (AGENTD_DESKTOP=fake) out.
+    env_file: ../../.env
+    environment:
+      GEMINI_API_KEY: ""
+      APPARATUS_TURN_SECRET: ""
+      AGENTD_SERVER_URL: ws://server:8080/ws/agentd
+      AGENTD_USER_ID: dev
+      AGENTD_VM_ID: local
+      AGENTD_HOME: /home/agent
+      AGENTD_DESKTOP: xdo
+    volumes: ["agent-home:/home/agent"]
+    cap_add: [NET_ADMIN]
+    shm_size: 1g
+volumes:
+  server-data: {}
+  agent-home: {}

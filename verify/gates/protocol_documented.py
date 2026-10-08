@@ -3,7 +3,7 @@
 import sys
 from pathlib import Path
 
-sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "protocol"))
+sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "packages" / "protocol"))
 from apparatus_protocol import A2S, C2S, LIB, S2A, S2C, EventKind  # noqa: E402
 
 root = Path(__file__).resolve().parents[2]

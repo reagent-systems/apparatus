@@ -50,10 +50,10 @@ async function main() {
   for (const n of names) if (!scenes.has(n)) throw new Error(`unknown scene ${n}; --list shows them`);
   const out = mkdirp(path.resolve(opts.out));
   const work = mkdirp(path.resolve(opts.work ?? fs.mkdtempSync(path.join(os.tmpdir(), "apparatus-media-"))));
-  const webDist = path.resolve(opts.webDist ?? path.join(REPO, "web/dist"));
+  const webDist = path.resolve(opts.webDist ?? path.join(REPO, "apps/web/dist"));
   if (opts.build) {
     log("building the web client");
-    await run("npm", ["--prefix", path.join(REPO, "web"), "run", "build"], { quiet: false });
+    await run("npm", ["--prefix", path.join(REPO, "apps/web"), "run", "build"], { quiet: false });
   }
   const ctx = { out, work, webDist, themes: opts.themes, keepFrames: opts.keep };
   const report = [];
@@ -74,12 +74,12 @@ async function main() {
     if (!r.ok) console.log(`FAIL ${r.scene}: ${r.error}`);
     else for (const m of r.made) console.log(`ok   ${r.scene}: ${typeof m === "string" ? m : JSON.stringify(m)}`);
   }
-  // The brief's budget: at most 40 MB of media in all, subfolders included.
+  // The brief's budget: at most 50 MB of media in all, subfolders included.
   const sizeOf = (p) => (fs.statSync(p).isDirectory() ? fs.readdirSync(p).reduce((n, f) => n + sizeOf(path.join(p, f)), 0) : fs.statSync(p).size);
   const total = sizeOf(out);
   const mb = (total / 1024 / 1024).toFixed(1);
-  if (total > 40 * 1024 * 1024) {
-    console.log(`FAIL budget: ${out} holds ${mb} MB, over 40 MB`);
+  if (total > 50 * 1024 * 1024) {
+    console.log(`FAIL budget: ${out} holds ${mb} MB, over 50 MB`);
     process.exitCode = 1;
   } else log(`${out} holds ${mb} MB`);
   log(`work folder: ${work}`);

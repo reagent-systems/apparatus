@@ -12,7 +12,7 @@ import path from "node:path";
 import { CHROMIUM, REPO, sleep } from "./util.mjs";
 
 const HOST = "reports.larkspur.example";
-const INTER = path.join(REPO, "web/node_modules/@fontsource-variable/inter/files/inter-latin-wght-normal.woff2");
+const INTER = path.join(REPO, "node_modules/@fontsource-variable/inter/files/inter-latin-wght-normal.woff2");
 
 const PAGE = `<!doctype html>
 <html lang="en"><head><meta charset="utf-8"><title>Sign in · Larkspur Reports</title>

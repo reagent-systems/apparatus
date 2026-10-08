@@ -1,0 +1,28 @@
+---
+import { REPO, SETUP, STATUS } from "../lib/links.ts";
+import GithubMark from "./GithubMark.astro";
+import OrbStill from "./OrbStill.astro";
+
+const secondary =
+  "flex h-12 items-center justify-center gap-2 rounded-full bg-secondary px-6 text-[0.9375rem] font-medium transition-colors duration-150 ease-ui hover:bg-accent hover:text-accent-foreground";
+---
+
+<!-- The page ends the way the app starts: an orb waiting for you to talk. -->
+<section aria-labelledby="closing-title" class="mx-auto flex w-full max-w-[1200px] flex-col items-center px-4 py-24 text-center sm:px-6 md:py-32 lg:px-8">
+  <div class="relative size-[200px] md:size-[240px]" data-orb-static="listening" role="img" aria-label="The orb, listening">
+    <OrbStill animation="listening" />
+  </div>
+  <h2 id="closing-title" class="mt-8 max-w-[18ch] text-title font-medium text-balance">Talk to a computer that does the work.</h2>
+  <p class="mt-5 max-w-[34rem] text-lede text-pretty text-muted-foreground">Read the code, run it on your machine, or build the apps for your devices.</p>
+  <div class="mt-9 flex w-full flex-col items-stretch gap-3 sm:w-auto sm:flex-row sm:items-center">
+    <a
+      href={REPO}
+      class="flex h-12 items-center justify-center gap-2.5 rounded-full bg-primary px-6 text-[0.9375rem] font-medium text-primary-foreground transition-opacity duration-150 ease-ui hover:opacity-90"
+    >
+      <GithubMark />
+      Get the code
+    </a>
+    <a href={SETUP} class={secondary}>Setup docs</a>
+    <a href={STATUS} class="link self-center px-3 py-2 text-[0.9375rem]">Where it stands</a>
+  </div>
+</section>

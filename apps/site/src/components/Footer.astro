@@ -1,0 +1,29 @@
+---
+import { REPO, SETUP, STATUS } from "../lib/links.ts";
+import Mark from "./Mark.astro";
+
+const links = [
+  { href: REPO, label: "GitHub" },
+  { href: SETUP, label: "Setup" },
+  { href: STATUS, label: "Status" },
+];
+---
+
+<footer class="mx-auto w-full max-w-[1200px] px-4 pb-12 sm:px-6 lg:px-8">
+  <div class="flex flex-col gap-6 sm:flex-row sm:items-center sm:justify-between">
+    <p class="flex items-center gap-2.5 text-[0.9375rem] font-medium"><Mark size={20} /> apparatus</p>
+    <nav aria-label="Footer">
+      <ul class="flex flex-wrap gap-x-6 gap-y-2 text-sm text-muted-foreground">
+        {links.map((l) => <li><a href={l.href} class="transition-colors duration-150 ease-ui hover:text-foreground">{l.label}</a></li>)}
+        <li>
+          <!-- Pause motion for a visitor far from the hero's button; both hold the same choice (lib/motion.ts). Its words say what a press does, so it has no aria-pressed. -->
+          <button type="button" data-motion-toggle="text" class="group transition-colors duration-150 ease-ui hover:text-foreground">
+            <span class="group-data-paused:hidden">Pause motion</span>
+            <span class="hidden group-data-paused:inline">Play motion</span>
+          </button>
+        </li>
+      </ul>
+    </nav>
+  </div>
+  <p class="mt-6 text-[0.8125rem] text-muted-foreground">Gemini is a trademark of Google LLC. apparatus is not made by Google.</p>
+</footer>

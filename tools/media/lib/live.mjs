@@ -1,6 +1,6 @@
 // The scripted Gemini Live stand-in, for captures only.
 //
-// The web client opens its Live socket to LIVE_URL (web/src/live/session.ts).
+// The web client opens its Live socket to LIVE_URL (apps/web/src/live/session.ts).
 // Playwright's routeWebSocket answers that socket here, inside the harness, so
 // the client's own code runs unchanged: it sends the `setup` message from
 // POST /token, waits for `setupComplete`, streams the gate's turns, relays
@@ -8,7 +8,7 @@
 // The stand-in sends only server messages Live sends: setupComplete,
 // serverContent (inputTranscription, outputTranscription, modelTurn audio,
 // generationComplete, turnComplete, interrupted), toolCall and usageMetadata.
-// Shapes follow parseServerMessage in web/src/live/messages.ts.
+// Shapes follow parseServerMessage in apps/web/src/live/messages.ts.
 
 import fs from "node:fs";
 import path from "node:path";
@@ -18,9 +18,9 @@ import { WALL } from "./vtime.mjs";
 
 /** LIVE_URL as the client has it, read from the source so the two never drift. */
 export function liveUrl() {
-  const src = fs.readFileSync(path.join(REPO, "web/src/live/session.ts"), "utf8");
+  const src = fs.readFileSync(path.join(REPO, "apps/web/src/live/session.ts"), "utf8");
   const m = /export const LIVE_URL\s*=\s*"([^"]+)"/.exec(src);
-  if (!m) throw new Error("LIVE_URL not found in web/src/live/session.ts");
+  if (!m) throw new Error("LIVE_URL not found in apps/web/src/live/session.ts");
   return m[1];
 }
 

@@ -11,7 +11,7 @@
 //   paused and stepped with runFor, so Date, performance.now and timers move
 //   together. requestAnimationFrame callbacks run once per step at the step's
 //   time (the clock alone would run them on its own 16 ms grid), so the orb's
-//   shared clock (web/src/components/orb/orb-clock.ts) draws one new frame
+//   shared clock (packages/orb/src/orb-clock.ts) draws one new frame
 //   per step.
 // - CSS transitions and animations and Web Animations: each one is paused
 //   when it appears and its currentTime moved on by the step; one that

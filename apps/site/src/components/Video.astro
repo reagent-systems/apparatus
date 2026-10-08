@@ -1,0 +1,48 @@
+---
+// A loop made by scripts/media.mjs: MP4 first (the smaller file), WebM for
+// browsers without H.264. The poster is in data attributes: lib/client.ts sets
+// it, at the width the slot needs, when the loop comes near the screen, so a
+// loop far below the fold or under the other theme fetches nothing.
+import media from "../data/media.json";
+
+type Key = keyof typeof media;
+interface Props {
+  name: Key;
+  /** The dark-theme twin, shown instead under `.dark`. */
+  dark?: Key;
+  label: string;
+  class?: string;
+}
+const { name, dark, label, class: className } = Astro.props;
+const variants = dark
+  ? [
+      { key: name, show: "dark:hidden" },
+      { key: dark, show: "hidden dark:block" },
+    ]
+  : [{ key: name, show: "" }];
+---
+
+{
+  variants.map(({ key, show }) => {
+    const m = media[key];
+    return (
+      <video
+        class:list={["block h-auto w-full", show, className]}
+        width={m.width}
+        height={m.height}
+        data-poster={m.poster.file}
+        data-poster-small={m.posterSmall.file}
+        aria-label={label}
+        muted
+        loop
+        playsinline
+        disablepictureinpicture
+        preload="none"
+        data-loop
+      >
+        <source src={m.mp4.file} type="video/mp4" />
+        <source src={m.webm.file} type="video/webm" />
+      </video>
+    );
+  })
+}

@@ -15,7 +15,7 @@ A `firestore` adapter is queued (ROADMAP item 4).
 APPARATUS_STORE=file APPARATUS_DATA_DIR=data
 ```
 
-Interface: `server/apparatus_server/store.py` `Store` — `get`, `put`, `delete`, `list`, `append`, `entries`.
+Interface: `apps/server/apparatus_server/store.py` `Store` — `get`, `put`, `delete`, `list`, `append`, `entries`.
 
 ## Authenticator (`APPARATUS_AUTH_MODE`)
 
@@ -79,11 +79,11 @@ takes screenshots with ImageMagick `import`.
 AGENTD_DESKTOP=xdo DISPLAY=:0
 ```
 
-Interface: `agentd/agentd/desktop.py` `DesktopBackend` — `screenshot`, `click`, `move`, `type_text`, `key`, `scroll`.
+Interface: `apps/agentd/agentd/desktop.py` `DesktopBackend` — `screenshot`, `click`, `move`, `type_text`, `key`, `scroll`.
 
 ## Writing a new adapter
 
 Implement the `Protocol` in the module named above, register it in that module's
 `make_*` function, add its row here, add its variable to `docs/CONFIGURATION.md`, and give
-it a test in the matching `server/tests/test_*.py` (parametrize the existing round-trip
+it a test in the matching `apps/server/tests/test_*.py` (parametrize the existing round-trip
 test where one exists, as `test_store.py` does). A new adapter PR carries all four.
