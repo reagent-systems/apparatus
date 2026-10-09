@@ -1,6 +1,8 @@
 ---
-// A loop made by scripts/media.mjs: MP4 first (the smaller file), WebM for
-// browsers without H.264. The poster is in data attributes: lib/client.ts sets
+// A loop made by scripts/media.mjs: an H.264 MP4 and a VP9 WebM, the smaller
+// file first, since a browser takes the first source it can play. Which codec
+// wins depends on the capture: the phone loop is far smaller in VP9, the
+// screen loop in H.264. The poster is in data attributes: lib/client.ts sets
 // it, at the width the slot needs, when the loop comes near the screen, so a
 // loop far below the fold or under the other theme fetches nothing.
 import media from "../data/media.json";
@@ -40,8 +42,14 @@ const variants = dark
         preload="none"
         data-loop
       >
-        <source src={m.mp4.file} type="video/mp4" />
-        <source src={m.webm.file} type="video/webm" />
+        {[
+          { ...m.mp4, type: "video/mp4" },
+          { ...m.webm, type: "video/webm" },
+        ]
+          .sort((a, b) => a.bytes - b.bytes)
+          .map((s) => (
+            <source src={s.file} type={s.type} />
+          ))}
       </video>
     );
   })

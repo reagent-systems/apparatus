@@ -3,21 +3,21 @@ import Section from "./Section.astro";
 import Video from "./Video.astro";
 
 const steps = [
-  { title: "You talk", body: "Tap the orb and say what you need. There is no text box and no button to hold." },
+  { title: "You talk", body: "Tap the orb and say what you need. There is no text box for requests and no button to hold." },
   {
     title: "It works",
     body: "The request becomes a job on your cloud computer. The voice keeps talking with you while the job runs.",
   },
-  { title: "It shows you", body: "The result lands in the thread: what it found, a table, the file it made." },
+  { title: "It shows you", body: "The result lands in the feed: what it found, a table, the file it made." },
   {
     title: "It asks only when a person must act",
-    body: "An approval, a sign-in, a captcha. The rest it does without you.",
+    body: "It is told to stop for an approval, a sign-in or a captcha, and to do the rest without you.",
   },
 ];
 ---
 
 <Section id="how-it-feels" eyebrow="How it feels" title="You talk. It works. It shows you.">
-  <div class="mt-14 grid gap-12 lg:grid-cols-[minmax(0,5fr)_minmax(0,7fr)] lg:items-start lg:gap-16">
+  <div class="mt-14 grid items-start gap-12 lg:grid-cols-[minmax(0,6fr)_minmax(0,5fr)] lg:gap-16">
     <ol class="grid gap-9">
       {
         steps.map((step, i) => (
@@ -25,15 +25,23 @@ const steps = [
             <span class="pt-0.5 font-sans text-[0.8125rem] font-medium text-primary tabular-nums">{String(i + 1).padStart(2, "0")}</span>
             <div>
               <h3 class="text-lg font-medium">{step.title}</h3>
-              <p class="mt-2 leading-relaxed text-pretty text-muted-foreground">{step.body}</p>
+              <p class="mt-2 max-w-[34rem] leading-relaxed text-pretty text-muted-foreground">{step.body}</p>
             </div>
           </li>
         ))
       }
     </ol>
-    <figure class="frame">
-      <Video name="voice-to-job" dark="voice-to-job-dark" label="A spoken request becomes a job with a table and report.csv" class="rounded-2xl" />
-      <figcaption class="sr-only">Speak. The agent starts a job and says the result.</figcaption>
+    <!-- The loop draws its own bezel (48 px corners at 1.2x); the radius trims the page-coloured corners outside it. -->
+    <figure class="mx-auto w-[min(78vw,320px)] lg:sticky lg:top-24">
+      <Video
+        name="phone"
+        dark="phone-dark"
+        label="The web app at phone size: a spoken request becomes a job, then the Weekly orders table"
+        class="[border-radius:11.7%/5.55%] dark:ring-1 dark:ring-white/12"
+      />
+      <figcaption class="mt-4 text-center text-[0.8125rem] text-pretty text-muted-foreground">
+        The web app at phone size in a browser, in a drawn frame. Demo mode, with a scripted voice.
+      </figcaption>
     </figure>
   </div>
 </Section>

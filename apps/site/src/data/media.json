@@ -1,54 +1,54 @@
 {
-  "voice-to-job": {
-    "width": 880,
-    "height": 750,
+  "phone": {
+    "width": 492,
+    "height": 1038,
     "mp4": {
-      "file": "/media/voice-to-job.6bc7bc6c48.mp4",
-      "bytes": 125198
+      "file": "/media/phone.7759e71033.mp4",
+      "bytes": 412473
     },
     "webm": {
-      "file": "/media/voice-to-job.f4c5f32920.webm",
-      "bytes": 167651
+      "file": "/media/phone.8fa74a5fd1.webm",
+      "bytes": 178194
     },
     "poster": {
-      "file": "/media/voice-to-job.931fedb701.webp",
-      "bytes": 17414
+      "file": "/media/phone.98cfceca6a.webp",
+      "bytes": 22080
     },
     "posterSmall": {
-      "file": "/media/voice-to-job-480.1ee8409c73.webp",
-      "bytes": 6522
+      "file": "/media/phone-480.2635552ed8.webp",
+      "bytes": 19792
     }
   },
-  "voice-to-job-dark": {
-    "width": 880,
-    "height": 750,
+  "phone-dark": {
+    "width": 492,
+    "height": 1038,
     "mp4": {
-      "file": "/media/voice-to-job-dark.d083a5bcd3.mp4",
-      "bytes": 122195
+      "file": "/media/phone-dark.1b41c4c4f8.mp4",
+      "bytes": 347147
     },
     "webm": {
-      "file": "/media/voice-to-job-dark.e34e338e09.webm",
-      "bytes": 160535
+      "file": "/media/phone-dark.a399cbe82f.webm",
+      "bytes": 164301
     },
     "poster": {
-      "file": "/media/voice-to-job-dark.0de1252cbb.webp",
-      "bytes": 17522
+      "file": "/media/phone-dark.3fc54338f8.webp",
+      "bytes": 20610
     },
     "posterSmall": {
-      "file": "/media/voice-to-job-dark-480.811a936d74.webp",
-      "bytes": 6588
+      "file": "/media/phone-dark-480.c34d07c0c2.webp",
+      "bytes": 18736
     }
   },
   "screen-control": {
     "width": 956,
     "height": 726,
     "mp4": {
-      "file": "/media/screen-control.f2db6edfc5.mp4",
-      "bytes": 52984
+      "file": "/media/screen-control.8d77bc38c1.mp4",
+      "bytes": 34120
     },
     "webm": {
-      "file": "/media/screen-control.2e44407655.webm",
-      "bytes": 55990
+      "file": "/media/screen-control.f6e6c8de44.webm",
+      "bytes": 45165
     },
     "poster": {
       "file": "/media/screen-control.04494ee110.webp",
@@ -63,12 +63,12 @@
     "width": 956,
     "height": 726,
     "mp4": {
-      "file": "/media/screen-control-dark.075a669b38.mp4",
-      "bytes": 46288
+      "file": "/media/screen-control-dark.ce13044155.mp4",
+      "bytes": 32103
     },
     "webm": {
-      "file": "/media/screen-control-dark.14d3638282.webm",
-      "bytes": 52233
+      "file": "/media/screen-control-dark.fa3c3c6c4d.webm",
+      "bytes": 44708
     },
     "poster": {
       "file": "/media/screen-control-dark.6c2d991f83.webp",
@@ -87,7 +87,7 @@
       "bytes": 188426
     },
     "webm": {
-      "file": "/media/watch.03f8f557d5.webm",
+      "file": "/media/watch.4ecd1c2cd6.webm",
       "bytes": 203135
     },
     "poster": {
@@ -107,7 +107,7 @@
       "bytes": 191916
     },
     "webm": {
-      "file": "/media/watch-dark.c86a1d84c8.webm",
+      "file": "/media/watch-dark.3cd14a63c1.webm",
       "bytes": 199269
     },
     "poster": {

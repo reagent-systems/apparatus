@@ -1,5 +1,5 @@
 ---
-import { REPO, SETUP, STATUS } from "../lib/links.ts";
+import { REPO, SETUP } from "../lib/links.ts";
 import GithubMark from "./GithubMark.astro";
 import OrbStill from "./OrbStill.astro";
 
@@ -8,7 +8,7 @@ const secondary =
 ---
 
 <!-- The page ends the way the app starts: an orb waiting for you to talk. -->
-<section aria-labelledby="closing-title" class="mx-auto flex w-full max-w-[1200px] flex-col items-center px-4 py-24 text-center sm:px-6 md:py-32 lg:px-8">
+<section aria-labelledby="closing-title" class="mx-auto flex w-full max-w-[1200px] flex-col items-center px-4 py-24 text-center sm:px-6 md:pt-16 md:pb-32 lg:px-8">
   <div class="relative size-[200px] md:size-[240px]" data-orb-static="listening" role="img" aria-label="The orb, listening">
     <OrbStill animation="listening" />
   </div>
@@ -23,6 +23,5 @@ const secondary =
       Get the code
     </a>
     <a href={SETUP} class={secondary}>Setup docs</a>
-    <a href={STATUS} class="link self-center px-3 py-2 text-[0.9375rem]">Where it stands</a>
   </div>
 </section>

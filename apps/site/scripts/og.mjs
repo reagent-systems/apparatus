@@ -1,7 +1,7 @@
 // Makes public/og.png, the 1200 × 630 Open Graph image: the listening orb's
 // static frame, the name and the one-liner on the left; the hero composite's
 // desktop and phone on the right, its shadow faded into the paper at every
-// edge, as the page's hero does (.hero-fade in site.css). Light only.
+// edge. Light only.
 // Chromium draws it, so the type is Inter itself. Needs playwright-core (a
 // dependency of tools/media, installed at the root) and a Chromium binary:
 //

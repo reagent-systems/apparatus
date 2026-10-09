@@ -1,7 +1,7 @@
 # apps/site
 
 The apparatus website: one static page that says what apparatus is, with the real captures from `docs/media`.
-Astro 7 and Tailwind CSS 4, with no UI framework on the page: one plain script draws the live orbs with `@apparatus/orb`'s painter and clock. The look and the fonts come from `@apparatus/design`: Inter for text, JetBrains Mono for the commands; a browser fetches only their latin files. Vercel deploys it.
+Astro 7 and Tailwind CSS 4, with no UI framework on the page: one plain script draws the live orbs with `@apparatus/orb`'s painter and clock. The look and the text font come from `@apparatus/design`: Inter, of which a browser fetches only the latin file. The commands use the system's monospace face, so the first load carries no second font. Vercel deploys it.
 
 ## Commands
 
@@ -29,23 +29,23 @@ The root `npm run build` and `verify/verify.sh` build and check the site with ev
 | `src/lib/client.ts` | The page's script: the theme button (and the themed pictures and `theme-color` with it), the Pause motion buttons, the loops, the copy button |
 | `src/lib/orb.ts` | The live orbs, started once the page is idle: the hero's cycle and its state buttons, the orb section's four states, the closing orb |
 | `src/lib/motion.ts` | Whether anything may move: reduced motion, or Pause motion (kept in `localStorage`) |
-| `src/lib/links.ts` | Every outbound link; each points at a path on `main` after the monorepo merge. Until then `LOCAL`, `GCP` and `APPS` answer 404 on `main` |
+| `src/lib/links.ts` | Every outbound link; each points at a path on `main` |
 | `src/data/media.json` | The loops' files, sizes and posters, written by `scripts/media.mjs` |
-| `src/assets/crops/` | Parts of stills the page shows on their own: the hero's phone and watch (under 640 px), the approval and handoff cards cut to their content. Written by `scripts/media.mjs` |
-| `public/media/` | The loops: H.264 MP4, VP9 WebM and WebP posters at 2 widths per GIF, each with a dark twin, named by a hash of their bytes |
+| `src/assets/crops/` | Parts of stills the page shows on their own: the top of the receipt for the hero's phone, the approval and handoff cards cut to their content. Written by `scripts/media.mjs` |
+| `public/media/` | The loops (the phone, the screen under Control, the watch): H.264 MP4, VP9 WebM and WebP posters at 2 widths per GIF, each with a dark twin, named by a hash of their bytes. `Video.astro` lists the smaller of the 2 files first |
 | `public/og.png` | The Open Graph image, 1200 × 630: the orb, the name and the one-liner beside the hero's desktop and phone. Written by `scripts/og.mjs` |
 
-The stills are not copied here. `@media` in `astro.config.mjs` points at `docs/media`, and the build turns each still into WebP at the widths the page asks for. A new capture in `docs/media` reaches the site on the next build. A new GIF, or a new hero or card still, needs `npm run media`, because the loops and the crops are committed.
+The stills are not copied here. `@media` in `astro.config.mjs` points at `docs/media`, and the build turns each still into WebP at the widths the page asks for. A new capture in `docs/media` reaches the site on the next build. A new GIF, or a new card still, needs `npm run media`, because the loops and the crops are committed.
 
-`scripts/media.mjs` rotates each loop so it opens on its action (`start` in `LOOPS`): the typing under Control, the running job card. The poster is a moment of the GIF before the rotation: the finished table. The loops play at 25 fps, half the GIFs' rate. A loop sets its poster only when it nears the screen, so a loop far down the page or under the other theme fetches nothing.
+`scripts/media.mjs` cuts each loop so it opens on its action. The phone loop is rotated (`start` in `LOOPS`) to open on the request in the feed with "On it.", so the empty orb plays last. The screen loop keeps 3 spans of the GIF (`keep`): Control pressed, the typing and the table, and Release; the idle cursor between them is cut. The poster is a moment of the GIF before any cut: the finished table. The loops play at 25 fps, half the GIFs' rate. A loop sets its poster only when it nears the screen, so a loop far down the page or under the other theme fetches nothing.
 
 ## Motion
 
-The hero orb cycles Listening, Working and Speaking; a state button pins one for 12 s. It leaves Off (breathing) out on purpose: Off's ring of dashes reads as a spinner beside the headline. The orb section shows all four states live, side by side. The loops play while on screen. The orbs start once the page is idle; their static frame is on screen before that, and on a touch screen they draw at 30 fps. Pause motion, the last button in the hero's state row and a link in the footer, holds the orbs and the loops and shows the loops' controls (WCAG 2.2.2); the system's reduced-motion setting does the same, and the orbs then draw their static frame.
+The hero orb cycles Listening, Working and Speaking; a state button pins one for 12 s. It leaves Off (breathing) out on purpose: Off's ring of dashes reads as a spinner beside the headline. The orb section shows all four states live, side by side. The loops play while on screen. The orbs start once the page is idle; their static frame is on screen before that, and on a touch screen they draw at 30 fps. Pause motion, the last button in the hero's state row and a link in the footer, holds the orbs and the loops and shows the loops' controls (WCAG 2.2.2); the system's reduced-motion setting does the same, and the orbs then draw their static frame. Under reduced motion both Pause motion buttons are hidden, because a press would change nothing. The hero orb draws at up to 3 device pixels per CSS pixel; the others at up to 2.
 
 ## Themed pictures
 
-The hero still and the orb stills are one `<picture>` each, with a dark `<source>` keyed to `prefers-color-scheme`, so a visitor fetches one ink and the hero loads eagerly. When the viewer picks the other theme, `src/lib/client.ts` points each dark source at the page's theme. A visitor whose stored theme differs from the system fetches the hero and the first orb in both inks once, because the browser starts them before any script runs. The other stills are twins under `dark:hidden`, lazy, so the hidden one loads nothing.
+The orb stills are one `<picture>` each, with a dark `<source>` keyed to `prefers-color-scheme`, so a visitor fetches one ink and the hero orb loads eagerly. When the viewer picks the other theme, `src/lib/client.ts` points each dark source at the page's theme. A visitor whose stored theme differs from the system fetches the first orb in both inks once, because the browser starts it before any script runs. The other stills, the hero stage's among them, are twins under `dark:hidden`, lazy, so the hidden one loads nothing. The hero stage is 3 separate captures set in HTML: `docs/media/thread.png`, the top of `docs/media/phone/phone-5-receipt.png` (a crop) in a drawn bezel, and the watch loop; under 640 px it shows the phone and the watch only.
 
 ## The canonical URL
 

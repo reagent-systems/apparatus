@@ -4,24 +4,32 @@ import OrbStill from "./OrbStill.astro";
 import Section from "./Section.astro";
 ---
 
-<Section id="orb" eyebrow="The orb" title="One control, and it is the orb.">
+<!-- The page's second moment: a full-bleed band, centred, the four states live on one row. -->
+<Section id="orb" title="One control, and it is the orb." align="center" band class="dark:bg-[oklch(0.15_0.005_60)]">
   <p slot="lede" class="mt-6 text-lede text-pretty text-muted-foreground">
-    Tap it to start. Tap it again to hang up, like a phone call. To interrupt the agent, talk over it. Above the orb, the
-    screen shows what the model heard you say. Listening, working and speaking each move differently, and a running job
-    shows a small orb of its own. The microphone is open while the agent is on; a voice gate on your device sends only
-    speech.
+    Tap it to start a voice session. Tap it again to end it.
   </p>
   <!-- The state sheet: each state live, side by side. lib/orb.ts draws every [data-orb-static] host. -->
-  <ul class="mt-14 grid grid-cols-2 gap-x-6 gap-y-10 lg:grid-cols-4">
+  <ul class="mx-auto mt-14 grid max-w-[1040px] grid-cols-2 gap-x-6 gap-y-10 md:mt-16 lg:grid-cols-4 lg:gap-x-10">
     {
       ORB_STEPS.map((s) => (
         <li class="flex flex-col items-center">
-          <div class="relative aspect-square w-full max-w-[220px]" data-orb-static={s.name} role="img" aria-label={`The orb, ${s.label.toLowerCase()}`}>
+          <div
+            class="relative aspect-square w-full max-w-[180px] lg:max-w-none lg:size-[220px]"
+            data-orb-static={s.name}
+            role="img"
+            aria-label={`The orb, ${s.label.toLowerCase()}`}
+          >
             <OrbStill animation={s.animation} />
           </div>
-          <p class="mt-4 text-[0.8125rem] text-muted-foreground">{s.label}</p>
+          <p class="mt-4 text-[0.9375rem] text-muted-foreground">{s.label}</p>
         </li>
       ))
     }
   </ul>
+  <p class="mx-auto mt-14 max-w-[40rem] text-center text-[0.9375rem] leading-relaxed text-pretty text-muted-foreground">
+    To interrupt the agent, talk over it. Above the orb, the screen shows what the model heard you say. A running job
+    shows a small orb of its own. The microphone is open while the agent is on. A voice gate on your device sends audio
+    only while it detects speech.
+  </p>
 </Section>

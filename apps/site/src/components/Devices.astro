@@ -1,6 +1,5 @@
 ---
 import type { ImageMetadata } from "astro";
-import watchStrip from "@media/watch-strip.png";
 import { APPS, RELEASES } from "../lib/links.ts";
 import Section from "./Section.astro";
 import Shot from "./Shot.astro";
@@ -9,7 +8,7 @@ import Video from "./Video.astro";
 // The phone tour in docs/media/phone, light and dark. The pattern names only the
 // screens below: every file a glob matches is copied into the build.
 const shots = import.meta.glob<{ default: ImageMetadata }>(
-  "@media/phone/phone-{2-listening,3-working,4-done,5-receipt,8-approval,10-handoff,11-screen,12-jobs,16-speaking}{,-dark}.png",
+  "@media/phone/phone-{3-working,4-done,5-receipt,8-approval,10-handoff,11-screen,12-jobs,16-speaking}{,-dark}.png",
   { eager: true },
 );
 const phone = (name: string, dark = false) => {
@@ -17,31 +16,35 @@ const phone = (name: string, dark = false) => {
   if (!hit) throw new Error(`docs/media/phone/${name}.png is missing`);
   return hit[1].default;
 };
-// `wide`: one of the four shown side by side from lg up. Below lg all nine scroll.
-// The strip opens on a full screen: the agent answering with a table.
+// `wide`: one of the four shown side by side from lg up. Below lg all eight scroll.
+// The strip opens on a full screen: the agent answering with a table. Screen and
+// Control are the cloud computer section's subject, so Screen scrolls below lg only.
 const tour = [
-  { name: "phone-16-speaking", label: "Speaking", wide: true, alt: "Phone: the agent answers with a revenue table and revenue.csv" },
-  { name: "phone-2-listening", label: "Listening", wide: false, alt: "Phone: listening, what the model heard above the orb" },
-  { name: "phone-3-working", label: "Working", wide: false, alt: "Phone: the request in the thread, the job running with its steps" },
-  { name: "phone-4-done", label: "Done", wide: true, alt: "Phone: the job done, its table and report.csv in the thread" },
-  { name: "phone-5-receipt", label: "Receipt", wide: false, alt: "Phone: the pane as a bottom sheet on the job's receipt" },
-  { name: "phone-8-approval", label: "Approval", wide: true, alt: "Phone: the agent asks to send an email, with Approve and Deny" },
-  { name: "phone-10-handoff", label: "Handoff", wide: false, alt: "Phone: a handoff, the reports site sign-in, with Done and Cancel" },
-  { name: "phone-11-screen", label: "Screen", wide: true, alt: "Phone: the Screen tab under Control, with Release" },
-  { name: "phone-12-jobs", label: "Jobs", wide: false, alt: "Phone: Jobs grouped as Needs you, Running and Done" },
+  { name: "phone-16-speaking", label: "An answer", wide: true, alt: "Phone size: the agent answers with a revenue table and revenue.csv" },
+  { name: "phone-3-working", label: "Working", wide: false, alt: "Phone size: the request in the feed, the job running with its steps" },
+  { name: "phone-4-done", label: "Done", wide: true, alt: "Phone size: the job done, its table and report.csv in the feed" },
+  { name: "phone-5-receipt", label: "Receipt", wide: false, alt: "Phone size: the pane as a bottom sheet on the job's receipt" },
+  { name: "phone-8-approval", label: "Approval", wide: true, alt: "Phone size: the agent asks to send an email, with Approve and Deny" },
+  { name: "phone-10-handoff", label: "Handoff", wide: false, alt: "Phone size: a handoff, the reports site sign-in, with Done and Cancel" },
+  { name: "phone-11-screen", label: "Screen", wide: false, alt: "Phone size: the Screen tab under Control, with Release" },
+  { name: "phone-12-jobs", label: "Jobs", wide: true, alt: "Phone size: Jobs grouped as Needs you, Running and Done" },
 ];
 ---
 
 <Section id="devices" eyebrow="Every device" title="One agent on the web, desktop, phone and watch.">
   <div slot="lede">
     <p class="mt-6 text-lede text-pretty text-muted-foreground">
-      The same web app runs in the browser, in a desktop app built with Tauri 2 for Windows, macOS and Linux, and in a
-      phone app built with Capacitor 6 for iPhone and Android. Apple Watch and Wear OS have native apps: the orb and a
-      tap. Every device shows the same jobs, and one of them holds the voice at a time.
+      The same web app runs in the browser and in 2 shells. The web, desktop and phone apps show the same jobs. One of
+      them holds the voice session at a time.
     </p>
     <p class="mt-5 text-[0.9375rem] leading-relaxed text-pretty text-muted-foreground">
-      Built so far: web, Linux, Android, Wear OS. Not yet compiled: iOS, macOS, Windows, Apple Watch. Builds will be
-      attached to <a class="link" href={RELEASES}>GitHub Releases</a>; none exists yet. The{" "}
+      Tauri 2 builds the desktop app for Windows, macOS and Linux. Capacitor 6 builds the phone app for iPhone and Android.
+      Apple Watch and Wear OS have native apps: the orb and a tap.
+    </p>
+    <p class="mt-3 text-[0.9375rem] leading-relaxed text-pretty text-muted-foreground">
+      Built so far: web, Linux, Android, Wear OS. Not yet compiled: iOS, macOS, Windows, Apple Watch. A version tag runs{" "}
+      <code class="font-mono text-[0.875rem]">release.yml</code>, which attaches every build to a{" "}
+      <a class="link" href={RELEASES}>GitHub Release</a>. No release exists yet. The{" "}
       <a class="link" href={APPS}>apps table</a> has the state of each.
     </p>
   </div>
@@ -50,7 +53,7 @@ const tour = [
   <div class="relative left-1/2 mt-12 w-screen -translate-x-1/2 lg:static lg:w-auto lg:translate-x-0">
     <ul
       class="flex snap-x snap-mandatory gap-4 overflow-x-auto px-4 pb-4 scroll-px-4 sm:px-6 sm:scroll-px-6 lg:grid lg:grid-cols-4 lg:gap-6 lg:overflow-visible lg:px-0 lg:pb-0"
-      aria-label="The phone app, from an answer to the Jobs view"
+      aria-label="The web app at phone size, from an answer to the Jobs view"
       tabindex="0"
     >
       {
@@ -74,26 +77,27 @@ const tour = [
         ))
       }
     </ul>
+    <p class="mt-4 px-4 text-[0.8125rem] text-pretty text-muted-foreground sm:px-6 lg:mt-6 lg:px-0">
+      The web app at phone size in a browser, in a drawn frame, not the Android app on a device. Demo mode, with a
+      scripted voice.
+    </p>
   </div>
 
-  <div class="frame mt-14 grid items-center gap-8 p-6 sm:p-10 md:grid-cols-[260px_1fr]">
-    <div class="mx-auto w-full max-w-[260px]">
-      <Video name="watch" dark="watch-dark" label="The Wear OS app through a voice session" class="rounded-full" />
-    </div>
+  <div class="frame mt-14 grid items-center gap-8 p-6 sm:p-10 md:grid-cols-[220px_1fr] md:gap-10">
+    <figure class="mx-auto w-full max-w-[220px]">
+      <div class="rounded-full bg-[#151412] p-[10px] shadow-composer dark:ring-1 dark:ring-white/12">
+        <Video name="watch" dark="watch-dark" label="The Wear OS app's orb states in sequence, rendered with Paparazzi" class="rounded-full" />
+      </div>
+    </figure>
     <div>
       <h3 class="text-lg font-medium">The watch is the orb</h3>
       <p class="mt-2 max-w-[34rem] leading-relaxed text-pretty text-muted-foreground">
-        No text, no buttons. Tap anywhere to start a call and tap again to end it. Approvals arrive as notifications with
-        Approve and Deny.
+        No text, no buttons. Tap anywhere to start a voice session and tap again to end it. Approvals arrive as
+        notifications with Approve and Deny.
       </p>
-      <div class="mt-6 max-w-[560px]">
-        <Shot
-          src={watchStrip}
-          alt="The Wear OS app: off, listening, speaking, working"
-          widths={[560, 1120, 1960]}
-          sizes="(min-width: 768px) 560px, 100vw"
-        />
-      </div>
+      <p class="mt-4 max-w-[34rem] text-[0.8125rem] text-pretty text-muted-foreground">
+        Rendered with Paparazzi from the Wear OS app's code; no watch has run it yet.
+      </p>
     </div>
   </div>
 </Section>

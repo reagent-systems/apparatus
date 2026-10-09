@@ -17,7 +17,7 @@ export type OrbPreset = 64 | 20;
 /** The library draws reduced motion as the static frame at this raw t. */
 export const REDUCED_MOTION_T = 0.6;
 
-/** The library caps the backing store at DPR 2. */
+/** The library caps the backing store at DPR 2. A caller may pass a higher cap to `orbScale`. */
 export const MAX_DPR = 2;
 
 export type OrbGeometry = {
@@ -54,9 +54,12 @@ export type OrbScale = {
   scale: number;
 };
 
-/** The backing store for `size` CSS px, and the scale that draws the preset into it. */
-export function orbScale(size: number, preset: OrbPreset, devicePixelRatio: number): OrbScale {
-  const dpr = Math.min(MAX_DPR, devicePixelRatio || 1);
+/**
+ * The backing store for `size` CSS px, and the scale that draws the preset into it.
+ * `maxDpr` caps the device pixel ratio; one large orb on a page can afford 3.
+ */
+export function orbScale(size: number, preset: OrbPreset, devicePixelRatio: number, maxDpr = MAX_DPR): OrbScale {
+  const dpr = Math.min(maxDpr, devicePixelRatio || 1);
   return { pixels: Math.round(size * dpr), scale: (size / preset) * dpr };
 }
 

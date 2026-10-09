@@ -1,7 +1,5 @@
-// Every link off the site. Each points at a path on main after the monorepo
-// merge: the monorepo paths (apps/, infra/) reach main with the site, in the
-// same merge. Until then LOCAL, GCP and APPS answer 404 there; check all of
-// them after that merge.
+// Every link off the site. Each points at a path on main; the monorepo paths
+// (apps/, infra/) reached main with the site, in commit 1d53a79.
 export const REPO = "https://github.com/reagent-systems/apparatus";
 export const RELEASES = `${REPO}/releases`;
 export const SETUP = `${REPO}#run-it-locally`;

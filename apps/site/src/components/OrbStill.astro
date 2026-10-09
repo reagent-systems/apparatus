@@ -9,7 +9,7 @@ import { orbSvg } from "../lib/orb-svg.ts";
 
 interface Props {
   animation: OrbAnimation;
-  /** The hero's orb is in the first screen: load it at once. */
+  /** The hero's orb is in the first screen, and on a phone the largest paint: load it at once, first. */
   eager?: boolean;
 }
 const { animation, eager = false } = Astro.props;
@@ -19,5 +19,14 @@ const dark = orbSvg(animation, "dark").path;
 
 <picture class="absolute inset-0">
   <source srcset={dark} media="(prefers-color-scheme: dark)" data-dark-media="all" type="image/svg+xml" />
-  <img src={light} alt="" width="64" height="64" loading={eager ? "eager" : "lazy"} decoding="async" class="block size-full" />
+  <img
+    src={light}
+    alt=""
+    width="64"
+    height="64"
+    loading={eager ? "eager" : "lazy"}
+    fetchpriority={eager ? "high" : undefined}
+    decoding="async"
+    class="block size-full"
+  />
 </picture>

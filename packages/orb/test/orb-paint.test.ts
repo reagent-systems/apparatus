@@ -43,7 +43,7 @@ test("time follows the shared clock times the preset speed and the speed multipl
   assert.equal(REDUCED_MOTION_T, 0.6);
 });
 
-test("the backing store is the displayed size times the device pixel ratio, capped at 2", () => {
+test("the backing store is the displayed size times the device pixel ratio, capped at 2 unless the caller raises the cap", () => {
   assert.deepEqual(orbScale(64, 64, 1), { pixels: 64, scale: 1 });
   assert.deepEqual(orbScale(48, 64, 1), { pixels: 48, scale: 0.75 });
   assert.deepEqual(orbScale(56, 64, 2), { pixels: 112, scale: 1.75 });
@@ -52,6 +52,9 @@ test("the backing store is the displayed size times the device pixel ratio, capp
   assert.deepEqual(orbScale(20, 20, 1.5), { pixels: 30, scale: 1.5 });
   assert.deepEqual(orbScale(48, 64, 0), { pixels: 48, scale: 0.75 });
   assert.equal(MAX_DPR, 2);
+  // A caller may raise the cap: the site's hero orb draws at up to DPR 3.
+  assert.deepEqual(orbScale(128, 64, 3, 3), { pixels: 384, scale: 6 });
+  assert.deepEqual(orbScale(128, 64, 4, 3), { pixels: 384, scale: 6 });
 });
 
 test("the geometry is the library's preset; dotSize scales only the radii", () => {

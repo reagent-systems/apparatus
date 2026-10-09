@@ -25,7 +25,7 @@ function stored(): string | null {
 }
 
 /**
- * The themed <picture>s (the hero, the orb stills) pick their dark source by
+ * The themed <picture>s (the orb stills) pick their dark source by
  * prefers-color-scheme, so the browser fetches one ink before any script runs.
  * When the page's theme differs from the system's, each dark source's media
  * becomes its width condition alone (`data-dark-media`) or `not all`.

@@ -1,45 +1,28 @@
 ---
-import heroPhoneDark from "../assets/crops/hero-phone-dark.png";
-import heroPhone from "../assets/crops/hero-phone.png";
-import heroDark from "@media/hero-dark.png";
-import heroLight from "@media/hero-light.png";
-import type { ImageMetadata } from "astro";
+import receiptDark from "../assets/crops/hero-receipt-dark.png";
+import receipt from "../assets/crops/hero-receipt.png";
+import threadDark from "@media/thread-dark.png";
+import thread from "@media/thread.png";
 import Icon from "./Icon.astro";
-import { getImage } from "astro:assets";
 import { MEDIA_README, REPO, STATUS } from "../lib/links.ts";
 import { ORB_STEPS } from "../lib/orb-steps.ts";
 import GithubMark from "./GithubMark.astro";
 import OrbStill from "./OrbStill.astro";
+import Shot from "./Shot.astro";
+import Video from "./Video.astro";
 
 // The hero's states: the page opens on the dotted sphere listening. Off is in
 // the orb section's state sheet; its ring of dashes would read as a spinner here.
 const steps = ORB_STEPS.filter((s) => s.name !== "off");
-
-// One <picture> for both themes, so the first screen's largest image loads
-// eagerly and once: the dark sources follow the system, and lib/client.ts
-// points them at the page's theme when the viewer picks one. Under 640 px the
-// phone and the watch alone, at a legible size. From xl the figure leaves the
-// 1200 px column, so the desktop window draws large enough to read.
-const sizes = "(min-width: 1440px) 1336px, (min-width: 640px) calc(100vw - 64px), calc(100vw - 32px)";
-const narrowSizes = "calc(100vw - 32px)";
-const wide = (src: ImageMetadata) => getImage({ src, widths: [640, 960, 1280, 1920, 2752], sizes, format: "webp", quality: 80 });
-const narrow = (src: ImageMetadata) => getImage({ src, widths: [360, 720, 1080], sizes: narrowSizes, format: "webp", quality: 80 });
-const [wideLight, wideDark, narrowLight, narrowDark] = await Promise.all([
-  wide(heroLight),
-  wide(heroDark),
-  narrow(heroPhone),
-  narrow(heroPhoneDark),
-]);
-const NARROW = "(max-width: 639px)";
 ---
 
 <section aria-labelledby="hero-title" class="relative">
   <div
-    class="mx-auto flex max-w-[1200px] flex-col items-center px-4 pt-8 text-center sm:px-6 md:pt-10 lg:grid lg:grid-cols-[minmax(0,6fr)_minmax(0,5fr)] lg:items-center lg:gap-12 lg:px-8 lg:pt-16 lg:text-left"
+    class="mx-auto flex max-w-[1200px] flex-col items-center px-4 pt-6 text-center sm:px-6 md:pt-10 lg:grid lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)] lg:items-center lg:gap-10 lg:px-8 lg:pt-16 lg:text-left"
   >
-    <!-- First in the DOM, as it is first on a phone; from lg it moves right. -->
-    <div class="flex flex-col items-center gap-4 lg:order-2" data-orb-hero>
-      <div class="relative aspect-square w-[min(72vw,320px)] lg:w-[min(36vw,460px)]" data-orb role="img" aria-label="The orb, the one control of apparatus">
+    <!-- First in the DOM, as it is first on a phone; from lg it moves right and rises to the headline. -->
+    <div class="flex flex-col items-center gap-4 lg:order-2 lg:-my-8" data-orb-hero>
+      <div class="relative aspect-square w-[min(64vw,268px)] lg:w-[min(42vw,560px)]" data-orb role="img" aria-label="The orb, the one control of apparatus">
         <OrbStill animation={steps[0]!.animation} eager />
       </div>
       <div role="group" aria-label="Orb states" class="flex items-center gap-1 text-[0.8125rem]">
@@ -60,7 +43,7 @@ const NARROW = "(max-width: 639px)";
           data-motion-toggle
           aria-pressed="false"
           aria-label="Pause motion"
-          class="group ml-1 grid size-7 place-items-center rounded-full text-muted-foreground transition-colors duration-150 ease-ui hover:bg-secondary hover:text-foreground"
+          class="group ml-1 grid size-7 place-items-center rounded-full text-muted-foreground transition-colors duration-150 ease-ui hover:bg-secondary hover:text-foreground motion-reduce:hidden"
         >
           <Icon name="Pause" class="size-4 group-aria-pressed:hidden" strokeWidth={1.5} />
           <Icon name="Play" class="hidden size-4 group-aria-pressed:block" strokeWidth={1.5} />
@@ -69,14 +52,13 @@ const NARROW = "(max-width: 639px)";
     </div>
 
     <div class="flex flex-col items-center lg:order-1 lg:items-start">
-      <h1 id="hero-title" class="mt-8 max-w-[13ch] text-display font-medium text-balance lg:mt-0">
-        A voice agent with its own cloud computer
-      </h1>
+      <p class="mt-6 mb-4 eyebrow sm:mb-5 lg:mt-0">Web · desktop · phone · watch</p>
+      <h1 id="hero-title" class="max-w-[13ch] text-display font-medium text-balance">A voice agent with its own cloud computer</h1>
       <p class="mt-5 max-w-[36rem] text-lede text-pretty text-muted-foreground">
-        You talk. It does the work on a Linux desktop of its own, shows you the result, and asks only when a person must
-        act.
+        You talk. It does the work on a Linux desktop of its own and shows you the result. It is told to ask only when a
+        person must act.
       </p>
-      <div class="mt-8 flex w-full flex-col items-stretch gap-3 sm:w-auto sm:flex-row sm:items-center">
+      <div class="mt-6 flex w-full flex-col items-stretch gap-3 sm:mt-8 sm:w-auto sm:flex-row sm:items-center">
         <a
           href={REPO}
           class="flex h-12 items-center justify-center gap-2.5 rounded-full bg-primary px-6 text-[0.9375rem] font-medium text-primary-foreground transition-opacity duration-150 ease-ui hover:opacity-90"
@@ -92,51 +74,51 @@ const NARROW = "(max-width: 639px)";
           <Icon name="ArrowRight" class="size-4 transition-transform duration-150 ease-ui group-hover:translate-x-0.5" strokeWidth={1.75} />
         </a>
       </div>
-      <p class="mt-6 text-[0.8125rem] text-pretty text-muted-foreground">Web, Windows, macOS, Linux, iPhone, Android, Apple Watch, Wear OS</p>
-      <p class="mt-2 max-w-[36rem] text-[0.8125rem] text-pretty text-muted-foreground">
-        apparatus is early: it has not yet run with Gemini on a real cloud computer. <a class="link" href={STATUS}>Where it stands</a>.
+      <p class="mt-6 max-w-[36rem] text-[0.8125rem] text-pretty text-muted-foreground">
+        apparatus is early: it has not yet talked to Gemini or run on a real cloud computer. <a class="link" href={STATUS}>Where it stands</a>.
       </p>
     </div>
   </div>
 
-  <figure class="mx-auto mt-12 max-w-[1200px] px-4 sm:px-6 lg:mt-14 lg:px-8 xl:max-w-[1400px]">
-    <picture class="block">
-      <source
-        media={`${NARROW} and (prefers-color-scheme: dark)`}
-        data-dark-media={NARROW}
-        srcset={narrowDark.srcSet.attribute}
-        sizes={narrowSizes}
-        width={heroPhoneDark.width}
-        height={heroPhoneDark.height}
-        type="image/webp"
-      />
-      <source media={NARROW} srcset={narrowLight.srcSet.attribute} sizes={narrowSizes} width={heroPhone.width} height={heroPhone.height} type="image/webp" />
-      <source
-        media="(prefers-color-scheme: dark)"
-        data-dark-media="all"
-        srcset={wideDark.srcSet.attribute}
-        sizes={sizes}
-        width={heroDark.width}
-        height={heroDark.height}
-        type="image/webp"
-      />
-      <img
-        src={wideLight.src}
-        srcset={wideLight.srcSet.attribute}
-        sizes={sizes}
-        width={heroLight.width}
-        height={heroLight.height}
-        alt="The desktop app listening, with what the model heard above the orb; a phone on a job's receipt; the Wear OS app listening"
-        loading="eager"
-        fetchpriority="high"
-        decoding="async"
-        class="hero-fade block h-auto w-full"
-      />
-    </picture>
-    <!-- The caption keeps to the page column, though the picture is wider from xl. -->
-    <figcaption class="mx-auto mt-4 max-w-[1136px] text-center text-[0.8125rem] text-pretty text-muted-foreground lg:text-left">
-      Real captures of the app in demo mode, with a scripted voice. The hero puts 3 separate captures side by side.{" "}
-      <a class="link" href={MEDIA_README}>How they were made</a>.
+  <!--
+    The stage: three separate captures, set in HTML on the page column. From
+    640 px the web app at desktop width is the window, with the phone over its
+    lower right and the watch over the phone's lower left. Under 640 px, the
+    phone and the watch alone, at a legible size. Every still is lazy: the
+    stage starts under the first screen, and an image under display:none (the
+    window on a phone, the other theme's twin) never loads.
+  -->
+  <figure class="mx-auto mt-14 max-w-[1200px] px-4 sm:px-6 lg:mt-20 lg:px-8">
+    <div class="relative pb-[12%] sm:pb-[9%] lg:pb-[5%]">
+      <div class="hidden overflow-hidden rounded-2xl bg-background shadow-composer ring-1 ring-black/6 sm:block lg:w-[78%] dark:ring-white/10">
+        <Shot
+          src={thread}
+          dark={threadDark}
+          alt="The web app at desktop width: a job running, an approval waiting with Approve and Deny, and what the model heard above the orb"
+          widths={[640, 960, 1280, 1440, 1920, 2560]}
+          sizes="(min-width: 1200px) 888px, (min-width: 1024px) calc(78vw - 50px), calc(100vw - 48px)"
+        />
+      </div>
+      <div class="relative mx-auto w-[min(66vw,280px)] sm:absolute sm:right-0 sm:bottom-0 sm:mx-0 sm:w-[24%]">
+        <div class="rounded-[2.1rem] bg-[#151412] p-[7px] shadow-composer max-lg:rounded-[1.6rem] max-lg:p-[5px] max-sm:rounded-[2.1rem] max-sm:p-[7px] dark:bg-black dark:ring-1 dark:ring-white/12">
+          <div class="overflow-hidden rounded-[1.7rem] max-lg:rounded-[1.3rem] max-sm:rounded-[1.7rem]">
+            <Shot
+              src={receipt}
+              dark={receiptDark}
+              alt="The web app at phone size on a job's receipt: the Weekly orders table and report.csv"
+              widths={[360, 540, 720, 1080]}
+              sizes="(min-width: 1200px) 272px, (min-width: 640px) 24vw, min(66vw, 280px)"
+            />
+          </div>
+        </div>
+        <div class="absolute right-[-16%] bottom-[-7%] w-[36%] rounded-full bg-[#151412] p-[5px] shadow-composer sm:right-auto sm:bottom-[3%] sm:left-[-38%] sm:w-[50%] sm:p-[6px] lg:p-[9px] dark:ring-1 dark:ring-white/12">
+          <Video name="watch" dark="watch-dark" label="The Wear OS app's orb states in sequence, rendered with Paparazzi" class="rounded-full" />
+        </div>
+      </div>
+    </div>
+    <figcaption class="mt-10 max-w-[46rem] text-left text-[0.8125rem] text-pretty text-muted-foreground">
+      Captures of the web app in a browser, in demo mode, with a scripted voice; the phone's frame is drawn. The watch is a Paparazzi
+      render of the Wear OS app. <a class="link" href={MEDIA_README}>How they were made</a>.
     </figcaption>
   </figure>
 </section>

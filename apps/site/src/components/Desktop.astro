@@ -1,27 +1,28 @@
 ---
 import handoffDark from "../assets/crops/handoff-card-dark.png";
 import handoff from "../assets/crops/handoff-card.png";
+import handoffPhoneDark from "@media/phone/phone-10-handoff-dark.png";
+import handoffPhone from "@media/phone/phone-10-handoff.png";
 import Section from "./Section.astro";
 import Shot from "./Shot.astro";
 import Video from "./Video.astro";
 ---
 
-<Section id="desktop" eyebrow="Your cloud computer" title="Work on a desktop you can watch and take over.">
+<Section id="computer" eyebrow="Your cloud computer" title="Work on a desktop you can watch and control.">
   <p slot="lede" class="mt-6 text-lede text-pretty text-muted-foreground">
-    In your own deployment, each user has a Linux desktop VM. Its files stay between jobs. The agent runs code and uses
-    apps on it. You can watch it work, take the desktop, and hand it back.
+    In your own deployment, each user has a cloud computer: a Linux desktop. Its files stay between jobs. The agent runs
+    code and uses apps on it. You can watch it work, press Control to use it, and Release it back.
   </p>
 
-  <!-- Two tiles of one shape, so the captions line up. -->
+  <!-- From lg, two tiles of one shape side by side, so the captions line up. The 5 % padding is of the width, so the
+       956 x 726 loop fills the first tile exactly: 0.1 + 0.9 x 726 / 956 = 749 / 956. Below lg each tile hugs its
+       content, and under 640 px the screen loop drops the padding to use the full column. -->
   <div class="mt-14 grid gap-x-8 gap-y-14 lg:grid-cols-2">
     <figure>
-      <div class="frame aspect-[956/726]">
-        <Video
-          name="screen-control"
-          dark="screen-control-dark"
-          label="Control of the cloud computer's screen: a typed command prints a table, then Release"
-          class="rounded-2xl"
-        />
+      <div class="frame grid aspect-[956/749] place-items-center p-[5%] max-sm:aspect-auto max-sm:p-0">
+        <div class="w-full overflow-hidden rounded-xl bg-background shadow-composer">
+          <Video name="screen-control" dark="screen-control-dark" label="Control of the screen: a typed command prints a table, then Release" />
+        </div>
       </div>
       <figcaption class="mt-6">
         <h3 class="text-lg font-medium">Control and Release</h3>
@@ -29,27 +30,48 @@ import Video from "./Video.astro";
           The screen streams live to your device. Press Control to use the desktop yourself; the agent's desktop tool stays
           locked until you press Release.
         </p>
+        <p class="mt-3 max-w-[34rem] text-[0.8125rem] text-pretty text-muted-foreground">
+          The web app in a browser, in demo mode. The screen is a bare X session streamed from agentd, not the VM image's Xfce desktop.
+        </p>
       </figcaption>
     </figure>
 
     <figure>
-      <!-- The card on paper at about its size in the app. -->
-      <div class="frame grid aspect-[956/726] place-items-center p-6">
-        <div class="w-full max-w-[360px] rounded-xl bg-background p-1">
+      <!-- Below lg the card alone, at about its size in the app. From lg the phone's Screen tab on a handoff to the
+           same site stands beside it: the sign-in page on the cloud computer, with Done and Cancel. -->
+      <div class="frame flex items-center justify-center gap-[5%] px-6 py-12 sm:py-16 lg:aspect-[956/749] lg:p-[5%]">
+        <div class="hidden w-[34%] shrink-0 lg:block">
+          <div class="rounded-[1.6rem] bg-[#151412] p-[5px] shadow-composer dark:bg-black dark:ring-1 dark:ring-white/12">
+            <div class="overflow-hidden rounded-[1.3rem]">
+              <Shot
+                src={handoffPhone}
+                dark={handoffPhoneDark}
+                alt="The web app at phone size on a handoff: the reports site's sign-in page, with Done and Cancel"
+                widths={[160, 320, 480]}
+                sizes="(min-width: 1200px) 170px, 14vw"
+              />
+            </div>
+          </div>
+        </div>
+        <div class="w-full max-w-[384px] rounded-xl bg-background p-1 shadow-composer lg:max-w-none lg:flex-1">
           <Shot
             src={handoff}
             dark={handoffDark}
             alt="A handoff card: Sign in to the reports site, with Done and Cancel"
-            widths={[360, 720]}
-            sizes="360px"
+            widths={[384, 768]}
+            sizes="384px"
           />
         </div>
       </div>
       <figcaption class="mt-6">
         <h3 class="text-lg font-medium">Handoffs</h3>
         <p class="mt-2 max-w-[34rem] leading-relaxed text-pretty text-muted-foreground">
-          On a sign-in page, a code request or a captcha, the agent stops and hands you the screen. You sign in on your
-          cloud computer, press Done, and the job goes on. The agent is told never to solve a captcha.
+          On a sign-in page, a code request or a captcha, the agent is told to stop. It hands you the screen. You sign in
+          on your cloud computer, press Done, and the job goes on. The agent is told never to solve a captcha.
+        </p>
+        <p class="mt-3 max-w-[34rem] text-[0.8125rem] text-pretty text-muted-foreground">
+          The web app in a browser, in demo mode: the card at desktop width<span class="max-lg:hidden">, the Screen tab
+          at phone size in a drawn frame</span>.
         </p>
       </figcaption>
     </figure>

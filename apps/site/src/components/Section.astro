@@ -1,18 +1,26 @@
 ---
 interface Props {
   id: string;
-  eyebrow: string;
+  /** Left out where the title says it already. */
+  eyebrow?: string;
   title: string;
+  /** `center`: the heading block and its lede sit on the column's axis. */
+  align?: "left" | "center";
+  /** A full-bleed band on the quiet fill, with more room above and below: the page changes pace. */
+  band?: boolean;
   class?: string;
 }
-const { id, eyebrow, title, class: className } = Astro.props;
+const { id, eyebrow, title, align = "left", band = false, class: className } = Astro.props;
+const center = align === "center";
 ---
 
-<section id={id} aria-labelledby={`${id}-title`} class:list={["mx-auto w-full max-w-[1200px] px-4 py-16 sm:px-6 md:py-24 lg:px-8", className]}>
-  <div class="max-w-[46rem]">
-    <p class="eyebrow">{eyebrow}</p>
-    <h2 id={`${id}-title`} class="mt-4 text-title font-medium text-balance">{title}</h2>
-    <slot name="lede" />
+<section id={id} aria-labelledby={`${id}-title`} class:list={[band && "bg-secondary", className]}>
+  <div class:list={["mx-auto w-full max-w-[1200px] px-4 sm:px-6 lg:px-8", band ? "py-24 md:py-36" : "py-16 md:py-24"]}>
+    <div class:list={["max-w-[46rem]", center && "mx-auto text-center"]}>
+      {eyebrow && <p class="mb-4 eyebrow">{eyebrow}</p>}
+      <h2 id={`${id}-title`} class="text-title font-medium text-balance">{title}</h2>
+      <slot name="lede" />
+    </div>
+    <slot />
   </div>
-  <slot />
 </section>

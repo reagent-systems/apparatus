@@ -15,9 +15,13 @@ const links = [
     <nav aria-label="Footer">
       <ul class="flex flex-wrap gap-x-6 gap-y-2 text-sm text-muted-foreground">
         {links.map((l) => <li><a href={l.href} class="transition-colors duration-150 ease-ui hover:text-foreground">{l.label}</a></li>)}
-        <li>
-          <!-- Pause motion for a visitor far from the hero's button; both hold the same choice (lib/motion.ts). Its words say what a press does, so it has no aria-pressed. -->
-          <button type="button" data-motion-toggle="text" class="group transition-colors duration-150 ease-ui hover:text-foreground">
+        <!--
+          Pause motion for a visitor far from the hero's button; both hold the same choice (lib/motion.ts). Its words say
+          what a press does, so it has no aria-pressed. Under reduced motion nothing moves and a press would change
+          nothing, so both buttons are hidden.
+        -->
+        <li class="motion-reduce:hidden">
+          <button type="button" data-motion-toggle="text" class="group -my-1 py-1 transition-colors duration-150 ease-ui hover:text-foreground">
             <span class="group-data-paused:hidden">Pause motion</span>
             <span class="hidden group-data-paused:inline">Play motion</span>
           </button>

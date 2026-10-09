@@ -8,7 +8,7 @@
 // buys nothing a visitor sees. On a touch screen they draw at 30 fps.
 
 import { orbClock } from "@apparatus/orb/clock";
-import { REDUCED_MOTION_T, drawOrb, orbGeometry, orbScale, orbTime, type OrbGeometry } from "@apparatus/orb/paint";
+import { MAX_DPR, REDUCED_MOTION_T, drawOrb, orbGeometry, orbScale, orbTime, type OrbGeometry } from "@apparatus/orb/paint";
 import { onMotionChange, reduce, userPaused } from "./motion.ts";
 import { orbStep, type OrbStateName } from "./orb-steps.ts";
 
@@ -32,6 +32,8 @@ export class LiveOrb {
   constructor(
     private host: HTMLElement,
     state: OrbStateName,
+    /** The device pixel ratio cap: 3 for the hero's single large orb, the library's 2 elsewhere. */
+    private maxDpr = MAX_DPR,
   ) {
     const s = orbStep(state);
     this.geometry = orbGeometry(s.animation, 64);
@@ -63,7 +65,7 @@ export class LiveOrb {
     const size = Math.round(this.host.getBoundingClientRect().width);
     if (size === 0 || size === this.size) return;
     this.size = size;
-    const { pixels, scale } = orbScale(size, 64, window.devicePixelRatio || 1);
+    const { pixels, scale } = orbScale(size, 64, window.devicePixelRatio || 1, this.maxDpr);
     this.canvas.width = pixels;
     this.canvas.height = pixels;
     this.scale = scale;
@@ -130,7 +132,7 @@ function hero(el: HTMLElement): void {
     }),
   );
   whenIdle(() => {
-    orb = new LiveOrb(host, steps[step]!);
+    orb = new LiveOrb(host, steps[step]!, 3);
     window.setInterval(() => {
       if (reduce.matches || userPaused() || document.visibilityState === "hidden") return;
       if (performance.now() < pinnedUntil) return;

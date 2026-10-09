@@ -5,9 +5,12 @@
 /* The site is the app's look at page scale: paper and ink, one ink-blue
    accent, weights 400 and 500, borders off. Tokens and fonts come from @apparatus/design.
    The faces carry unicode ranges, so a browser fetches only the latin files:
-   Inter at once (preloaded in Base.astro), JetBrains Mono when code first shows. */
+   Inter, preloaded in Base.astro. The commands use the system's monospace face,
+   not JetBrains Mono: a browser fetches a face used anywhere on the page at
+   first load, and the mono file was a quarter of the first screen's bytes. */
 
 @theme {
+  --font-mono: ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace;
   --text-display: clamp(2.5rem, 1.6rem + 3.6vw, 4.75rem);
   --text-display--line-height: 1.04;
   --text-display--letter-spacing: -0.035em;
@@ -70,25 +73,6 @@
   }
   .link {
     @apply text-primary underline decoration-primary/30 underline-offset-4 transition-colors duration-150 ease-ui hover:decoration-primary;
-  }
-}
-
-/* The hero stills: the devices' soft shadow spreads past every edge of the
-   capture, so an edge would show as a line under the devices (and, in dark, as
-   a faint panel). The mask fades each edge's margin, which holds only shadow,
-   into the page. The devices sit inside 6 % top, 93 % bottom and 2.7 % / 97.4 %
-   sideways in the wide still; the phone crop's content ends at 93.6 % right. */
-.hero-fade {
-  --fade-x: linear-gradient(to right, transparent, #000 2.4%, #000 97.6%, transparent);
-  --fade-y: linear-gradient(to bottom, transparent, #000 5%, #000 93%, transparent);
-  -webkit-mask-image: var(--fade-y), var(--fade-x);
-  -webkit-mask-composite: source-in;
-  mask-image: var(--fade-y), var(--fade-x);
-  mask-composite: intersect;
-}
-@media (max-width: 639px) {
-  .hero-fade {
-    --fade-x: linear-gradient(to right, transparent, #000 1.5%, #000 95%, transparent);
   }
 }
 
