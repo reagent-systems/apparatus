@@ -19,7 +19,7 @@
     "verify": "verify/verify.sh"
   },
   "devDependencies": {
-    "turbo": "2.11.7"
+    "turbo": "2.11.10"
   },
   "overrides": {
     "zod": "^4.6.6"
