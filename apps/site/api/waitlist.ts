@@ -2,9 +2,9 @@
 // private Vercel Blob store as waitlist/<sha256 of the email>.json.
 //
 // Vercel compiles each file under api/ on its own, so this file imports no
-// local module. On Vercel, @vercel/blob signs in with the project's OIDC token
-// and BLOB_STORE_ID once a store is connected; elsewhere it reads
-// BLOB_READ_WRITE_TOKEN. The answer is the same for a new and a listed email,
+// local module. @vercel/blob signs in with the project's OIDC token when
+// BLOB_STORE_ID is set, else with BLOB_READ_WRITE_TOKEN; connecting a store adds
+// one of them. The answer is the same for a new and a listed email,
 // and both take at least STORE_MIN_MS, so neither the body nor the time says
 // whether an email is on the list. No log line holds an email. Nothing here
 // limits how often one client posts: that is the Vercel Firewall rule in

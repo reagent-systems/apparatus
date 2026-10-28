@@ -75,7 +75,7 @@ apparatus is not a hosted service; the page says so and asks for an email from p
 | A body over 2048 bytes | 413 `too_large` | The same 303 |
 | Another content type | 415 `unsupported_media_type` | — |
 | Another method | 405 `method_not_allowed`, `Allow: POST` | — |
-| The store fails | 500 `store_failed`; the log line holds the error's class and message, never the email | The same 303 |
+| The store fails | 500 `store_failed`; the log line holds the error's class only, never its message or the email | The same 303 |
 
 Each person is one object, `waitlist/<sha256 of the trimmed, lower-cased, NFC email, hex>.json`, in a private store: `{ email, note?, createdAt, source: "site" }`. Nothing else is kept: no IP address, no user agent. The answer never says whether an email was on the list already: the body is the same, and a stored or listed email is answered no sooner than 800 ms after the request (`STORE_MIN_MS`), so the extra write for a new email does not show in the time.
 
@@ -91,7 +91,7 @@ With the script, the form posts JSON. A bad email or note shows under its field,
 2. Connect the store to the project for **Production** only. A preview build of any pushed branch, and a collaborator's `vercel env pull`, then get no access to the real list. To try the form on a preview, connect a second private store to Preview and Development.
 3. Keep Deployment Protection on for previews, and keep **Git Fork Protection** on.
 4. Add the Firewall rule and the spend limit below.
-5. Redeploy. On Vercel the function signs in with the project's OIDC token and `BLOB_STORE_ID`; no token is copied anywhere.
+5. Redeploy. Connecting the store adds `BLOB_STORE_ID` or `BLOB_READ_WRITE_TOKEN` to the environments you picked. The SDK signs in with the project's OIDC token when `BLOB_STORE_ID` is set, else with the token; nothing is copied by hand. Check the variable's environments under **Settings → Environment Variables**: it should list Production only.
 
 Until a store is connected to an environment, every valid post there answers 500 `store_failed` and the page says the waitlist did not take the email.
 
