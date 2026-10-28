@@ -51,7 +51,7 @@ The README said the function signs in with OIDC and `BLOB_STORE_ID`; this connec
 It also said a store failure logs the error's message, which the hardened code no longer does; that line now matches.
 On production every answer matched the table, and one test entry, `deploy-check@example.com`, is in the store.
 The Firewall API answered 404 for both PATCH and PUT, so the rate limit still has to be added in the dashboard.
-A push to the working branch built with target production as well as the push to `main`; both were the same commit.
+The first deploy built the working branch with target production as well as `main`, at the same commit; the next branch push built as a preview, so `main` alone is production.
 
 Evidence: deployment `dpl_Hb2FxHNeVGkZxew35KiwDDEh6Tca` READY; store count 1, 153 bytes; `verify/verify.sh` OK.
 
