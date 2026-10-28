@@ -1,6 +1,7 @@
 // Every link off the site. Each points at a path on main; the monorepo paths
 // (apps/, infra/) reached main with the site, in commit 1d53a79.
 export const REPO = "https://github.com/reagent-systems/apparatus";
+export const LICENSE = `${REPO}/blob/main/LICENSE`;
 export const RELEASES = `${REPO}/releases`;
 export const SETUP = `${REPO}#run-it-locally`;
 export const LOCAL = `${REPO}/blob/main/infra/local/docker-compose.yml`;

@@ -5,6 +5,7 @@ Format: [Keep a Changelog](https://keepachangelog.com/) · Versioning: [SemVer](
 
 ## [Unreleased]
 ### Added
+- MIT license (`LICENSE`); the website says the code is open source under MIT and links the license from its footer.
 - Wire protocol shared by client, server, agentd and agentlib, with its human copy in `docs/PROTOCOL.md`.
 - agentd: one Python kernel per task, python and computer tools, desktop lock, handoff pause, append-only task log, the disk layout under `/home/agent`.
 - agentlib: `say`, `progress`, `show`, `request_approval`, `api`, `handoff`.

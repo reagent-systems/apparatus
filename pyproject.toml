@@ -3,6 +3,7 @@ name = "apparatus"
 version = "0.1.0"
 description = "Live voice agent with a cloud desktop VM per user."
 requires-python = ">=3.11"
+license = "MIT"
 dependencies = [
   "apparatus-protocol",
   "apparatus-server",

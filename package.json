@@ -1,6 +1,7 @@
 {
   "name": "apparatus",
   "private": true,
+  "license": "MIT",
   "description": "The apparatus monorepo: the web client, the native shells and the shared packages. The Python side (apps/server, apps/agentd, packages/protocol) is a uv workspace in pyproject.toml.",
   "packageManager": "npm@10.9.4",
   "workspaces": [

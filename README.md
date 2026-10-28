@@ -122,3 +122,8 @@ kernels; nothing has yet talked to Gemini or run on a real VM. The first roadmap
 The design spec is `docs/DESIGN-SPEC.md`. Its decisions are encoded in `agent-kit/AGENTS.md`
 (invariants), `agent-kit/docs/ARCHITECTURE.md` (parts, data flow, boundaries),
 `agent-kit/docs/PROTOCOL.md` (the wire) and `agent-kit/docs/CONFIGURATION.md` (every knob).
+
+## License
+
+MIT; see [LICENSE](LICENSE). Vendored third-party code keeps its own license:
+[THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).

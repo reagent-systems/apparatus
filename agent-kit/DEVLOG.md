@@ -41,6 +41,15 @@ Evidence: <commit / tag / gate run / screenshot>
 
 <!-- Entries below, newest first. -->
 
+## 2026-10-28 — MIT license, and the site deployed on Vercel
+
+The author chose the MIT license, so the repository now has `LICENSE` and the root manifests say MIT.
+The website could not say "open source" while there was no license; it now says the code is open source
+under MIT, and its footer links the license. The site goes to Vercel next, as a project whose root
+directory is `apps/site`.
+
+Evidence: `verify/verify.sh` OK.
+
 ## 2026-10-08 — The website's third round: one look per section, fewer claims, lighter page
 
 Two judges read round 2 of `apps/site` and sent 37 notes: design, honesty and speed. I applied them.
