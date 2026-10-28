@@ -15,6 +15,11 @@ node_modules/
 
 # Local state
 .env
+# `vercel env pull` writes the Blob token here (apps/site/README.md, Waitlist).
+.env.local
+.env.*.local
+# A waitlist export holds every email (apps/site/README.md, Read the list).
+waitlist*.csv
 .vercel
 data/
 # The site manifest under apps/site/src/data/ is source, not local state.

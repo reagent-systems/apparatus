@@ -6,13 +6,47 @@ import handoffPhone from "@media/phone/phone-10-handoff.png";
 import Section from "./Section.astro";
 import Shot from "./Shot.astro";
 import Video from "./Video.astro";
+
+// What the agent works with. Each line is in the code: the kernel (apps/agentd/agentd/kernel.py), the desktop tool
+// (desktop.py), the VM image (infra/vm/setup.sh, infra/vm/Dockerfile), the disk layout (disk.py) and the system
+// prompt and its result contract (apps/server/apparatus_server/smart.py).
+const tools = [
+  {
+    title: "A Python session per job",
+    body:
+      "Each job gets its own Python process. Its variables stay between steps until the job ends or a step runs past its time limit. Shell commands run from Python.",
+  },
+  {
+    title: "A desktop with Chromium",
+    body: "Xfce and Chromium on a virtual display. The desktop tool clicks, types and takes screenshots. The Google Cloud image adds a terminal and Git.",
+  },
+  {
+    title: "Files it keeps",
+    body: "A folder per job, memory notes and saved tools stay on its disk. It is told to save a script when a job will repeat.",
+  },
+  {
+    title: "The result, shown",
+    body: "It is told to end a job with one or two sentences to say, detail in markdown for your screen, and a list of the files it made.",
+  },
+];
 ---
 
-<Section id="computer" eyebrow="Your cloud computer" title="Work on a desktop you can watch and control.">
+<Section id="computer" eyebrow="Your cloud computer" title="It works on a Linux desktop. You can take Control.">
   <p slot="lede" class="mt-6 text-lede text-pretty text-muted-foreground">
-    In your own deployment, each user has a cloud computer: a Linux desktop. Its files stay between jobs. The agent runs
-    code and uses apps on it. You can watch it work, press Control to use it, and Release it back.
+    In your own deployment, each user has a cloud computer: a Linux desktop whose files stay between jobs. The agent does
+    the work there while you talk. You can watch it, press Control to use it yourself, and Release it back.
   </p>
+
+  <dl class="mt-12 grid gap-x-10 gap-y-8 sm:grid-cols-2 lg:grid-cols-4">
+    {
+      tools.map((t) => (
+        <div>
+          <dt class="text-[1.0625rem] font-medium">{t.title}</dt>
+          <dd class="mt-2 text-[0.9375rem] leading-relaxed text-pretty text-muted-foreground">{t.body}</dd>
+        </div>
+      ))
+    }
+  </dl>
 
   <!-- From lg, two tiles of one shape side by side, so the captions line up. The 5 % padding is of the width, so the
        956 x 726 loop fills the first tile exactly: 0.1 + 0.9 x 726 / 956 = 749 / 956. Below lg each tile hugs its

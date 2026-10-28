@@ -20,5 +20,8 @@
   },
   "devDependencies": {
     "turbo": "2.11.7"
+  },
+  "overrides": {
+    "zod": "^4.6.6"
   }
 }

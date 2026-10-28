@@ -1,6 +1,6 @@
 # apps/site
 
-The apparatus website: one static page that says what apparatus is, with the real captures from `docs/media`.
+The apparatus website: one static page that says what apparatus is, with the real captures from `docs/media`, and one Vercel Function, the waitlist for a hosted version.
 Astro 7 and Tailwind CSS 4, with no UI framework on the page: one plain script draws the live orbs with `@apparatus/orb`'s painter and clock. The look and the text font come from `@apparatus/design`: Inter, of which a browser fetches only the latin file. The commands use the system's monospace face, so the first load carries no second font. Vercel deploys it.
 
 ## Commands
@@ -14,6 +14,8 @@ npm run preview -w apparatus-site      # serves dist
 npm run typecheck -w apparatus-site    # astro check
 npm run media -w apparatus-site        # remakes public/media and src/assets/crops; needs ffmpeg and ImageMagick
 npm run og -w apparatus-site           # remakes public/og.png; needs playwright-core (root install) and Chromium
+npm test -w apparatus-site             # node --test: the waitlist function, with a fake store
+npm run waitlist -w apparatus-site     # the waitlist as CSV; see Waitlist below
 ```
 
 The root `npm run build` and `verify/verify.sh` build and check the site with every other workspace.
@@ -27,6 +29,10 @@ The root `npm run build` and `verify/verify.sh` build and check the site with ev
 | `src/components/` | One file per section; `Shot.astro` (stills), `Video.astro` (loops), `OrbStill.astro` (the orb's static frame, a `<picture>` of the files below), `Icon.astro` (the Lucide icons in `src/lib/icons.ts`) |
 | `src/lib/orb-svg.ts`, `src/pages/orb/[file].ts` | Each orb state's static frame in each ink, drawn at build time by the orb's own painter and written to `/orb/<state>-<ink>.<hash>.svg` |
 | `src/lib/client.ts` | The page's script: the theme button (and the themed pictures and `theme-color` with it), the Pause motion buttons, the loops, the copy button |
+| `src/components/Waitlist.astro`, `src/lib/waitlist-form.ts` | The waitlist section and its script: a JSON post and a status line; without the script, the form posts itself |
+| `api/waitlist.ts` | The Vercel Function behind the form, `POST /api/waitlist` |
+| `scripts/waitlist.mjs` | The waitlist out of the store as CSV, or one entry deleted |
+| `test/waitlist.test.ts` | The function's tests, against an in-memory fake of `@vercel/blob` |
 | `src/lib/orb.ts` | The live orbs, started once the page is idle: the hero's cycle and its state buttons, the orb section's four states, the closing orb |
 | `src/lib/motion.ts` | Whether anything may move: reduced motion, or Pause motion (kept in `localStorage`) |
 | `src/lib/links.ts` | Every outbound link; each points at a path on `main` |
@@ -51,6 +57,75 @@ The orb stills are one `<picture>` each, with a dark `<source>` keyed to `prefer
 
 `astro.config.mjs` sets `site` from `SITE_URL`, else from `https://$VERCEL_PROJECT_PRODUCTION_URL`, which Vercel sets on every build. Without either, the build leaves out the canonical link, `og:url`, the Open Graph image and the sitemap, so no build ships a made-up or relative link where an absolute one is needed. Both variables are listed in `turbo.json`, because turbo passes a build only the variables it is told about.
 
+## Waitlist
+
+apparatus is not a hosted service; the page says so and asks for an email from people who want a hosted version. The form posts to `api/waitlist.ts`, a Vercel Function beside the static build. Astro does not see `api/`: Vercel builds each file in it as a function, so the file imports no local module.
+
+`POST /api/waitlist` takes `application/json` or `application/x-www-form-urlencoded` with `email`, an optional `note` and `hp_k7q`, a hidden field a person never fills. Its name means nothing to autofill, so a browser does not fill it for a person.
+
+| Request | JSON answer | Form answer |
+|---|---|---|
+| A new email | 200 `{ ok: true }`; stores the entry | 303 to `/?waitlist=ok#waitlist-ok` |
+| An email already listed | The same as a new email; stores nothing, the first entry and its `createdAt` stay | The same |
+| `hp_k7q` filled | The same as a new email; stores nothing | The same |
+| A post from another site's page (`Sec-Fetch-Site: cross-site`) | 403 `cross_site`; stores nothing | The same 403 |
+| A bad email (over 254 characters; a control, invisible, bidi or fullwidth character; not a dot-atom `x@y.z`, so no quotes, commas, semicolons, angle brackets or `[1.2.3.4]`) | 400 `invalid_email` | 303 to `/?waitlist=error#waitlist-error` |
+| A note over 280 characters or with a control character (CRLF counts as one line break; invisible and bidi characters are dropped) | 400 `invalid_note` | The same 303 |
+| Malformed or non-object JSON | 400 `bad_body` | — |
+| A body over 2048 bytes | 413 `too_large` | The same 303 |
+| Another content type | 415 `unsupported_media_type` | — |
+| Another method | 405 `method_not_allowed`, `Allow: POST` | — |
+| The store fails | 500 `store_failed`; the log line holds the error's class and message, never the email | The same 303 |
+
+Each person is one object, `waitlist/<sha256 of the trimmed, lower-cased, NFC email, hex>.json`, in a private store: `{ email, note?, createdAt, source: "site" }`. Nothing else is kept: no IP address, no user agent. The answer never says whether an email was on the list already: the body is the same, and a stored or listed email is answered no sooner than 800 ms after the request (`STORE_MIN_MS`), so the extra write for a new email does not show in the time.
+
+The pathname is an unsalted sha256, so anyone who sees it can check a guessed email against it. Keep `DEBUG` free of `blob` in production: with it, the SDK logs the paths it calls.
+
+No address is verified: anyone can add anyone's email. Make the first message to the list a confirm-or-forget email with an unsubscribe link, and keep only the people who confirm.
+
+With the script, the form posts JSON. A bad email or note shows under its field, with `aria-invalid`; the result shows in a `role="status"` line, and after a signup the fields go. Without the script, the browser posts the form, the function answers 303, and `:target` shows the message under the fields.
+
+### Set up the store (once)
+
+1. In the Vercel project, open **Storage**, create a **Blob** store and pick **Private** access.
+2. Connect the store to the project for **Production** only. A preview build of any pushed branch, and a collaborator's `vercel env pull`, then get no access to the real list. To try the form on a preview, connect a second private store to Preview and Development.
+3. Keep Deployment Protection on for previews, and keep **Git Fork Protection** on.
+4. Add the Firewall rule and the spend limit below.
+5. Redeploy. On Vercel the function signs in with the project's OIDC token and `BLOB_STORE_ID`; no token is copied anywhere.
+
+Until a store is connected to an environment, every valid post there answers 500 `store_failed` and the page says the waitlist did not take the email.
+
+### Limit the posts (once)
+
+Nothing in the code limits how often one client posts. Each post costs a function call, and each new email costs a Blob write and one stored object. On Hobby, a store over its limits can be blocked, which stops the waitlist; on Pro, the overage is billed. In the Vercel project:
+
+1. Open **Firewall** and add a custom rule: if the request path equals `/api/waitlist`, any method, **Rate Limit** with a fixed window of 60 s and 5 requests, keyed on IP, action **Deny** (429). If the plan allows a longer window, add a second rule: 20 requests per hour per IP.
+2. Turn on **Bot Protection** (or the managed bot rule set).
+3. In the team's **Settings → Billing → Spend Management**, set a limit.
+
+The script on the page shows "The waitlist did not take your email" on a 429.
+
+### Read the list
+
+Link the repository once (`npx vercel link --repo`, under Deploy on Vercel), then:
+
+```sh
+cd apps/site
+npx vercel env pull --environment=production .env.local   # BLOB_READ_WRITE_TOKEN for the production store; .gitignore keeps it out of git
+npm run waitlist > ~/waitlist.csv                         # email, createdAt, note; oldest first; outside the repository
+rm .env.local                                             # when done
+```
+
+The CSV holds every email. Write it outside the repository, as above, and delete it when you are done; `.gitignore` also ignores `waitlist*.csv` in case one lands in the tree. The token is read and write: delete `.env.local` after use, or copy the token from the store's page into the shell for one command instead. The CSV quotes a cell that starts with `=`, `+`, `-` or `@` with a `'`, so a spreadsheet does not run it as a formula.
+
+### Delete an entry
+
+```sh
+npm run waitlist -- delete person@example.com   # with .env.local from Read the list
+```
+
+The script derives the object's pathname from the email and deletes that one object. The store's page in the Vercel dashboard can delete it too. Its pathname is `waitlist/` and the sha256 of the email, as above: `printf %s person@example.com | sha256sum`.
+
 ## Deploy on Vercel
 
 Vercel's Git integration deploys the site: every push to `main` deploys production, and every pull request gets a preview.
@@ -62,6 +137,7 @@ One-time setup, by a person with access to the GitHub repository:
 3. Keep **Include files outside the root directory in the Build Step** on. The build needs the root lockfile, `packages/` and `docs/media`.
 4. Deploy. Leave the build and install commands to `vercel.json`.
 5. When a domain is attached, set the environment variable `SITE_URL` (for example `https://apparatus.example`) for Production, and redeploy.
+6. Set up the waitlist store and the Firewall rule, as Waitlist above says.
 
 `vercel.json` sets:
 
@@ -70,7 +146,7 @@ One-time setup, by a person with access to the GitHub repository:
 | `installCommand` | `cd ../.. && npm ci` | One lockfile at the root; `npm ci` in a workspace folder empties the root `node_modules` |
 | `buildCommand` | `npx turbo run build --filter=apparatus-site` | Builds the site and anything it depends on, with turbo's cache |
 | `outputDirectory` | `dist` | Astro's static output |
-| `ignoreCommand` | `npx -y turbo-ignore@2.11.7 && git diff --quiet …HEAD -- ../../docs/media` | Skips the build when a commit touches neither the site, its packages nor `docs/media`. turbo-ignore alone does not see `docs/media`, which belongs to no workspace |
+| `ignoreCommand` | `npx -y turbo-ignore@2.11.7 && git diff --quiet …HEAD -- ../../docs/media` | Skips the build when a commit touches neither the site, its packages nor `docs/media`. turbo-ignore alone does not see `docs/media`, which belongs to no workspace. `api/` is inside the workspace, so a change to the function builds |
 | `headers` | `/_astro/*`, `/media/*` and `/orb/*` cached for a year, immutable | All three hold only hashed file names |
 
 From the command line instead, at the repository root:

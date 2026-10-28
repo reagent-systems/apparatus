@@ -52,5 +52,10 @@
         }
       ]
     }
-  ]
+  ],
+  "functions": {
+    "api/waitlist.ts": {
+      "maxDuration": 10
+    }
+  }
 }

@@ -9,5 +9,7 @@ export const GCP = `${REPO}/tree/main/infra/gcp`;
 export const APPS = `${REPO}/blob/main/apps/README.md`;
 export const STATUS = `${REPO}/blob/main/agent-kit/STATUS.md`;
 export const ROADMAP = `${REPO}/blob/main/agent-kit/ROADMAP.md`;
+export const PROTOCOL = `${REPO}/blob/main/agent-kit/docs/PROTOCOL.md`;
+export const SMART = `${REPO}/blob/main/apps/server/apparatus_server/smart.py`;
 export const ARCHITECTURE = `${REPO}/blob/main/agent-kit/docs/ARCHITECTURE.md`;
 export const MEDIA_README = `${REPO}/blob/main/docs/media/README.md`;

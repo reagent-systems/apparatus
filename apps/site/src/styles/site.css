@@ -76,6 +76,23 @@
   }
 }
 
+/* The waitlist's answers to a form post with no script: the function sends the
+   browser to #waitlist-ok or #waitlist-error. With the script the status line
+   says the result, so these stay hidden (lib/waitlist-form.ts sets data-js). */
+.waitlist-note {
+  display: none;
+}
+.waitlist-note:target {
+  display: flex;
+}
+[data-waitlist][data-js] .waitlist-note {
+  display: none;
+}
+/* After a signup the fields and the button go; the status line says the result. */
+[data-waitlist][data-state="ok"] .waitlist-fields {
+  display: none;
+}
+
 /* The live orb's canvas replaces the static frame once it has drawn (lib/orb.ts). */
 [data-live] > picture {
   display: none;

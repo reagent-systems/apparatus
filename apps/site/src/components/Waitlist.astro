@@ -1,0 +1,91 @@
+---
+import Icon from "./Icon.astro";
+import Section from "./Section.astro";
+
+// The form posts to the Vercel Function in api/waitlist.ts. With no script, the
+// function answers 303 to #waitlist-ok or #waitlist-error and :target shows that
+// message. With the script (lib/waitlist-form.ts), the post is JSON, a field's
+// error shows under that field, and the result is said in the status line.
+// From md the email, the note and the button share one row. The hidden field's
+// name is HONEYPOT in api/waitlist.ts; a test holds the two equal.
+const field =
+  "block w-full rounded-xl bg-secondary px-4 text-[1rem] text-foreground aria-[invalid=true]:outline-2 aria-[invalid=true]:outline-offset-3 aria-[invalid=true]:outline-destructive";
+const label = "text-[0.9375rem] font-medium md:self-end";
+const error = "text-[0.9375rem] text-pretty text-destructive empty:hidden";
+const icon = "mt-[0.1875rem] size-4 shrink-0";
+---
+
+<Section id="waitlist" eyebrow="Waitlist" title="No hosted version yet.">
+  <p slot="lede" class="mt-6 text-lede text-pretty text-muted-foreground">
+    Today you run it yourself, from the commands above. Leave your email to hear when a hosted version exists.
+  </p>
+
+  <form method="post" action="/api/waitlist" class="mt-10" data-waitlist>
+    <div class="waitlist-fields grid items-start gap-x-3 gap-y-2 md:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_auto]">
+      <label for="waitlist-email" class:list={[label, "md:col-start-1 md:row-start-1"]}>Email</label>
+      <input
+        id="waitlist-email"
+        name="email"
+        type="email"
+        required
+        maxlength="254"
+        autocomplete="email"
+        inputmode="email"
+        spellcheck="false"
+        class:list={[field, "h-12 md:col-start-1 md:row-start-2"]}
+      />
+      <p id="waitlist-email-error" aria-live="polite" class:list={[error, "md:col-start-1 md:row-start-3"]}></p>
+
+      <label for="waitlist-note" class:list={[label, "mt-3 md:col-start-2 md:row-start-1 md:mt-0"]}>
+        What would you use it for? <span class="font-normal text-muted-foreground">Optional</span>
+      </label>
+      <textarea
+        id="waitlist-note"
+        name="note"
+        rows="2"
+        maxlength="280"
+        class:list={[field, "min-h-[5.5rem] resize-none py-3 leading-6 [field-sizing:content] md:col-start-2 md:row-start-2 md:min-h-12"]}
+      ></textarea>
+      <p id="waitlist-note-error" aria-live="polite" class:list={[error, "md:col-start-2 md:row-start-3"]}></p>
+
+      <button
+        type="submit"
+        class="mt-3 flex h-12 shrink-0 items-center justify-center rounded-full bg-primary px-6 whitespace-nowrap text-[0.9375rem] font-medium text-primary-foreground transition-opacity duration-150 ease-ui hover:opacity-90 aria-disabled:opacity-60 sm:justify-self-start md:col-start-3 md:row-start-2 md:mt-0"
+      >
+        Join the waitlist
+      </button>
+    </div>
+
+    <!-- A field no person sees. A bot that fills it is answered as if it worked, and nothing is stored. -->
+    <div aria-hidden="true" class="absolute -left-[10000px] h-px w-px overflow-hidden">
+      <label for="waitlist-hp">Leave this empty</label>
+      <input id="waitlist-hp" name="hp_k7q" type="text" tabindex="-1" autocomplete="off" />
+    </div>
+
+    <p
+      data-waitlist-status
+      role="status"
+      aria-live="polite"
+      tabindex="-1"
+      class="group flex gap-2 text-[0.9375rem] text-pretty data-[state=error]:mt-5 data-[state=error]:text-destructive data-[state=ok]:font-medium"
+    >
+      <Icon name="CircleCheck" class={`${icon} hidden text-status-ok group-data-[state=ok]:block`} strokeWidth={1.75} />
+      <Icon name="CircleX" class={`${icon} hidden group-data-[state=error]:block`} strokeWidth={1.75} />
+      <span data-waitlist-text></span>
+    </p>
+
+    <!-- No script: the function sends the browser here, and :target shows the message. -->
+    <p id="waitlist-ok" class="waitlist-note mt-5 gap-2 text-[0.9375rem] font-medium text-pretty">
+      <Icon name="CircleCheck" class={`${icon} text-status-ok`} strokeWidth={1.75} />
+      <span>You are on the list. We email you if a hosted version ships.</span>
+    </p>
+    <p id="waitlist-error" class="waitlist-note mt-5 gap-2 text-[0.9375rem] text-pretty text-destructive">
+      <Icon name="CircleX" class={icon} strokeWidth={1.75} />
+      <span>The waitlist did not take your email. Check it and try again.</span>
+    </p>
+
+    <p class="mt-6 text-[0.8125rem] text-pretty text-muted-foreground">
+      We keep your email and note in a private store and use them only to tell you about a hosted version.
+    </p>
+  </form>
+</Section>

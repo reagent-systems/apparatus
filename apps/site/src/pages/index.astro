@@ -10,12 +10,13 @@ import HowItWorks from "../components/HowItWorks.astro";
 import Orb from "../components/Orb.astro";
 import RunIt from "../components/RunIt.astro";
 import Safety from "../components/Safety.astro";
+import Waitlist from "../components/Waitlist.astro";
 import Base from "../layouts/Base.astro";
 ---
 
 <Base
   title="apparatus: a voice agent with its own cloud computer"
-  description="You talk. apparatus does the work on a Linux desktop of its own and shows you the result. It is told to ask only when a person must act. It is open source under the MIT license, with clients for the web, desktop, phone and watch."
+  description="You talk while apparatus works on its cloud computer, a Linux desktop with a Python session per job, shell commands and Chromium. It is told to ask before it sends, buys or deletes. Open source under MIT: you run it yourself, with your own Gemini API key."
 >
   <Header />
   <main id="main" tabindex="-1">
@@ -27,6 +28,7 @@ import Base from "../layouts/Base.astro";
     <Safety />
     <HowItWorks />
     <RunIt />
+    <Waitlist />
     <Closing />
   </main>
   <Footer />

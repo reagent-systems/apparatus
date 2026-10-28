@@ -41,6 +41,22 @@ Evidence: <commit / tag / gate run / screenshot>
 
 <!-- Entries below, newest first. -->
 
+## 2026-10-28 — A waitlist for a hosted version, and a page that speaks to developers
+
+The author asked for a waitlist kept in Vercel Blob, and for the page to read as an agent for developers.
+apparatus has no hosted version, so the new section says that first: today you run it yourself.
+The form posts to a Vercel Function in `apps/site/api/waitlist.ts`, which keeps one private object per email.
+A repeat signup keeps the first entry, and the answer is the same either way.
+The form also works with no script: the function answers 303 and `:target` shows the message.
+I rewrote the hero, the meta description and the cloud computer section from the code: `smart.py`, `kernel.py`, `desktop.py`, `disk.py` and `infra/vm/setup.sh`.
+The page says "a terminal" only for the Google Cloud image, because the local Docker image installs none.
+No Blob store exists yet, so no real write has happened; until one is connected, every valid post answers 500.
+A review found that nothing limits posts, so the README now asks for a Vercel Firewall rate limit before launch; the code cannot enforce one.
+The same review made me connect the store to Production only, keep the CSV export outside the repository, and pad the answer time.
+It also found that the hero said "You run all of it", while the models are Gemini; the hero now says you run it with your own Gemini API key.
+
+Evidence: `npm test -w apparatus-site` 39 pass; the function ran in a local harness and as `vercel build` compiled it, with an in-memory `@vercel/blob`; Playwright and axe-core at 390, 820 and 1440 px, light and dark: 0 violations, no overflow at 320 px.
+
 ## 2026-10-28 — MIT license, and the site deployed on Vercel
 
 The author chose the MIT license, so the repository now has `LICENSE` and the root manifests say MIT.

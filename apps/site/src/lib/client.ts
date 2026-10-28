@@ -1,8 +1,9 @@
 // The page's script: the theme and motion buttons, the video loops, the copy
-// button, and the live orbs (lib/orb.ts).
+// button, the live orbs (lib/orb.ts) and the waitlist form (lib/waitlist-form.ts).
 
 import { onMotionChange, setUserPaused, still, userPaused } from "./motion.ts";
 import "./orb.ts";
+import "./waitlist-form.ts";
 
 const root = document.documentElement;
 const system = window.matchMedia("(prefers-color-scheme: dark)");

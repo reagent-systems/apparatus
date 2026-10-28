@@ -13,6 +13,15 @@ export const ICONS = {
     ["path", { d: "M7 17 17 7" }],
   ],
   Check: [["path", { d: "M20 6 9 17l-5-5" }]],
+  CircleCheck: [
+    ["circle", { cx: "12", cy: "12", r: "10" }],
+    ["path", { d: "m16 9-5.5 5.5L8 12" }],
+  ],
+  CircleX: [
+    ["circle", { cx: "12", cy: "12", r: "10" }],
+    ["path", { d: "m15 9-6 6" }],
+    ["path", { d: "m9 9 6 6" }],
+  ],
   Copy: [
     ["rect", { width: "14", height: "14", x: "8", y: "8", rx: "2", ry: "2" }],
     ["path", { d: "M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2" }],

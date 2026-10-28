@@ -1,6 +1,6 @@
 ---
 import Icon from "./Icon.astro";
-import { GCP, LOCAL, REPO, SETUP, STATUS } from "../lib/links.ts";
+import { GCP, LOCAL, PROTOCOL, REPO, SETUP, SMART, STATUS } from "../lib/links.ts";
 import Section from "./Section.astro";
 
 const commands = [
@@ -20,8 +20,10 @@ const code = "font-mono text-[0.875rem] text-foreground";
 
 <Section id="run" eyebrow="Run it" title="Open source under MIT. Run it on your machine.">
   <p slot="lede" class="mt-6 text-lede text-pretty text-muted-foreground">
-    The server, the cloud computer's daemon, every client and the Terraform for Google Cloud are in one repository.
-    Locally, the path is 3 commands that build the server and a virtual desktop in Docker.
+    The server, the cloud computer's daemon, every client and the Terraform for Google Cloud are in one repository. The
+    text model's instructions and its 4 tool declarations are in one Python file, <a class="link" href={SMART}>smart.py</a>. Every
+    message between the parts is in <a class="link" href={PROTOCOL}>the protocol</a>. Locally, the path is 3 commands
+    that build the server and a virtual desktop in Docker.
   </p>
 
   <div class="mt-12">
