@@ -41,6 +41,20 @@ Evidence: <commit / tag / gate run / screenshot>
 
 <!-- Entries below, newest first. -->
 
+## 2026-10-28 — The site is live on Vercel, and the waitlist took its first write
+
+The author connected the repository to Vercel and asked for the personal account, not the organization.
+The project `apparatus` builds `apps/site` from `main` through the Git integration, on Node 22.
+Production is public at https://apparatus-puce.vercel.app; previews keep Vercel Authentication.
+I made a private Blob store, `apparatus-waitlist`, and narrowed its token to Production, as the site README asks.
+The README said the function signs in with OIDC and `BLOB_STORE_ID`; this connection added `BLOB_READ_WRITE_TOKEN` instead, which the SDK also reads, so the README now says either works.
+It also said a store failure logs the error's message, which the hardened code no longer does; that line now matches.
+On production every answer matched the table, and one test entry, `deploy-check@example.com`, is in the store.
+The Firewall API answered 404 for both PATCH and PUT, so the rate limit still has to be added in the dashboard.
+A push to the working branch built with target production as well as the push to `main`; both were the same commit.
+
+Evidence: deployment `dpl_Hb2FxHNeVGkZxew35KiwDDEh6Tca` READY; store count 1, 153 bytes; `verify/verify.sh` OK.
+
 ## 2026-10-28 — A waitlist for a hosted version, and a page that speaks to developers
 
 The author asked for a waitlist kept in Vercel Blob, and for the page to read as an agent for developers.

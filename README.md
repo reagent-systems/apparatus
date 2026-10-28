@@ -86,7 +86,8 @@ Or with a virtual desktop in a container: `docker compose -f infra/local/docker-
 
 ## The website
 
-`apps/site` is the project's website, built from the same tokens and orb as the web client.
+`apps/site` is the project's website, built from the same tokens and orb as the web client. It is live at
+<https://apparatus-puce.vercel.app>.
 `npm run dev:site` serves it at http://localhost:4321. [apps/site/README.md](apps/site/README.md) has the
 one-time Vercel setup: every push to `main` deploys production, and every pull request gets a preview.
 
